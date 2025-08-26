@@ -130,7 +130,62 @@ export default function FishingActivity() {
     return null;
   }
 
-  async function onSubmit(saveAndNext = false) {
+  // async function onSubmit(saveAndNext = false) {
+  //   const err = validate();
+  //   if (err) {
+  //     Alert.alert('Missing info', err);
+  //     return;
+  //   }
+
+  //   try {
+  //     setSubmitting(true);
+
+  //     // --- SEND BOTH: DB id (trip_id) + human code (trip_code) ---
+  //     // trip_id -> required numeric/string id for exists:trips,id
+  //     // trip_code -> the pretty string like "TRIP-20250825-008" (extra, optional)
+  //     const body: CreateFishingActivityBody & { trip_code?: string | number } =
+  //       {
+  //         trip_id:
+  //           typeof tripPkForApi === 'string'
+  //             ? Number(tripPkForApi) || tripPkForApi
+  //             : tripPkForApi,
+  //         trip_code: displayTripCode, // <--- include the human code too
+  //         activity_number: Number(getValues('activityNo')),
+  //         time_of_netting: fmt24h(getValues('netting')),
+  //         time_of_hauling: fmt24h(getValues('hauling')),
+  //         mesh_size: (getValues('mesh') as any) ?? null,
+  //         net_length: getValues('netLen') ? Number(getValues('netLen')) : null,
+  //         net_width: getValues('netWid') ? Number(getValues('netWid')) : null,
+  //         gps_latitude: Number(gps!.lat),
+  //         gps_longitude: Number(gps!.lng),
+  //       };
+
+  //     await createFishingActivity(body as any);
+  //     Toast.show({
+  //       type: 'success',
+  //       text1: 'Saved 🎉',
+  //       text2: 'Fishing activity recorded successfully.',
+  //       position: 'top', // or 'top'
+  //       visibilityTime: 3000,
+  //     });
+  //     if (saveAndNext) {
+  //       navigation.replace('FishingActivity', {
+  //         tripId: displayTripCode, // keep showing the pretty code
+  //         activityNo: Number(getValues('activityNo')) + 1,
+  //         meta, // keep passing meta so API keeps working
+  //       });
+  //     }
+  //   } catch (e: any) {
+  //     Alert.alert('Failed', e?.message || 'Unable to create fishing activity.');
+  //   } finally {
+  //     setSubmitting(false);
+  //   }
+  // }
+
+  // BEFORE: async function onSubmit(saveAndNext = false) { ... }
+  // AFTER:   no saveAndNext flag; always go to details page.
+
+  async function onSubmit() {
     const err = validate();
     if (err) {
       Alert.alert('Missing info', err);
@@ -140,16 +195,13 @@ export default function FishingActivity() {
     try {
       setSubmitting(true);
 
-      // --- SEND BOTH: DB id (trip_id) + human code (trip_code) ---
-      // trip_id -> required numeric/string id for exists:trips,id
-      // trip_code -> the pretty string like "TRIP-20250825-008" (extra, optional)
       const body: CreateFishingActivityBody & { trip_code?: string | number } =
         {
           trip_id:
             typeof tripPkForApi === 'string'
               ? Number(tripPkForApi) || tripPkForApi
               : tripPkForApi,
-          trip_code: displayTripCode, // <--- include the human code too
+          trip_code: displayTripCode,
           activity_number: Number(getValues('activityNo')),
           time_of_netting: fmt24h(getValues('netting')),
           time_of_hauling: fmt24h(getValues('hauling')),
@@ -160,21 +212,26 @@ export default function FishingActivity() {
           gps_longitude: Number(gps!.lng),
         };
 
-      await createFishingActivity(body as any);
+      const created = await createFishingActivity(body as any);
       Toast.show({
         type: 'success',
         text1: 'Saved 🎉',
         text2: 'Fishing activity recorded successfully.',
-        position: 'top', // or 'top'
-        visibilityTime: 3000,
+        position: 'top',
+        visibilityTime: 2500,
       });
-      if (saveAndNext) {
-        navigation.replace('FishingActivity', {
-          tripId: displayTripCode, // keep showing the pretty code
-          activityNo: Number(getValues('activityNo')) + 1,
-          meta, // keep passing meta so API keeps working
-        });
-      }
+
+      // pull new activity id safely from typical API shapes
+      const activityId =
+        created?.data?.id ?? created?.id ?? created?.activity?.id;
+
+      // go to the details screen
+      navigation.replace('FishingActivityDetails', {
+        activityId,
+        // pass what you already have (useful for instant render while fetching)
+        fallback: created?.data ?? created,
+        tripId: displayTripCode,
+      });
     } catch (e: any) {
       Alert.alert('Failed', e?.message || 'Unable to create fishing activity.');
     } finally {
@@ -386,7 +443,7 @@ export default function FishingActivity() {
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <Pressable
             disabled={submitting || gpsLoading}
-            onPress={() => onSubmit(false)}
+            onPress={onSubmit}
             style={[
               s.primaryBtn,
               (submitting || gpsLoading) && { opacity: 0.7 },
@@ -400,17 +457,6 @@ export default function FishingActivity() {
                 <Text style={s.primaryBtnText}>Create Fishing Activity</Text>
               </>
             )}
-          </Pressable>
-
-          <Pressable
-            disabled={submitting || gpsLoading}
-            onPress={() => onSubmit(true)}
-            style={[
-              s.hollowBtn,
-              (submitting || gpsLoading) && { opacity: 0.7 },
-            ]}
-          >
-            <Text style={s.hollowBtnText}>Save & Add Next</Text>
           </Pressable>
         </View>
       </ScrollView>

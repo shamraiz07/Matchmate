@@ -61,8 +61,9 @@ function shadow(opacity: number, radius: number, height: number) {
     shadowOffset: { width: 0, height },
   };
 }
-function n(v?: number | string | null) {
+function n(v?: number | string | boolean | null) {
   if (v === null || v === undefined || v === '') return '—';
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
   return String(v);
 }
 function currency(v?: number | string | null) {
@@ -71,8 +72,9 @@ function currency(v?: number | string | null) {
   if (Number.isNaN(num)) return '—';
   return num.toFixed(2);
 }
-function toTitle(s: string) {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+function toTitle(s?: string | null) {
+  if (!s) return '—';
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 function toast(msg: string) {
   if (Platform.OS === 'android') ToastAndroid.show(msg, ToastAndroid.SHORT);
@@ -110,7 +112,7 @@ export default function TripDetailsScreen() {
     load();
   }, [load]);
 
-  // also refresh whenever screen regains focus (after actions)
+  // refresh whenever screen regains focus (after actions)
   useFocusEffect(
     useCallback(() => {
       load();
@@ -210,7 +212,6 @@ export default function TripDetailsScreen() {
             try {
               setDeleting(true);
               await deleteTrip(trip.id);
-              // back to list (let that screen refresh on focus)
               // @ts-ignore
               navigation.navigate('AllTrip', { refresh: true });
             } catch (e: any) {
@@ -270,7 +271,8 @@ export default function TripDetailsScreen() {
 
     if (isActive) {
       return (
-        <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={styles.actionRow}>
+          {/* Cancel */}
           <Pressable
             style={[
               styles.halfBtn,
@@ -284,6 +286,24 @@ export default function TripDetailsScreen() {
             <Text style={styles.halfBtnText}>Cancel</Text>
           </Pressable>
 
+          {/* Add Species */}
+          <Pressable
+            style={[
+              styles.halfBtn,
+              { backgroundColor: PALETTE.info }, // blue for clarity
+              actionLoading && { opacity: 0.6 },
+            ]}
+            onPress={() => {
+              // TODO: hook up navigation or modal for adding species
+              toast('Add Species pressed');
+            }}
+            disabled={actionLoading}
+          >
+            <MaterialIcons name="add-circle-outline" size={18} color="#fff" />
+            <Text style={styles.halfBtnText}>Add Activity</Text>
+          </Pressable>
+
+          {/* Complete */}
           <Pressable
             style={[
               styles.halfBtn,
@@ -300,7 +320,6 @@ export default function TripDetailsScreen() {
       );
     }
 
-    // pending/completed/cancelled → no state buttons here
     return null;
   }
 
@@ -390,8 +409,28 @@ export default function TripDetailsScreen() {
       <ScrollView contentContainerStyle={{ padding: 14, gap: 12 }}>
         {/* Basic Trip Information */}
         <Section title="Basic Trip Information" icon="assignment">
-          <Row icon="person" label="Fisherman" value={trip.fisherman?.name} />
+          <Row icon="badge" label="Trip ID" value={trip.trip_name} />
+          <Row
+            icon="info"
+            label="Status Label"
+            value={trip.status_label ?? '—'}
+          />
           <Row icon="category" label="Trip Type" value={trip.trip_type} />
+          <Row icon="flag" label="Trip Purpose" value={trip.trip_purpose} />
+        </Section>
+
+        {/* Associations */}
+        <Section title="Associations" icon="link">
+          <Row
+            icon="person"
+            label="Fisherman"
+            value={trip.fisherman?.name ?? '—'}
+          />
+          <Row
+            icon="call"
+            label="Fisherman Phone"
+            value={trip.fisherman?.phone ?? '—'}
+          />
           <Row
             icon="sailing"
             label="Boat Reg. No."
@@ -406,8 +445,10 @@ export default function TripDetailsScreen() {
 
         {/* Location & Schedule */}
         <Section title="Location & Schedule" icon="map">
+          <Row icon="public" label="Fishing Zone" value={trip.fishing_zone} />
+          <Row icon="place" label="Port Location" value={trip.port_location} />
           <Row
-            icon="directions-boat"
+            icon="place"
             label="Departure Port"
             value={trip.departure_port}
           />
@@ -416,32 +457,139 @@ export default function TripDetailsScreen() {
             label="Departure Time"
             value={trip.departure_time}
           />
-          <Row icon="public" label="Fishing Zone" value={trip.fishing_zone} />
-          <Row icon="place" label="Port Location" value={trip.port_location} />
           <Row
             icon="my-location"
             label="Departure Lat"
-            value={String(trip.departure_lat ?? '—')}
+            value={n(trip.departure_lat)}
           />
           <Row
             icon="my-location"
             label="Departure Lng"
-            value={String(trip.departure_lng ?? '—')}
+            value={n(trip.departure_lng)}
+          />
+          <Row
+            icon="notes"
+            label="Departure Notes"
+            value={trip.departure_notes ?? '—'}
+          />
+
+          <Row icon="flag" label="Arrival Port" value={trip.arrival_port} />
+          <Row icon="schedule" label="Arrival Time" value={trip.arrival_time} />
+          <Row
+            icon="my-location"
+            label="Arrival Lat"
+            value={n(trip.arrival_lat)}
+          />
+          <Row
+            icon="my-location"
+            label="Arrival Lng"
+            value={n(trip.arrival_lng)}
+          />
+          <Row
+            icon="notes"
+            label="Arrival Notes"
+            value={trip.arrival_notes ?? '—'}
+          />
+
+          <Row icon="anchor" label="Landing Site" value={trip.landing_site} />
+          <Row icon="event" label="Landing Time" value={trip.landing_time} />
+
+          <Row
+            icon="location-on"
+            label="Departure Location"
+            value={trip.departure_location_formatted ?? '—'}
+          />
+          <Row
+            icon="location-on"
+            label="Arrival Location"
+            value={trip.arrival_location_formatted ?? '—'}
+          />
+          <Row
+            icon="location-on"
+            label="Current Location"
+            value={trip.current_location_formatted ?? '—'}
+          />
+        </Section>
+
+        {/* Flags & Approval */}
+        <Section title="Status & Approval" icon="verified">
+          <Row
+            icon="play-arrow"
+            label="Trip Started"
+            value={n(trip.trip_started)}
+          />
+          <Row
+            icon="check-circle"
+            label="Trip Completed"
+            value={n(trip.trip_completed)}
+          />
+          <Row icon="wifi-off" label="Is Offline" value={n(trip.is_offline)} />
+          <Row
+            icon="schedule"
+            label="Last Online At"
+            value={trip.last_online_at ?? '—'}
+          />
+          <Row
+            icon="schedule"
+            label="Went Offline At"
+            value={trip.went_offline_at ?? '—'}
+          />
+          <Row icon="person" label="Approved By" value={n(trip.approved_by)} />
+          <Row
+            icon="schedule"
+            label="Approved At"
+            value={trip.approved_at ?? '—'}
+          />
+          <Row
+            icon="notes"
+            label="Approval Notes"
+            value={trip.approval_notes ?? '—'}
+          />
+        </Section>
+
+        {/* Crew & Admin */}
+        <Section title="Crew & Administration" icon="group">
+          <Row icon="groups" label="Crew Count" value={n(trip.crew_count)} />
+          <Row icon="badge" label="Captain Name" value={trip.captain_name} />
+          <Row
+            icon="call"
+            label="Captain Mobile"
+            value={trip.captain_mobile_no}
+          />
+          <Row icon="groups" label="Crew No." value={n(trip.crew_no)} />
+          <Row
+            icon="assignment-turned-in"
+            label="Port Clearance No."
+            value={trip.port_clearance_no}
+          />
+          <Row
+            icon="local-gas-station"
+            label="Fuel Quantity"
+            value={n(trip.fuel_quantity)}
+          />
+          <Row
+            icon="ac-unit"
+            label="Ice Quantity"
+            value={n(trip.ice_quantity)}
           />
         </Section>
 
         {/* Safety & Weather */}
-        <Section title="Safety & Weather" icon="health-and-safety">
-          <Row icon="groups" label="Crew Count" value={n(trip.crew_count)} />
+        <Section title="Safety & Environment" icon="health-and-safety">
+          <Row
+            icon="medical-services"
+            label="Safety Equipment"
+            value={trip.safety_equipment}
+          />
           <Row
             icon="contacts"
             label="Emergency Contact"
             value={trip.emergency_contact}
           />
           <Row
-            icon="medical-services"
-            label="Safety Equipment"
-            value={trip.safety_equipment}
+            icon="phone"
+            label="Emergency Phone"
+            value={trip.emergency_phone}
           />
           <Row icon="cloud" label="Weather" value={trip.weather} />
           <Row
@@ -453,8 +601,8 @@ export default function TripDetailsScreen() {
           <Row icon="opacity" label="Wave Height" value={n(trip.wave_height)} />
         </Section>
 
-        {/* Fishing & Costs */}
-        <Section title="Fishing & Costs" icon="attach-money">
+        {/* Catch & Economics */}
+        <Section title="Catch & Economics" icon="attach-money">
           <Row
             icon="restaurant"
             label="Target Species"
@@ -464,6 +612,11 @@ export default function TripDetailsScreen() {
             icon="scale"
             label="Estimated Catch (kg)"
             value={n(trip.estimated_catch)}
+          />
+          <Row
+            icon="notes"
+            label="Catch Notes"
+            value={trip.catch_notes ?? '—'}
           />
           <Row
             icon="local-gas-station"
@@ -480,16 +633,115 @@ export default function TripDetailsScreen() {
             label="Total Cost"
             value={currency(trip.total_cost)}
           />
+          <Row icon="payments" label="Revenue" value={currency(trip.revenue)} />
+          <Row icon="savings" label="Profit" value={currency(trip.profit)} />
         </Section>
 
-        {/* Notes */}
-        <Section title="Notes" icon="sticky-note-2">
+        {/* Telemetry */}
+        <Section title="Live Telemetry" icon="my-location">
           <Row
-            value={(trip as any).notes ?? (trip as any).trip_purpose ?? '—'}
+            icon="schedule"
+            label="Last GPS Update"
+            value={trip.last_gps_update ?? '—'}
+          />
+          <Row
+            icon="gps-fixed"
+            label="Current Lat"
+            value={n(trip.current_latitude)}
+          />
+          <Row
+            icon="gps-fixed"
+            label="Current Lng"
+            value={n(trip.current_longitude)}
+          />
+          <Row
+            icon="speed"
+            label="Current Speed"
+            value={n(trip.current_speed)}
+          />
+          <Row
+            icon="explore"
+            label="Current Heading"
+            value={n(trip.current_heading)}
+          />
+          <Row
+            icon="schedule"
+            label="Auto Time"
+            value={trip.auto_time ?? '—'}
+          />
+          <Row
+            icon="gps-fixed"
+            label="Auto Latitude"
+            value={n(trip.auto_latitude)}
+          />
+          <Row
+            icon="gps-fixed"
+            label="Auto Longitude"
+            value={n(trip.auto_longitude)}
           />
         </Section>
 
-        {/* Fish Lots */}
+        {/* Metadata */}
+        <Section title="Metadata" icon="info">
+          <Row
+            icon="update"
+            label="Created At"
+            value={trip.created_at ?? '—'}
+          />
+          <Row
+            icon="update"
+            label="Updated At"
+            value={trip.updated_at ?? '—'}
+          />
+          <Row icon="av-timer" label="Duration" value={trip.duration ?? '—'} />
+          <Row
+            icon="route"
+            label="Distance Traveled"
+            value={trip.distance_traveled ?? '—'}
+          />
+        </Section>
+
+        {/* Fishing Activities */}
+        <Section title="Fishing Activities" icon="inventory">
+          {trip.activities?.length ? (
+            <View style={{ gap: 10 }}>
+              {trip.activities.map(a => (
+                <View key={String(a.id)} style={styles.lotRow}>
+                  <MaterialIcons
+                    name="chevron-right"
+                    size={18}
+                    color={PALETTE.text700}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.lotText}>
+                      {a.activity_id} {a.number ? `(#${a.number})` : ''}
+                    </Text>
+                    <Text style={styles.muted}>
+                      {a.location_formatted ||
+                        `${a.gps_latitude ?? '—'}, ${a.gps_longitude ?? '—'}`}
+                    </Text>
+                    <Text style={styles.muted}>
+                      Netting: {a.time_of_netting ?? '—'} | Hauling:{'-'}
+                      {a.time_of_hauling ?? '—'}
+                    </Text>
+                    <Text style={styles.muted}>
+                      Gear: {a.gear_type_label ?? a.gear_type ?? '—'} | Mesh:{'-'}
+                      {a.mesh_size_label ?? a.mesh_size ?? '—'}
+                    </Text>
+                    <Text style={styles.muted}>
+                      Size: {a.net_length ?? '—'} × {a.net_width ?? '—'} |
+                      Status: {a.status_label ?? a.status ?? '—'}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.muted}>—</Text>
+          )}
+        </Section>
+
+        {/* Fish Lots (legacy / if present) */}
         <Section title="Fish Lots" icon="inventory-2">
           {trip.lots?.length ? (
             <View style={{ gap: 8 }}>
@@ -501,8 +753,7 @@ export default function TripDetailsScreen() {
                     color={PALETTE.text700}
                   />
                   <Text style={styles.lotText}>
-                    Lot #{l.id} — {toTitle(l.status)}
-                    {l.lot_no ? `  (${l.lot_no})` : ''}
+                    {l.lot_no ? l.lot_no : `Lot #${l.id}`} — {toTitle(l.status)}
                   </Text>
                 </View>
               ))}
@@ -605,6 +856,12 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     fontSize: 16,
     letterSpacing: 0.2,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical:10,
+    gap: 10,
   },
 
   halfBtn: {
@@ -713,8 +970,8 @@ const styles = StyleSheet.create({
 
   lotRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    alignItems: 'flex-start',
+    gap: 8,
     backgroundColor: '#FAFAFA',
     borderWidth: 1,
     borderColor: PALETTE.border,
@@ -722,5 +979,5 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   lotText: { color: PALETTE.text900, fontWeight: '700' },
-  muted: { color: PALETTE.text600 },
+  muted: { color: PALETTE.text600, fontSize: 12 },
 });

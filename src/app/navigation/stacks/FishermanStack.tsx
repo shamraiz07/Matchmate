@@ -11,6 +11,8 @@ import OfflineQueueScreen from '../../../screens/Fisherman/OfflineQueue/OfflineQ
 import BoatRegisterScreen from '../../../screens/Fisherman/AddBoat/BoatRegistrationScreen';
 import FishingActivity from '../../../screens/Fisherman/AddTrip/FishingActivity';
 import FishingActivitiesListScreen from '../../../screens/Fisherman/Activities/FishingActivitiesList';
+import FishingActivityDetailsScreen from '../../../screens/Fisherman/Activities/FishingActivityDetailsScreen';
+import RecordFishSpeciesScreen from '../../../screens/Fisherman/Activities/RecordFishSpeciesScreen';
 
 export type FishermanStackParamList = {
   FishermanHome: undefined;
@@ -42,8 +44,19 @@ export type FishermanStackParamList = {
       }
     | { mode: 'edit'; lotId: number | string };
   FishingActivities: undefined; // NEW list screen
-  FishingActivityDetails: { id: number | string }; // for "View"
   FishingActivityEdit: { id: number | string };
+  FishingActivityDetails: {
+    activityId: number | string;
+    tripId?: string | number;
+    fallback?: any;
+  };
+  RecordFishSpecies: {
+    activityId: number | string;
+    activityCode?: string | null;
+    tripCode?: string | null;
+    activityNumber?: number | null;
+    date?: string | null;
+  };
 
   Lots: { tripId: number | string } | { mode: 'edit'; lotId: number | string };
 };
@@ -63,8 +76,18 @@ export default function FishermanStack() {
 
       <Stack.Screen name="Trip" component={AddTripScreen} />
       <Stack.Screen name="FishingActivity" component={FishingActivity} />
-      <Stack.Screen name="FishingActivities" component={FishingActivitiesListScreen} />
-
+      <Stack.Screen
+        name="FishingActivities"
+        component={FishingActivitiesListScreen}
+      />
+      <Stack.Screen
+        name="FishingActivityDetails"
+        component={FishingActivityDetailsScreen}
+      />
+      <Stack.Screen
+        name="RecordFishSpecies"
+        component={RecordFishSpeciesScreen}
+      />
 
       <Stack.Screen
         name="TripDetails"
