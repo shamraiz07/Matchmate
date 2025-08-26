@@ -1,30 +1,37 @@
 // src/screens/Fisherman/AddTrip/components/SaveBar.tsx
 import React from 'react';
-import { TouchableOpacity, Text } from 'react-native';
+import { TouchableOpacity, Text, ActivityIndicator, View } from 'react-native';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { s } from '../styles';
 import type { FormValues } from '../types';
 
 type Props = {
   gpsAvailable: boolean;
-  onSave: () => void;
+  onSave: () => Promise<void> | void; // allow async
+  loading?: boolean;
+  label?: string;
 };
 
-export default function SaveBar({ gpsAvailable, onSave }: Props) {
+export default function SaveBar({ gpsAvailable, onSave, loading = false, label = 'Save Trip' }: Props) {
   const { control } = useFormContext<FormValues>();
   const tripCost = useWatch({ control, name: 'tripCost' });
 
-  // Validate only trip cost now
-  const costValid = Number(tripCost) >= 0;
-  const disabled = !gpsAvailable || !costValid;
+  // basic validation for the CTA
+  const costValid = Number(tripCost) >= 0 || tripCost === '' || tripCost == null;
+  const disabled = !gpsAvailable || !costValid || loading;
 
   return (
     <TouchableOpacity
-      style={[s.button, disabled && s.buttonDisabled]}
+      style={[s.button, (disabled || loading) && s.buttonDisabled]}
       onPress={onSave}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
     >
-      <Text style={s.buttonText}>Save Trip</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        {loading ? <ActivityIndicator color="#fff" /> : null}
+        <Text style={s.buttonText}>{loading ? 'Saving…' : label}</Text>
+      </View>
     </TouchableOpacity>
   );
 }

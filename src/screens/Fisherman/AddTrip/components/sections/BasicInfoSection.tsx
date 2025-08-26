@@ -4,15 +4,15 @@ import {
   View,
   Pressable,
   Text,
-  Platform,
+  // Platform,
   ActivityIndicator,
 } from 'react-native';
 import TextField from '../fields/TextField';
 import DropdownField from '../fields/DropdownField';
 import { useFormContext } from 'react-hook-form';
-import DateTimePicker, {
-  DateTimePickerEvent,
-} from '@react-native-community/datetimepicker';
+// import DateTimePicker, {
+//   DateTimePickerEvent,
+// } from '@react-native-community/datetimepicker';
 import NetInfo from '@react-native-community/netinfo';
 
 import {
@@ -43,7 +43,6 @@ const TRIP_TYPE_OPTIONS = [
   'Research Trip',
 ];
 
-/* ---------- helpers ---------- */
 const pad = (n: number) => String(n).padStart(2, '0');
 export const formatYmd12h = (d: Date) => {
   const yyyy = d.getFullYear();
@@ -77,7 +76,6 @@ export const parseYmd12h = (s?: string) => {
   return isNaN(dt.getTime()) ? new Date() : dt;
 };
 
-/* ---------- component ---------- */
 export default function BasicInfoSection() {
   const { watch, setValue } = useFormContext();
   const departureDT: string = watch('departure_time');
@@ -86,10 +84,9 @@ export default function BasicInfoSection() {
   const [fishermen, setFishermen] = useState<Fisherman[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [online, setOnline] = useState<boolean>(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  // const [showDatePicker, setShowDatePicker] = useState(false);
+  // const [showTimePicker, setShowTimePicker] = useState(false);
 
-  // default departure_time → now (formatted)
   useEffect(() => {
     if (!departureDT) {
       setValue('departure_time', formatYmd12h(new Date()), {
@@ -99,7 +96,6 @@ export default function BasicInfoSection() {
     }
   }, [departureDT, setValue]);
 
-  // track connectivity
   useEffect(() => {
     const unsub = NetInfo.addEventListener(s => setOnline(!!s.isConnected));
     NetInfo.fetch()
@@ -110,17 +106,14 @@ export default function BasicInfoSection() {
     };
   }, []);
 
-  // load cache immediately, then try network refresh
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setError(null);
-      // 1) show cached immediately
       const cached = await readFishermenCache();
       if (!cancelled && Array.isArray(cached) && cached.length > 0) {
         setFishermen(cached as any);
       }
-      // 2) try network (if online)
       try {
         setLoading(true);
         const net = await NetInfo.fetch();
@@ -129,7 +122,6 @@ export default function BasicInfoSection() {
           const list = Array.isArray(data) ? data : [];
           if (!cancelled) {
             setFishermen(list);
-            // update cache
             const slim = list.map((f: Fisherman) => ({
               id: f.id,
               name: f.name,
@@ -137,7 +129,6 @@ export default function BasicInfoSection() {
             writeFishermenCache(slim);
           }
         } else if (!cached?.length) {
-          // offline and no cache
           if (!cancelled) setError('Offline and no saved list found');
         }
       } catch (e: any) {
@@ -170,53 +161,52 @@ export default function BasicInfoSection() {
     }
   }, []);
 
-  // build dropdown options
   const fisherOptions = useMemo(
     () => fishermen.map(f => ({ label: f.name, value: String(f.id) })),
     [fishermen],
   );
 
-  const onChangeDate = (event: DateTimePickerEvent, date?: Date) => {
-    if (Platform.OS === 'android') setShowDatePicker(false);
-    if (event.type === 'dismissed') return;
-    const current = parseYmd12h(departureDT);
-    const picked = date ?? current;
-    const merged = new Date(
-      picked.getFullYear(),
-      picked.getMonth(),
-      picked.getDate(),
-      current.getHours(),
-      current.getMinutes(),
-    );
-    setValue('departure_time', formatYmd12h(merged), {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
-  };
+  // const onChangeDate = (event: DateTimePickerEvent, date?: Date) => {
+  //   if (Platform.OS === 'android') setShowDatePicker(false);
+  //   if (event.type === 'dismissed') return;
+  //   const current = parseYmd12h(departureDT);
+  //   const picked = date ?? current;
+  //   const merged = new Date(
+  //     picked.getFullYear(),
+  //     picked.getMonth(),
+  //     picked.getDate(),
+  //     current.getHours(),
+  //     current.getMinutes(),
+  //   );
+  //   setValue('departure_time', formatYmd12h(merged), {
+  //     shouldValidate: true,
+  //     shouldDirty: true,
+  //   });
+  // };
 
-  const onChangeTime = (event: DateTimePickerEvent, date?: Date) => {
-    if (Platform.OS === 'android') setShowTimePicker(false);
-    if (event.type === 'dismissed') return;
-    const current = parseYmd12h(departureDT);
-    const picked = date ?? current;
-    const merged = new Date(
-      current.getFullYear(),
-      current.getMonth(),
-      current.getDate(),
-      picked.getHours(),
-      picked.getMinutes(),
-    );
-    setValue('departure_time', formatYmd12h(merged), {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
-  };
+  // const onChangeTime = (event: DateTimePickerEvent, date?: Date) => {
+  //   if (Platform.OS === 'android') setShowTimePicker(false);
+  //   if (event.type === 'dismissed') return;
+  //   const current = parseYmd12h(departureDT);
+  //   const picked = date ?? current;
+  //   const merged = new Date(
+  //     current.getFullYear(),
+  //     current.getMonth(),
+  //     current.getDate(),
+  //     picked.getHours(),
+  //     picked.getMinutes(),
+  //   );
+  //   setValue('departure_time', formatYmd12h(merged), {
+  //     shouldValidate: true,
+  //     shouldDirty: true,
+  //   });
+  // };
 
   const hasList = fisherOptions.length > 0;
 
   return (
     <>
-      {/* Fisherman (Dropdown) — shows name, saves numeric id as string */}
+      {/* Fisherman (Dropdown) */}
       <DropdownField
         name="fisherman"
         label="Fisherman"
@@ -283,7 +273,7 @@ export default function BasicInfoSection() {
         )}
       </View>
 
-      {/* Manual fallback: allow fisherman ID entry if list is empty */}
+      {/* Manual fallback */}
       {!hasList && (
         <View style={{ marginTop: 12 }}>
           <Text style={{ color: PALETTE.text600, marginBottom: 6 }}>
@@ -298,6 +288,8 @@ export default function BasicInfoSection() {
           />
         </View>
       )}
+
+      {/* Captain + Crew */}
       <TextField
         name="captainNameId"
         label="Captain Name"
@@ -316,129 +308,61 @@ export default function BasicInfoSection() {
         label="Number of Crew"
         placeholder="Enter Number of Crew"
         keyboardType="numeric"
-        rules={{ required: 'Number of Crew is required' }}
+        rules={{
+          required: 'Crew count is required',
+        }}
       />
       <TextField
         name="port_clearance_no"
-        label="port clearance No"
-        placeholder="port clearance No"
-        rules={{ required: 'port clearance No. is required' }}
+        label="Port Clearance No"
+        placeholder="Port Clearance No"
+        rules={{ required: 'Port clearance No. is required' }}
       />
-       <TextField
+      <TextField
+        name="fuel_quantity"
+        label="Fuel Quantity"
+        placeholder="0"
+        keyboardType="numeric"
+        rules={{ required: 'Fuel quantity is required' }}
+      />
+      <TextField
         name="ICE"
-        label="ICE"
-        placeholder="ICE"
-        rules={{ required: 'ICE is required' }}
+        label="ICE Quantity(kg)"
+        placeholder="e.g., 100kg"
+        keyboardType="numeric"
+        rules={{ required: 'ICE quantity is required' }}
       />
-
 
       {/* Departure Date & Time */}
+      {/* Departure Date & Time (auto-filled, readonly) */}
       <View style={{ marginTop: 12 }}>
-        <TextField
-          name="departure_time"
-          label="Departure (Date & Time)"
-          placeholder="YYYY-MM-DD hh:mm AM/PM"
-          rules={{
-            required: 'Departure date & time is required',
-            pattern: {
-              value: /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}\s?(AM|PM)$/i,
-              message: 'Use YYYY-MM-DD hh:mm AM/PM',
-            },
+        <Text
+          style={{ fontWeight: '700', marginBottom: 6, color: PALETTE.text900 }}
+        >
+          Departure (Date & Time)
+        </Text>
+        <View
+          style={{
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: PALETTE.border,
+            backgroundColor: PALETTE.chip,
           }}
-        />
-
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-          <Pressable
-            onPress={() => setShowDatePicker(true)}
-            style={({ pressed }) => [
-              {
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: PALETTE.border,
-                backgroundColor: PALETTE.surface,
-              },
-              pressed && { opacity: 0.9 },
-            ]}
-          >
-            <Text style={{ fontWeight: '800', color: PALETTE.green700 }}>
-              Pick Date
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => setShowTimePicker(true)}
-            style={({ pressed }) => [
-              {
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: PALETTE.border,
-                backgroundColor: PALETTE.surface,
-              },
-              pressed && { opacity: 0.9 },
-            ]}
-          >
-            <Text style={{ fontWeight: '800', color: PALETTE.green700 }}>
-              Pick Time
-            </Text>
-          </Pressable>
+        >
+          <Text style={{ color: PALETTE.text600 }}>
+            {departureDT || formatYmd12h(new Date())}
+          </Text>
         </View>
-
-        {showDatePicker && (
-          <DateTimePicker
-            value={parseYmd12h(departureDT)}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={onChangeDate}
-          />
-        )}
-
-        {showTimePicker && (
-          <DateTimePicker
-            value={parseYmd12h(departureDT)}
-            mode="time"
-            is24Hour={false}
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={onChangeTime}
-          />
-        )}
-
-        {Platform.OS === 'ios' && (showDatePicker || showTimePicker) ? (
-          <Pressable
-            onPress={() => {
-              setShowDatePicker(false);
-              setShowTimePicker(false);
-            }}
-            style={({ pressed }) => [
-              {
-                marginTop: 8,
-                alignSelf: 'flex-start',
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: PALETTE.border,
-                backgroundColor: PALETTE.surface,
-              },
-              pressed && { opacity: 0.9 },
-            ]}
-          >
-            <Text style={{ fontWeight: '800', color: PALETTE.green700 }}>
-              Done
-            </Text>
-          </Pressable>
-        ) : null}
       </View>
 
       {/* Boat ID */}
       <TextField
         name="boatNameId"
-        label="Boat ID"
-        placeholder="eg. PK-001"
-        rules={{ required: 'Boat name or ID are required' }}
+        label="Boat Registration No"
+        placeholder="e.g., KHY-44"
+        rules={{ required: 'Boat registration number is required' }}
       />
 
       {/* Trip Type */}

@@ -6,8 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import RootNavigator from './src/app/navigation/RootNavigator';
 import AuthBootstrap from './src/provider/AuthBootstrap';
 import QueueProvider from './src/offline/QueueProvider';
-
-     // ⬅️ Optional
+import Toast from 'react-native-toast-message';
 
 export default function App() {
   return (
@@ -16,6 +15,7 @@ export default function App() {
         <AuthBootstrap>
           <QueueProvider>
             <RootNavigator />
+            <Toast />  {/* 👈 mount toast at root */}
           </QueueProvider>
         </AuthBootstrap>
       </Provider>

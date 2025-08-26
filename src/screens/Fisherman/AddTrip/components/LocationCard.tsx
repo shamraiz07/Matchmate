@@ -21,10 +21,16 @@ export default function LocationCard({ gps, loading, onRecapture }: Props) {
       ) : (
         <Text style={s.cardText}>No location yet</Text>
       )}
-      <TouchableOpacity style={[s.buttonSecondary, loading && s.buttonDisabled]} onPress={onRecapture} disabled={loading}>
-        <Text style={s.buttonSecondaryText}>{loading ? 'Getting location…' : 'Capture/Refresh Location'}</Text>
+
+      <TouchableOpacity
+        style={[s.buttonSecondary, loading && s.buttonDisabled]}
+        onPress={onRecapture}
+        disabled={loading}
+      >
+        <Text style={s.buttonSecondaryText}>
+          {loading ? 'Getting location…' : 'Capture/Refresh Location'}
+        </Text>
       </TouchableOpacity>
-      
     </View>
   );
 }

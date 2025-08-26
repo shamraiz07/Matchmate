@@ -1,562 +1,498 @@
-// src/screens/Fisherman/AddTrip/FishingActivity.tsx
 /* eslint-disable react-native/no-inline-styles */
-import React, { useMemo, useState, useCallback } from 'react';
+// src/screens/Fisherman/AddTrip/FishingActivity.tsx
+import React, { useMemo, useState } from 'react';
 import {
-  Alert,
-  View,
-  Text,
+  ActivityIndicator,
+  Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
-  Pressable,
+  Text,
   TextInput,
-  ActivityIndicator,
+  View,
+  Alert,
 } from 'react-native';
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
-import {  useFieldArray, useForm } from 'react-hook-form';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { useForm } from 'react-hook-form';
 
-import { useCurrentLocation } from './hooks/useCurrentLocation';
 import { FishermanStackParamList } from '../../../app/navigation/stacks/FishermanStack';
-import { buildLotNo } from '../../../utils/ids';
-import { createLot } from '../../../services/lots';
-import { completeTrip } from '../../../services/trips';
+import { useCurrentLocation } from './hooks/useCurrentLocation';
+import {
+  createFishingActivity,
+  type CreateFishingActivityBody,
+} from '../../../services/fishingActivity';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import Toast from 'react-native-toast-message';
 
-
-type Nav = NativeStackNavigationProp<FishermanStackParamList, 'FishingActivity'>;
+type Nav = NativeStackNavigationProp<
+  FishermanStackParamList,
+  'FishingActivity'
+>;
 type R = RouteProp<FishermanStackParamList, 'FishingActivity'>;
+
+type ActivityMeta = {
+  id: number | string; // DB primary key (use for API)
+  captain?: string | null;
+  boat?: string | null;
+  trip_id?: string | number; // human-readable trip code for display
+};
 
 const MESH_INCHES = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 
-/** If the screen receives boatType (optional), we fix the gear accordingly. */
-function gearFromBoatType(boatType?: string) {
-  if (!boatType) return undefined;
-  const t = boatType.toLowerCase();
-  if (t.includes('trawl')) return 'Trawl';
-  if (t.includes('gill')) return 'Gillnet';
-  return undefined;
-}
-
-type CatchRow = { species: string; weightKg: string; lotNo: string };
-type DiscardRow = { species: string; weightKg: string };
-
 type FormValues = {
-  activityNo?: number;
-  // meta
-  gear?: string; // fixed from boat type if provided
-  meshInch?: number;
-  netLengthM?: string;
-  netWidthM?: string;
-  timeNetting?: string; // "HH:MM"
-  timeHauling?: string; // "HH:MM"
-  // dynamic arrays
-  catches: CatchRow[];
-  discards: DiscardRow[];
+  activityNo: number;
+  mesh?: (typeof MESH_INCHES)[number] | null;
+  netLen?: string;
+  netWid?: string;
+  netting?: Date | null;
+  hauling?: Date | null;
 };
+
+function fmt24h(d: Date | null): string | null {
+  if (!d) return null;
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
 
 export default function FishingActivity() {
   const navigation = useNavigation<Nav>();
-  const { params } = useRoute<R>();
-  const tripId = (params as any).tripId as number | string;
-  const activityNo = (params as any).activityNo as number | undefined;
-  const boatType = (params as any).boatType as string | undefined; // optional: if provided from previous screen
+  const route = useRoute<R>();
 
-  const fixedGear = gearFromBoatType(boatType);
+  // ----- read params (tripId is the pretty code you navigated with) -----
+  const {
+    tripId: tripIdParam, // e.g. "TRIP-20250825-008"
+    activityNo: activityNoParam,
+    meta,
+  } = route.params as {
+    tripId: string | number;
+    activityNo?: number;
+    meta?: ActivityMeta;
+  };
+
+  // What to display vs. what to POST
+  const displayTripCode = String(meta?.trip_id ?? tripIdParam ?? '');
+  const tripPkForApi = meta?.id; // e.g. 8 (required by exists:trips,id)
+
+  const initialActivity = activityNoParam ?? 1;
 
   const { gps, loading: gpsLoading, recapture } = useCurrentLocation();
 
-  const methods = useForm<FormValues>({
-    defaultValues: {
-      activityNo: activityNo ?? 1,
-      gear: fixedGear, // stays read-only if provided
-      meshInch: 4 as any,
-      netLengthM: '',
-      netWidthM: '',
-      timeNetting: '',
-      timeHauling: '',
-      catches: [{ species: '', weightKg: '', lotNo: buildLotNo() }],
-      discards: [],
-    },
+  const { watch, setValue, getValues } = useForm<FormValues>({
     mode: 'onTouched',
+    defaultValues: {
+      activityNo: initialActivity,
+      mesh: null,
+      netLen: '',
+      netWid: '',
+      netting: null,
+      hauling: null,
+    },
   });
 
-  const { control, watch, setValue } = methods;
+  const [submitting, setSubmitting] = useState(false);
+  const [showNetting, setShowNetting] = useState(false);
+  const [showHauling, setShowHauling] = useState(false);
 
-  const catchesFA = useFieldArray({ control, name: 'catches' });
-  const discardsFA = useFieldArray({ control, name: 'discards' });
+  const header = useMemo(() => `Create Fishing Activity`, []);
 
-  const [saving, setSaving] = useState(false);
-
-  const headerTitle = useMemo(
-    () => `Fishing Activity ${watch('activityNo') ?? 1}`,
-    [watch],
-  );
-
-  const onAddCatch = useCallback(() => {
-    catchesFA.append({ species: '', weightKg: '', lotNo: buildLotNo() });
-  }, [catchesFA]);
-
-  const onAddDiscard = useCallback(() => {
-    discardsFA.append({ species: '', weightKg: '' });
-  }, [discardsFA]);
-
-  const removeCatch = (idx: number) => catchesFA.remove(idx);
-  const removeDiscard = (idx: number) => discardsFA.remove(idx);
-
-  const validateForm = (): string | null => {
-    if (!tripId) return 'Trip ID missing.';
-    if (!gps) return 'Please capture GPS before saving.';
-    const catches = watch('catches') || [];
-    if (catches.length === 0) return 'Add at least one species entry.';
-    for (const c of catches) {
-      if (!c.species.trim() || Number(c.weightKg) <= 0) {
-        return 'Each species must have a name and weight > 0.';
-      }
+  function onPickTime(
+    kind: 'netting' | 'hauling',
+    e: DateTimePickerEvent,
+    d?: Date,
+  ) {
+    if (Platform.OS === 'android') {
+      setTimeout(
+        () =>
+          kind === 'netting' ? setShowNetting(false) : setShowHauling(false),
+        0,
+      );
     }
-    // basic time checks (optional)
-    const tNet = watch('timeNetting')?.trim();
-    const tHaul = watch('timeHauling')?.trim();
-    if (!tNet || !tHaul) return 'Please enter Time of Netting and Time of Hauling.';
-    return null;
-  };
+    if (e.type === 'dismissed') return;
+    setValue(kind, d ?? null, { shouldDirty: true, shouldTouch: true });
+  }
 
-  /** Saves all lots for the activity (one lot per species row) */
-  const saveActivity = async () => {
-    const err = validateForm();
+  function validate(): string | null {
+    if (tripPkForApi == null || tripPkForApi === '') return 'Trip is missing.';
+    const aNo = Number(getValues('activityNo'));
+    if (!Number.isInteger(aNo) || aNo < 1 || aNo > 20)
+      return 'Activity Number must be between 1 and 20.';
+    if (!gps) return 'Please enable GPS and wait for coordinates.';
+    if (!getValues('netting')) return 'Please set Netting Time.';
+    if (!getValues('hauling')) return 'Please set Hauling Time.';
+    return null;
+  }
+
+  async function onSubmit(saveAndNext = false) {
+    const err = validate();
     if (err) {
       Alert.alert('Missing info', err);
-      return false;
+      return;
     }
+
     try {
-      setSaving(true);
+      setSubmitting(true);
 
-      const nowIso = new Date().toISOString();
-      const mesh = watch('meshInch');
-      const netLength = watch('netLengthM');
-      const netWidth = watch('netWidthM');
-      const timeNetting = watch('timeNetting');
-      const timeHauling = watch('timeHauling');
-      const gear = fixedGear ?? watch('gear');
+      // --- SEND BOTH: DB id (trip_id) + human code (trip_code) ---
+      // trip_id -> required numeric/string id for exists:trips,id
+      // trip_code -> the pretty string like "TRIP-20250825-008" (extra, optional)
+      const body: CreateFishingActivityBody & { trip_code?: string | number } =
+        {
+          trip_id:
+            typeof tripPkForApi === 'string'
+              ? Number(tripPkForApi) || tripPkForApi
+              : tripPkForApi,
+          trip_code: displayTripCode, // <--- include the human code too
+          activity_number: Number(getValues('activityNo')),
+          time_of_netting: fmt24h(getValues('netting')),
+          time_of_hauling: fmt24h(getValues('hauling')),
+          mesh_size: (getValues('mesh') as any) ?? null,
+          net_length: getValues('netLen') ? Number(getValues('netLen')) : null,
+          net_width: getValues('netWid') ? Number(getValues('netWid')) : null,
+          gps_latitude: Number(gps!.lat),
+          gps_longitude: Number(gps!.lng),
+        };
 
-      // Save each species row as a lot
-      const rows = watch('catches') || [];
-      for (const row of rows) {
-        const body = {
-          lot_no: row.lotNo, // pre-generated per row
-          trip_id: typeof tripId === 'string' ? Number(tripId) : (tripId as number),
-          species: row.species.trim(),
-          weight_kg: Number(row.weightKg),
-          grade: '', // not used anymore per new flow
-          gps_latitude: gps?.lat,
-          gps_longitude: gps?.lng,
-          captured_at: nowIso,
-          // Embed activity meta for server auditors (if no activity table yet)
-          meta: {
-            activity_no: watch('activityNo') ?? 1,
-            time_of_netting: timeNetting,
-            time_of_hauling: timeHauling,
-            gear,
-            mesh_inch: mesh,
-            net_length_m: netLength ? Number(netLength) : null,
-            net_width_m: netWidth ? Number(netWidth) : null,
-          },
-        } as const;
-
-        await createLot(body as any);
-      }
-
-      // If you need to save discards too, either:
-      // 1) Call a dedicated endpoint (preferred), or
-      // 2) Add a special lot with species="DISCARD:<name>" — not recommended long-term.
-      // For now we only validate and keep them in the form; wire your backend when ready.
-
-      Alert.alert('Saved', 'Fishing activity recorded.');
-      return true;
-    } catch (e: any) {
-      Alert.alert('Failed', e?.message || 'Could not save activity.');
-      return false;
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const onSave = async () => {
-    const ok = await saveActivity();
-    if (!ok) return;
-    // Return to activity hub or stay—up to you.
-    // Here: stay on this screen (so user can decide next step).
-  };
-
-  const onSaveAndAddAnother = async () => {
-    const ok = await saveActivity();
-    if (!ok) return;
-    const next = (watch('activityNo') ?? 1) + 1;
-    navigation.replace('FishingActivity', { tripId, activityNo: next, boatType });
-  };
-
-  const onCloseTrip = async () => {
-    try {
-      setSaving(true);
-      // Ask landing port here if needed; for now, send a minimal close.
-      await completeTrip(tripId, {
-        arrival_port: 'Karachi Fish Harbour', // TODO: choose dynamically
-        arrival_notes: `Closed after activity #${watch('activityNo') ?? 1}`,
+      await createFishingActivity(body as any);
+      Toast.show({
+        type: 'success',
+        text1: 'Saved 🎉',
+        text2: 'Fishing activity recorded successfully.',
+        position: 'top', // or 'top'
+        visibilityTime: 3000,
       });
-      Alert.alert('Trip Closed', 'Trip has been marked completed.', [
-        { text: 'OK', onPress: () => navigation.navigate('FishermanHome') },
-      ]);
+      if (saveAndNext) {
+        navigation.replace('FishingActivity', {
+          tripId: displayTripCode, // keep showing the pretty code
+          activityNo: Number(getValues('activityNo')) + 1,
+          meta, // keep passing meta so API keeps working
+        });
+      }
     } catch (e: any) {
-      Alert.alert('Failed', e?.message || 'Could not close trip.');
+      Alert.alert('Failed', e?.message || 'Unable to create fishing activity.');
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
-  };
+  }
 
-  const renderRow = (idx: number, kind: 'catch' | 'discard') => {
-    const baseName = kind === 'catch' ? `catches.${idx}` : `discards.${idx}`;
-    const lotNo = kind === 'catch' ? (watch(`catches.${idx}.lotNo`) as string) : undefined;
-    return (
-      <View key={`${kind}-${idx}`} style={styles.row}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.label}>{kind === 'catch' ? 'Species' : 'Discard Species'}</Text>
-          <TextInput
-            value={watch(`${baseName}.species`) as unknown as string}
-            onChangeText={t => setValue(`${baseName}.species` as any, t)}
-            placeholder="e.g., Tuna"
-            style={styles.input}
-          />
-        </View>
-        <View style={{ width: 110, marginLeft: 8 }}>
-          <Text style={styles.label}>Weight (kg)</Text>
-          <TextInput
-            value={watch(`${baseName}.weightKg`) as unknown as string}
-            onChangeText={t =>
-              setValue(`${baseName}.weightKg` as any, t.replace(/[^0-9.]/g, ''))
-            }
-            keyboardType="numeric"
-            placeholder="0.0"
-            style={styles.input}
-          />
-        </View>
-        <Pressable
-          onPress={() => (kind === 'catch' ? removeCatch(idx) : removeDiscard(idx))}
-          style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.8 }]}
-          accessibilityLabel="Remove row"
-        >
-          <Icon name="delete" size={18} color="#B91C1C" />
-        </Pressable>
-        {kind === 'catch' && (
-          <View style={{ width: '100%', marginTop: 6 }}>
-            <Text style={styles.hint}>Lot No: {lotNo}</Text>
-          </View>
-        )}
-      </View>
-    );
-  };
+  /* ------------ UI ------------ */
+
+  const netting = watch('netting');
+  const hauling = watch('hauling');
+  const mesh = watch('mesh');
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-      {/* Header */}
-      <View style={styles.hero}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+      {/* Top bar */}
+      <View style={s.header}>
         <Pressable
           onPress={() => navigation.goBack()}
-          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.85 }]}
-          accessibilityLabel="Go back"
+          style={s.iconBtn}
+          accessibilityLabel="Back"
         >
-          <Icon name="arrow-back" size={22} color="#fff" />
+          <MaterialIcons name="arrow-back" size={22} color="#fff" />
         </Pressable>
-        <Text style={styles.heroTitle}>{headerTitle}</Text>
-        <View style={{ width: 22 }} />
+        <Text style={s.headerTitle}>{header}</Text>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 28 }}>
-        {/* Auto date/time and GPS summary */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Auto Capture</Text>
-          <Text style={styles.hint}>
-            Date/Time: {new Date().toLocaleString()}
+        {/* Selected Trip */}
+        <View style={[s.card, { backgroundColor: '#E9F5FF' }]}>
+          <Text style={[s.cardTitle, { color: '#0F172A' }]}>
+            Selected Trip Information
           </Text>
-          <Text style={styles.hint}>
-            GPS:{' '}
-            {gpsLoading
-              ? 'Locating…'
-              : gps
-              ? `${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}`
-              : 'Not captured'}
-          </Text>
-          <Pressable
-            onPress={recapture}
-            style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.9 }]}
-          >
-            <Text style={styles.secondaryBtnText}>Recapture GPS</Text>
-          </Pressable>
+          <View style={s.rowBetween}>
+            <KV label="Trip ID" value={displayTripCode} />
+            <KV label="Boat " value={meta?.boat ? String(meta.boat) : 'N/A'} />
+            <KV
+              label="Captain"
+              value={meta?.captain ? String(meta.captain) : 'N/A'}
+            />
+            <Badge text="Active" />
+          </View>
+          {!!meta?.id && (
+            <Text style={{ marginTop: 6, fontSize: 11, color: '#64748B' }}>
+              Internal ID: {String(meta.id)}
+            </Text>
+          )}
         </View>
 
-        {/* Activity details */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Activity Details</Text>
+        {/* Basic Activity */}
+        <View style={s.card}>
+          <Text style={s.cardTitle}>Basic Activity Information</Text>
+          <View style={s.col}>
+            <Text style={s.label}>Activity Number *</Text>
+            <TextInput
+              value={String(watch('activityNo'))}
+              editable={false}
+              style={[s.input, { backgroundColor: '#F1F5F9' }]}
+            />
+            <Text style={s.hint}>Auto-increment for each new activity.</Text>
+          </View>
+        </View>
 
-          {/* Gear */}
-          <Text style={styles.label}>Gear</Text>
-          <TextInput
-            value={fixedGear ?? (watch('gear') as string)}
-            onChangeText={t => setValue('gear', t)}
-            editable={!fixedGear}
-            placeholder={fixedGear ? 'Fixed from boat' : 'Gillnet / Trawl'}
-            style={[styles.input, fixedGear && { backgroundColor: '#F3F4F6' }]}
-          />
+        {/* Timing */}
+        <View style={s.card}>
+          <Text style={s.cardTitle}>Fishing Timing Information</Text>
 
-          {/* Mesh size */}
-          <Text style={[styles.label, { marginTop: 12 }]}>Mesh Size (inch)</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={{ flexDirection: 'row' }}>
-              {MESH_INCHES.map(inch => {
-                const sel = watch('meshInch') === inch;
-                return (
-                  <Pressable
-                    key={inch}
-                    onPress={() => setValue('meshInch', inch as any)}
-                    style={[
-                      styles.pill,
-                      sel && { backgroundColor: '#1f720d' },
-                    ]}
-                  >
-                    <Text style={[styles.pillText, sel && { color: '#fff' }]}>
-                      {inch}"
-                    </Text>
-                  </Pressable>
-                );
-              })}
+          <View style={s.duo}>
+            <View style={s.duoItem}>
+              <Text style={s.label}>Netting Time *</Text>
+              <Pressable style={s.input} onPress={() => setShowNetting(true)}>
+                <Text style={s.inputText}>
+                  {netting ? netting.toLocaleTimeString() : 'Select time'}
+                </Text>
+              </Pressable>
+              {showNetting && (
+                <DateTimePicker
+                  value={netting ?? new Date()}
+                  onChange={(e, d) => onPickTime('netting', e, d!)}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  is24Hour={false}
+                />
+              )}
+              <Text style={s.hint}>
+                Time when netting started (24‑hour format sent to server).
+              </Text>
             </View>
-          </ScrollView>
 
-          {/* Net dimensions */}
-          <View style={{ flexDirection: 'row', marginTop: 10 }}>
-            <View style={{ flex: 1, marginRight: 8 }}>
-              <Text style={styles.label}>Net Length (m)</Text>
+            <View style={s.duoItem}>
+              <Text style={s.label}>Hauling Time *</Text>
+              <Pressable style={s.input} onPress={() => setShowHauling(true)}>
+                <Text style={s.inputText}>
+                  {hauling ? hauling.toLocaleTimeString() : 'Select time'}
+                </Text>
+              </Pressable>
+              {showHauling && (
+                <DateTimePicker
+                  value={hauling ?? new Date()}
+                  onChange={(e, d) => onPickTime('hauling', e, d!)}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  is24Hour={false}
+                />
+              )}
+              <Text style={s.hint}>
+                Time when hauling finished (24‑hour format sent to server).
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Net Specs */}
+        <View style={s.card}>
+          <Text style={s.cardTitle}>Net Specifications</Text>
+
+          <Text style={s.label}>Mesh Size (inches)</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {MESH_INCHES.map(v => {
+              const sel = mesh === v;
+              return (
+                <Pressable
+                  key={v}
+                  onPress={() => setValue('mesh', v)}
+                  style={[
+                    s.pill,
+                    sel && {
+                      backgroundColor: '#14532D',
+                      borderColor: '#14532D',
+                    },
+                  ]}
+                >
+                  <Text style={[s.pillText, sel && { color: '#fff' }]}>
+                    {v}"
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View style={s.duo}>
+            <View style={s.duoItem}>
+              <Text style={s.label}>Net Length (meters)</Text>
               <TextInput
-                value={watch('netLengthM')}
-                onChangeText={t => setValue('netLengthM', t.replace(/[^0-9.]/g, ''))}
-                keyboardType="numeric"
-                placeholder="e.g., 120"
-                style={styles.input}
+                value={watch('netLen') ?? ''}
+                onChangeText={t =>
+                  setValue('netLen', t.replace(/[^0-9.]/g, ''))
+                }
+                keyboardType="decimal-pad"
+                placeholder="e.g., 100.5"
+                style={s.input}
               />
             </View>
-            <View style={{ flex: 1, marginLeft: 8 }}>
-              <Text style={styles.label}>Net Width (m)</Text>
+            <View style={s.duoItem}>
+              <Text style={s.label}>Net Width (meters)</Text>
               <TextInput
-                value={watch('netWidthM')}
-                onChangeText={t => setValue('netWidthM', t.replace(/[^0-9.]/g, ''))}
-                keyboardType="numeric"
+                value={watch('netWid') ?? ''}
+                onChangeText={t =>
+                  setValue('netWid', t.replace(/[^0-9.]/g, ''))
+                }
+                keyboardType="decimal-pad"
                 placeholder="e.g., 8"
-                style={styles.input}
-              />
-            </View>
-          </View>
-
-          {/* Times */}
-          <View style={{ flexDirection: 'row', marginTop: 10 }}>
-            <View style={{ flex: 1, marginRight: 8 }}>
-              <Text style={styles.label}>Time of Netting</Text>
-              <TextInput
-                value={watch('timeNetting')}
-                onChangeText={t => setValue('timeNetting', t)}
-                placeholder="HH:MM"
-                style={styles.input}
-              />
-            </View>
-            <View style={{ flex: 1, marginLeft: 8 }}>
-              <Text style={styles.label}>Time of Hauling</Text>
-              <TextInput
-                value={watch('timeHauling')}
-                onChangeText={t => setValue('timeHauling', t)}
-                placeholder="HH:MM"
-                style={styles.input}
+                style={s.input}
               />
             </View>
           </View>
         </View>
 
-        {/* Catch (lots) */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Catch (Lots per Species)</Text>
+        {/* Location */}
+        <View style={s.card}>
+          <Text style={s.cardTitle}>Location Information</Text>
+          <View style={s.duo}>
+            <View style={s.duoItem}>
+              <Text style={s.label}>Latitude *</Text>
+              <TextInput
+                editable={false}
+                value={
+                  gpsLoading
+                    ? 'Locating…'
+                    : gps
+                    ? String(gps.lat.toFixed(6))
+                    : 'Not captured'
+                }
+                style={[s.input, { backgroundColor: '#F1F5F9' }]}
+              />
+            </View>
+            <View style={s.duoItem}>
+              <Text style={s.label}>Longitude *</Text>
+              <TextInput
+                editable={false}
+                value={
+                  gpsLoading
+                    ? 'Locating…'
+                    : gps
+                    ? String(gps.lng.toFixed(6))
+                    : 'Not captured'
+                }
+                style={[s.input, { backgroundColor: '#F1F5F9' }]}
+              />
+            </View>
+          </View>
 
-          {catchesFA.fields.map((f, i) => renderRow(i, 'catch'))}
-
-          <Pressable
-            onPress={onAddCatch}
-            style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.9 }]}
-          >
-            <Icon name="add" size={18} color="#fff" />
-            <Text style={styles.addBtnText}>Add Species</Text>
-          </Pressable>
-        </View>
-
-        {/* Discards */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Discards (Optional)</Text>
-
-          {discardsFA.fields.map((f, i) => renderRow(i, 'discard'))}
-
-          <Pressable
-            onPress={onAddDiscard}
-            style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.9 }]}
-          >
-            <Text style={styles.secondaryBtnText}>Add Discard</Text>
+          <Pressable onPress={recapture} style={s.secondaryBtn}>
+            <Text style={s.secondaryBtnText}>Auto‑fill GPS Coordinates</Text>
           </Pressable>
         </View>
 
         {/* Actions */}
-        <View style={{ height: 8 }} />
-        <Pressable
-          disabled={saving || gpsLoading}
-          onPress={onSave}
-          style={({ pressed }) => [
-            styles.primaryBtn,
-            pressed && { opacity: 0.95 },
-            (saving || gpsLoading) && { opacity: 0.7 },
-          ]}
-        >
-          {saving ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Icon name="save" size={18} color="#fff" />
-              <Text style={styles.primaryBtnText}>Save Activity</Text>
-            </>
-          )}
-        </Pressable>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <Pressable
+            disabled={submitting || gpsLoading}
+            onPress={() => onSubmit(false)}
+            style={[
+              s.primaryBtn,
+              (submitting || gpsLoading) && { opacity: 0.7 },
+            ]}
+          >
+            {submitting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Icon name="save" size={18} color="#fff" />
+                <Text style={s.primaryBtnText}>Create Fishing Activity</Text>
+              </>
+            )}
+          </Pressable>
 
-        <View style={{ height: 8 }} />
-
-        <Pressable
-          disabled={saving || gpsLoading}
-          onPress={onSaveAndAddAnother}
-          style={({ pressed }) => [
-            styles.primaryHollowBtn,
-            pressed && { opacity: 0.95 },
-            (saving || gpsLoading) && { opacity: 0.7 },
-          ]}
-        >
-          <Text style={styles.primaryHollowBtnText}>Save & Add Another</Text>
-        </Pressable>
-
-        <View style={{ height: 16 }} />
-
-        <Pressable
-          disabled={saving}
-          onPress={onCloseTrip}
-          style={({ pressed }) => [
-            styles.dangerBtn,
-            pressed && { opacity: 0.95 },
-            saving && { opacity: 0.7 },
-          ]}
-        >
-          <Text style={styles.dangerBtnText}>Close Trip</Text>
-        </Pressable>
-
-        <View style={{ height: 20 }} />
+          <Pressable
+            disabled={submitting || gpsLoading}
+            onPress={() => onSubmit(true)}
+            style={[
+              s.hollowBtn,
+              (submitting || gpsLoading) && { opacity: 0.7 },
+            ]}
+          >
+            <Text style={s.hollowBtnText}>Save & Add Next</Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  hero: {
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    backgroundColor: '#1f720d',
-    flexDirection: 'row',
-    alignItems: 'center',
+/* ---- small atoms ---- */
+function KV({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ marginRight: 16 }}>
+      <Text style={{ fontSize: 12, color: '#64748B' }}>{label}</Text>
+      <Text style={{ fontWeight: '700', color: '#0F172A' }}>{value}</Text>
+    </View>
+  );
+}
+function Badge({ text }: { text: string }) {
+  return (
+    <View
+      style={{
+        backgroundColor: '#DCFCE7',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 999,
+      }}
+    >
+      <Text style={{ color: '#166534', fontWeight: '700', fontSize: 12 }}>
+        {text}
+      </Text>
+    </View>
+  );
+}
+
+/* ---- styles ---- */
+const s = StyleSheet.create({
+  header: {
+    backgroundColor: '#1B5E20',
+    padding: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
   },
-  backBtn: {
-    padding: 6,
-    borderRadius: 22,
-    marginRight: 8,
-  },
-  heroTitle: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 16,
-  },
+  iconBtn: { padding: 8, borderRadius: 999 },
+
+  headerTitle: { color: '#fff', fontWeight: '800', fontSize: 18 },
+
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     padding: 14,
     marginBottom: 12,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
   },
-  cardTitle: {
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 10,
-  },
-  label: {
-    fontSize: 12,
-    color: '#4B5563',
-    marginBottom: 6,
-  },
-  hint: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
+  cardTitle: { fontWeight: '800', color: '#0F172A', marginBottom: 10 },
+
+  label: { fontSize: 12, color: '#475569', marginBottom: 6 },
+  hint: { fontSize: 11, color: '#6B7280', marginTop: 6 },
   input: {
     height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#fff',
-    color: '#111827',
-  },
-  row: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E5E7EB',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 10,
-  },
-  iconBtn: {
-    height: 36,
-    width: 36,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#FCA5A5',
-    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
-    marginLeft: 8,
-    marginTop: 18,
-    backgroundColor: '#FEF2F2',
   },
+  inputText: { color: '#0F172A' },
+
   pill: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
     borderRadius: 999,
     paddingVertical: 6,
-    paddingHorizontal: 10,
-    marginRight: 8,
+    paddingHorizontal: 12,
   },
-  pillText: {
-    color: '#111827',
-    fontSize: 12,
-  },
-  addBtn: {
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#1f720d',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  addBtnText: { color: '#fff', fontWeight: '700', marginLeft: 6 },
+  pillText: { color: '#0F172A', fontWeight: '700', fontSize: 12 },
+
+  col: { marginBottom: 8 },
+  duo: { flexDirection: 'row', gap: 12 },
+  duoItem: { flex: 1 },
+
   secondaryBtn: {
     marginTop: 10,
     height: 42,
@@ -565,34 +501,35 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
   },
-  secondaryBtnText: { color: '#111827', fontWeight: '600' },
+  secondaryBtnText: { color: '#0F172A', fontWeight: '700' },
+
   primaryBtn: {
+    flex: 1,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#1f720d',
+    backgroundColor: '#1B5E20',
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
   },
-  primaryBtnText: { color: '#fff', fontWeight: '700', marginLeft: 6 },
-  primaryHollowBtn: {
+  primaryBtnText: { color: '#fff', fontWeight: '800' },
+
+  hollowBtn: {
     height: 48,
+    paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#1f720d',
+    borderColor: '#1B5E20',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  primaryHollowBtnText: { color: '#1f720d', fontWeight: '700' },
-  dangerBtn: {
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#B91C1C',
+  hollowBtnText: { color: '#1B5E20', fontWeight: '800' },
+
+  rowBetween: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
   },
-  dangerBtnText: { color: '#fff', fontWeight: '700' },
 });

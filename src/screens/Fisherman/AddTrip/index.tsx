@@ -26,7 +26,6 @@ import ContactSpeciesCostSection from './components/sections/ContactSpeciesCostS
 import LocationCard from './components/LocationCard';
 import SaveBar from './components/SaveBar';
 
-import type { FormValues } from './types';
 import type { FishermanStackParamList } from '../../../app/navigation/stacks/FishermanStack';
 import SectionCard from './components/SectionCard';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -40,17 +39,54 @@ import {
 import type { RouteProp } from '@react-navigation/native';
 import { isOnline } from '../../../offline/net';
 import { enqueueTrip, processQueue } from '../../../offline/TripQueues';
+import Toast from 'react-native-toast-message';
+
+/** ---------- local form type (includes new fields) ---------- */
+export type FormValues = {
+  fisherman: string;
+  departure_time: string;
+
+  // Basic info (new required)
+  captainNameId: string; // maps -> captain_name
+  captainPhone: string; // maps -> captain_mobile_no
+  crewNo: string; // maps -> crew_no and crew_count
+  port_clearance_no: string;
+  fuel_quantity?: string; // numeric, required by server
+  ICE?: string; // maps -> ice_quantity (numeric, required)
+
+  // Existing
+  boatNameId: string; // maps -> boat_registration_number
+  crewCount?: string; // we’ll also map to crew_count if present
+  tripType: string; // label; maps to enum
+  tripPurpose?: string;
+
+  // Ports/sites
+  departure_site?: string; // NEW field required by server
+  departure_port?: string;
+  destination_port?: string;
+  port_location?: string; // convenience (server requires)
+
+  // sea
+  seaType?: string;
+  seaConditions?: string;
+
+  // contact/species/costs
+  emergencyContact?: string;
+  targetSpecies: string;
+  tripCost?: string;
+  fuelCost?: string;
+  estimatedCatch?: string;
+  equipmentCost?: string;
+};
 
 const HEADER_BG = '#1f720d';
 type TripRoute = RouteProp<FishermanStackParamList, 'Trip'>;
 type Nav = NativeStackNavigationProp<FishermanStackParamList, 'Trip'>;
 
-// ---- helpers ----
 const pad = (n: number) => String(n).padStart(2, '0');
 const formatYmd = (d: Date) =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-// Backend-safe enum mapping (labels <-> enum)
 const TRIP_TYPE_MAP: Record<string, string> = {
   'Fishing Trip': 'fishing',
   'Transport Trip': 'transport',
@@ -62,18 +98,9 @@ const TRIP_TYPE_REVERSE: Record<string, string> = Object.fromEntries(
   Object.entries(TRIP_TYPE_MAP).map(([label, val]) => [val, label]),
 );
 
-// Some servers return { success, message, trip: {...} }, others { data: {...} }.
-// This extracts the actual trip DTO in a stable way.
-function extractTripFromCreateResponse(created: any) {
-  if (!created) return null;
-  if (created.trip && typeof created.trip === 'object') return created.trip;
-  if (created.data && typeof created.data === 'object') return created.data;
-  // fallback: maybe the top-level already is the trip
-  if (created.id && created.trip_id) return created;
-  return null;
-}
-
 export default function AddTripScreen() {
+  const [saving, setSaving] = useState(false);
+
   const navigation = useNavigation<Nav>();
   const { params } = useRoute<TripRoute>();
 
@@ -88,16 +115,28 @@ export default function AddTripScreen() {
 
   const methods = useForm<FormValues>({
     defaultValues: {
-      fisherman: '', // fisher id (stringifiable)
+      fisherman: '',
       departure_time: formatYmd12h(new Date()),
+
+      captainNameId: '',
+      captainPhone: '',
+      crewNo: '',
+      port_clearance_no: '',
+      fuel_quantity: '',
+      ICE: '',
+
       boatNameId: '',
       crewCount: '',
       tripType: '',
       tripPurpose: '',
+
+      departure_site: '',
       departure_port: '',
       destination_port: '',
+
       seaType: '',
       seaConditions: '',
+
       emergencyContact: '',
       targetSpecies: '',
       tripCost: '',
@@ -108,13 +147,11 @@ export default function AddTripScreen() {
     mode: 'onTouched',
   });
 
-  // keep an immutable snapshot of initial values (for dirty patch)
   const [initialValues, setInitialValues] = useState<FormValues | null>(null);
-
-  const [tripId] = useState(buildTripId()); // used for create header chip
+  const [tripId] = useState(buildTripId());
   const { gps, loading: gpsLoading, recapture } = useCurrentLocation();
 
-  const [loading, setLoading] = useState<boolean>(isEdit); // show while fetching for edit
+  const [loading, setLoading] = useState<boolean>(isEdit);
   const [serverTrip, setServerTrip] = useState<TripDetails | null>(null);
 
   const handleBack = () => {
@@ -122,7 +159,7 @@ export default function AddTripScreen() {
     else navigation.navigate('FishermanHome');
   };
 
-  // ---- load existing for EDIT ----
+  /** -------- load existing for EDIT -------- */
   const loadForEdit = useCallback(async () => {
     if (!isEdit || !editingId) return;
     try {
@@ -130,19 +167,31 @@ export default function AddTripScreen() {
       const t = await getTripById(editingId);
       setServerTrip(t);
 
-      // map server -> form fields
       const formVals: FormValues = {
         fisherman: t.fisherman?.id ? String(t.fisherman.id) : '',
         departure_time: t.departure_time || formatYmd12h(new Date()),
+
+        // server doesn’t return all the new fields yet; leave blank
+        captainNameId: '',
+        captainPhone: '',
+        crewNo: t.crew_count != null ? String(t.crew_count) : '',
+        port_clearance_no: '',
+        fuel_quantity: '',
+        ICE: '',
+
         boatNameId: t.boat_registration_no ?? '',
         crewCount: t.crew_count != null ? String(t.crew_count) : '',
         tripType:
           TRIP_TYPE_REVERSE[t.trip_type ?? ''] || t.trip_type || 'Fishing Trip',
-        tripPurpose: '',
+        tripPurpose: t.trip_purpose ?? '',
+
+        departure_site: t.port_location ?? '',
         departure_port: t.departure_port ?? '',
         destination_port: '',
+
         seaType: '',
         seaConditions: t.sea_conditions ?? '',
+
         emergencyContact: t.emergency_contact ?? '',
         targetSpecies: t.target_species ?? '',
         tripCost: '',
@@ -153,7 +202,6 @@ export default function AddTripScreen() {
           t.operational_cost != null ? String(t.operational_cost) : '',
       };
 
-      // set defaults + keep a pristine copy for dirty diff
       methods.reset(formVals, { keepDefaultValues: false });
       setInitialValues(formVals);
     } catch (err: any) {
@@ -169,7 +217,7 @@ export default function AddTripScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingId]);
 
-  // ---- submit handlers ----
+  /** -------- CREATE -------- */
   const onSaveCreate = methods.handleSubmit(async values => {
     if (!gps) {
       Alert.alert(
@@ -178,6 +226,54 @@ export default function AddTripScreen() {
       );
       return;
     }
+    // One canonical crew value from either field
+    const crewCountNumber = Number(values.crewNo || values.crewCount || 0);
+    if (!Number.isFinite(crewCountNumber) || crewCountNumber < 1) {
+      Alert.alert('Missing info', 'Crew count is required and must be >= 1.');
+      return;
+    }
+
+    // Basic required presence guard (mirrors your server errors)
+    const requiredPairs: Array<[string, any, string]> = [
+      ['fisherman_id', values.fisherman, 'Fisherman is required'],
+      ['boat_registration_number', values.boatNameId, 'Boat ID is required'],
+      ['trip_type', values.tripType, 'Trip Type is required'],
+      ['captain_name', values.captainNameId, 'Captain name is required'],
+      [
+        'captain_mobile_no',
+        values.captainPhone,
+        'Captain mobile no is required',
+      ],
+      ['crew_no', crewCountNumber, 'Crew no is required'],
+      ['crew_count', crewCountNumber, 'Crew count is required'], // ← important
+      [
+        'port_clearance_no',
+        values.port_clearance_no,
+        'Port clearance no is required',
+      ],
+      ['fuel_quantity', values.fuel_quantity, 'Fuel quantity is required'],
+      ['ice_quantity', values.ICE, 'ICE quantity is required'],
+      [
+        'port_location',
+        values.departure_site || values.departure_port,
+        'Port location is required',
+      ],
+      ['departure_time', values.departure_time, 'Departure time is required'],
+      ['departure_site', values.departure_site, 'Departure site is required'],
+      ['departure_port', values.departure_port, 'Departure port is required'],
+    ];
+    for (const [, v, msg] of requiredPairs) {
+      if (
+        v === undefined ||
+        v === null ||
+        String(v).trim?.() === '' ||
+        v === 0
+      ) {
+        Alert.alert('Missing info', msg);
+        return;
+      }
+    }
+
     try {
       const departureDisplay =
         values.departure_time?.trim() || formatYmd12h(new Date());
@@ -192,43 +288,64 @@ export default function AddTripScreen() {
       const tripTypeRaw = values.tripType?.trim() || 'Fishing Trip';
       const trip_type = TRIP_TYPE_MAP[tripTypeRaw] ?? 'fishing';
 
+      // Port/location: server requires both port_location and departure_site & departure_port
       const port_location =
+        values.departure_site?.trim() ||
         values.destination_port?.trim() ||
         values.departure_port?.trim() ||
         undefined;
 
+      // Build payload for server
       const body = {
         trip_name: tripId,
+        trip_id: tripId, // if server accepts, mirrors what it generates
         fisherman_id: fishermanId,
-        trip_type,
-        port_location,
-        crew_count: Number(values.crewCount || 0), // backend accepts crew_count for create
 
+        // boat & type
+        boat_registration_number: values.boatNameId?.trim(),
+        trip_type,
+
+        // captain & crew
+        captain_name: values.captainNameId?.trim(),
+        captain_mobile_no: values.captainPhone?.trim(),
+        crew_no: Number(values.crewNo || 0),
+        crew_count: crewCountNumber, // ← also required
+
+        // admin
+        port_clearance_no: values.port_clearance_no?.trim(),
+        fuel_quantity: Number(values.fuel_quantity || 0),
+        ice_quantity: Number(values.ICE || 0),
+
+        // routing
+        departure_site: values.departure_site || undefined,
         departure_port: values.departure_port || undefined,
         destination_port: values.destination_port || undefined,
+        port_location,
+
+        // timing & coords
         departure_date,
         departure_time: departureDisplay,
         departure_latitude: gps?.lat,
         departure_longitude: gps?.lng,
 
+        // misc existing
         fishing_method: tripTypeRaw,
         target_species: values.targetSpecies?.trim() || undefined,
-        boat_registration_number: values.boatNameId?.trim() || undefined,
 
         sea_type: values.seaType || undefined,
         sea_conditions: values.seaConditions || undefined,
         emergency_contact: values.emergencyContact?.trim() || undefined,
 
-        trip_cost: values.tripCost !== '' ? Number(values.tripCost) : undefined,
-        fuel_cost: values.fuelCost !== '' ? Number(values.fuelCost) : undefined,
-        estimated_catch:
-          values.estimatedCatch !== ''
-            ? Number(values.estimatedCatch)
-            : undefined,
-        equipment_cost:
-          values.equipmentCost !== ''
-            ? Number(values.equipmentCost)
-            : undefined,
+        // legacy costs (optional)
+        trip_cost: values.tripCost ? Number(values.tripCost) : undefined,
+        fuel_cost: values.fuelCost ? Number(values.fuelCost) : undefined,
+        estimated_catch: values.estimatedCatch
+          ? Number(values.estimatedCatch)
+          : undefined,
+        equipment_cost: values.equipmentCost
+          ? Number(values.equipmentCost)
+          : undefined,
+
         notes: values.tripPurpose?.trim() || undefined,
       } as const;
 
@@ -245,29 +362,23 @@ export default function AddTripScreen() {
       }
 
       try {
-        // Create live; keep created id to show Start button
-        const created = await createTrip(body as any);
-
-        // Robustly extract the inner trip (API returns { success, message, trip: {...} })
-        const dto = extractTripFromCreateResponse(created);
-        if (!dto) {
-          // Fallback: still inform success (we got 201), but we cannot start immediately
-          Alert.alert(
-            'Trip created',
-            `Trip ${tripId} was saved successfully. (Start button unavailable: missing server id)`,
-          );
-          return;
-        }
-
-        setCreatedTrip({ id: dto.id, trip_id: dto.trip_id });
-        Alert.alert(
-          'Trip created',
-          `Trip ${
-            dto.trip_id ?? tripId
+        const created: any = await createTrip(body as any);
+        // Returned shape can be { success, message, trip: {...} } or direct object
+        const tripObj = created?.trip ?? created;
+        setCreatedTrip({
+          id: tripObj?.id,
+          trip_id: tripObj?.trip_id ?? tripId,
+        });
+        Toast.show({
+          type: 'success',
+          text1: 'Trip created 🎉',
+          text2: `Trip ${
+            tripObj?.trip_id ?? tripId
           } was saved successfully. You can start it now.`,
-        );
+          position: 'bottom', // or 'top'
+          visibilityTime: 3000,
+        });
       } catch (err: any) {
-        // Network/server temporary issues → fallback to queue
         await enqueueTrip(body as any);
         Alert.alert(
           'Saved Offline',
@@ -284,7 +395,7 @@ export default function AddTripScreen() {
     }
   });
 
-  // Build a small patch with only dirty changes:
+  /** -------- PATCH (EDIT) -------- */
   const buildPatch = (values: FormValues) => {
     const from = initialValues || values;
     const changed = <T extends keyof FormValues>(key: T) =>
@@ -306,13 +417,43 @@ export default function AddTripScreen() {
     if (changed('tripPurpose'))
       patch.trip_purpose = values.tripPurpose?.trim() || undefined;
 
+    if (changed('captainNameId'))
+      patch.captain_name = values.captainNameId?.trim() || undefined;
+    if (changed('captainPhone'))
+      patch.captain_mobile_no = values.captainPhone?.trim() || undefined;
+    if (changed('crewNo')) {
+      const n = values.crewNo === '' ? undefined : Number(values.crewNo);
+      patch.crew_no = n;
+      patch.crew_count = n;
+    }
+    if (changed('port_clearance_no'))
+      patch.port_clearance_no = values.port_clearance_no?.trim() || undefined;
+    if (changed('fuel_quantity'))
+      patch.fuel_quantity =
+        values.fuel_quantity === '' ? undefined : Number(values.fuel_quantity);
+    if (changed('ICE'))
+      patch.ice_quantity = values.ICE === '' ? undefined : Number(values.ICE);
+
+    if (changed('departure_site'))
+      patch.departure_site = values.departure_site || undefined;
     if (changed('departure_port'))
       patch.departure_port = values.departure_port || undefined;
     if (changed('destination_port'))
       patch.destination_port = values.destination_port || undefined;
+    if (
+      changed('departure_site') ||
+      changed('departure_port') ||
+      changed('destination_port')
+    )
+      patch.port_location =
+        values.departure_site?.trim() ||
+        values.destination_port?.trim() ||
+        values.departure_port?.trim() ||
+        undefined;
+
     if (changed('departure_time') && departureDisplay) {
       patch.departure_time = departureDisplay;
-      patch.departure_date = departure_date; // many backends like both
+      patch.departure_date = departure_date;
     }
 
     if (changed('boatNameId'))
@@ -320,7 +461,6 @@ export default function AddTripScreen() {
 
     if (changed('crewCount')) {
       const n = values.crewCount === '' ? undefined : Number(values.crewCount);
-      patch.crew_size = n;
       patch.crew_count = n;
     }
 
@@ -344,17 +484,10 @@ export default function AddTripScreen() {
           ? Number(values.estimatedCatch)
           : undefined;
     if (changed('equipmentCost')) {
-      const n =
+      patch.operational_cost =
         values.equipmentCost !== '' ? Number(values.equipmentCost) : undefined;
-      patch.operational_cost = n;
-      patch.equipment_cost = n;
-    }
-
-    if (changed('departure_port') || changed('destination_port')) {
-      patch.port_location =
-        values.destination_port?.trim() ||
-        values.departure_port?.trim() ||
-        undefined;
+      patch.equipment_cost =
+        values.equipmentCost !== '' ? Number(values.equipmentCost) : undefined;
     }
 
     return patch;
@@ -363,8 +496,8 @@ export default function AddTripScreen() {
   const onSaveEdit = methods.handleSubmit(async values => {
     if (!isEdit || !editingId) return;
 
-    if (values.crewCount !== '') {
-      const n = Number(values.crewCount);
+    if (values.crewNo !== '') {
+      const n = Number(values.crewNo);
       if (Number.isNaN(n) || n < 1 || n > 50) {
         Alert.alert('Invalid crew', 'Crew count must be between 1 and 50.');
         return;
@@ -387,31 +520,63 @@ export default function AddTripScreen() {
   });
 
   const onSave = isEdit ? onSaveEdit : onSaveCreate;
+  const handleSavePress = async () => {
+    try {
+      setSaving(true);
+      await onSave(); // your existing handler returns a Promise
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  // ---- header labels & chips ----
+  /** ---- header ---- */
   const headerTitle = isEdit ? 'Edit Trip' : 'Add Trip';
   const chipTripId = isEdit
     ? serverTrip?.trip_name ?? serverTrip?.id ?? ''
-    : createdTrip?.trip_id ?? tripId;
+    : tripId;
 
-  // ---- start trip (after create) ----
   const handleStart = useCallback(async () => {
-    if (!createdTrip?.id) return;
+    // Resolve primary key (DB id) and human-readable trip code
+    const pk = createdTrip?.id ?? serverTrip?.id; // e.g., 8
+    const tripCode =
+      createdTrip?.trip_id ??
+      serverTrip?.trip_name ??
+      (pk != null ? String(pk) : undefined);
+
+    if (pk == null) return; // nothing to start
+
     try {
       setActionLoading(true);
-      // await startTrip(createdTrip.id);
-      // Alert.alert('Trip Started', 'Status updated to Active.');
-      // Navigate to Lots screen with the trip id
+      await startTrip(pk);
+
+      const captain =
+        (createdTrip as any)?.captain_name ??
+        (serverTrip as any)?.captain_name ??
+        methods.getValues('captainNameId') ??
+        null;
+
+      const boat =
+        serverTrip?.boat_registration_no ??
+        (createdTrip as any)?.boat_registration_number ??
+        methods.getValues('boatNameId') ??
+        null;
+
       navigation.navigate('FishingActivity', {
-        tripId: createdTrip.id,
+        tripId: tripCode ?? pk, // UI code preferred; fallback to pk
         activityNo: 1,
+        meta: {
+          id: pk, // <-- use this for API (exists:trips,id)
+          trip_id: tripCode ?? pk, // display code
+          captain,
+          boat,
+        },
       });
     } catch (e: any) {
       Alert.alert('Error', e?.message || 'Failed to start trip');
     } finally {
       setActionLoading(false);
     }
-  }, [createdTrip, navigation]);
+  }, [createdTrip, serverTrip, methods, navigation]);
 
   return (
     <SafeAreaView
@@ -522,10 +687,13 @@ export default function AddTripScreen() {
                 />
               </SectionCard>
 
-              {/* Save bar: GPS required only for create.
-                 Hide after create; show Start button instead. */}
+              {/* For CREATE: Show Save until created; then show Start */}
               {!isEdit && !createdTrip?.id ? (
-                <SaveBar gpsAvailable={!!gps} onSave={onSave} />
+                <SaveBar
+                  gpsAvailable={!!gps}
+                  onSave={handleSavePress}
+                  loading={saving}
+                />
               ) : null}
 
               {!isEdit && createdTrip?.id ? (

@@ -10,14 +10,13 @@ import LotDetailsScreen from '../../../screens/Fisherman/LotsDetails/LotDetailsS
 import OfflineQueueScreen from '../../../screens/Fisherman/OfflineQueue/OfflineQueueScreen';
 import BoatRegisterScreen from '../../../screens/Fisherman/AddBoat/BoatRegistrationScreen';
 import FishingActivity from '../../../screens/Fisherman/AddTrip/FishingActivity';
+import FishingActivitiesListScreen from '../../../screens/Fisherman/Activities/FishingActivitiesList';
 
 export type FishermanStackParamList = {
   FishermanHome: undefined;
 
   // Trip create/edit
-  Trip:
-    | { id?: number | string; mode?: 'create' | 'edit' }
-    | undefined;
+  Trip: { id?: number | string; mode?: 'create' | 'edit' } | undefined;
 
   OfflineTrips: undefined;
   Boat: undefined;
@@ -30,19 +29,23 @@ export type FishermanStackParamList = {
   LotsList: undefined;
   LotDetails: { id: number | string };
 
-  // Fishing Activity:
-  // - create flow: needs tripId, optional activityNo (1..20)
-  // - edit flow: allow editing by lotId (if you reuse the same screen)
   FishingActivity:
-    | { tripId: number | string; activityNo?: number }
+    | {
+        tripId: number | string; // UI trip code OR numeric; we’ll choose numeric later
+        activityNo?: number;
+        meta?: {
+          id: number | string; // DB PK (8) -> for API
+          captain?: string | null;
+          boat?: string | null;
+          trip_id?: string | number; // display code
+        };
+      }
     | { mode: 'edit'; lotId: number | string };
+  FishingActivities: undefined; // NEW list screen
+  FishingActivityDetails: { id: number | string }; // for "View"
+  FishingActivityEdit: { id: number | string };
 
-  // Add/Edit Lot:
-  // - create flow: needs tripId
-  // - edit flow: by lotId
-  Lots:
-    | { tripId: number | string }
-    | { mode: 'edit'; lotId: number | string };
+  Lots: { tripId: number | string } | { mode: 'edit'; lotId: number | string };
 };
 
 const Stack = createNativeStackNavigator<FishermanStackParamList>();
@@ -60,6 +63,8 @@ export default function FishermanStack() {
 
       <Stack.Screen name="Trip" component={AddTripScreen} />
       <Stack.Screen name="FishingActivity" component={FishingActivity} />
+      <Stack.Screen name="FishingActivities" component={FishingActivitiesListScreen} />
+
 
       <Stack.Screen
         name="TripDetails"

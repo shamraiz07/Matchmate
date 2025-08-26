@@ -1,6 +1,25 @@
 // src/screens/Fisherman/AddTrip/types.ts
 export interface FormValues {
   fisherman: string;
+  fisherman_id: string;
+  captain_name: string;
+  captain_phone: string;
+  captain_mobile_no: string;
+  crew_count: string;
+  fuel_quantity:string;
+  estimated_catch:string;
+  ice_quantity:string;
+  port_location:string;
+  operational_cost:string;
+  boat_registration_number:string;
+  trip_type: string;
+  trip_purpose:string;
+  departure_site:string;
+  sea_type:string;
+  sea_conditions:string;
+  emergency_contact:string;
+  target_species:string;
+  fuel_cost:string;
   boatNameId: string;
   captainNameId: string;
   captainPhone: string;
