@@ -669,7 +669,7 @@ export default function TripDetailsScreen() {
             Toast.show({
               type: 'success',
               text1: 'Trip Completed',
-              text2: 'Status updated to Completed.',
+              text2: 'Status updated to Pending approval.',
               position: 'top',
             });
             setShowComplete(false);
