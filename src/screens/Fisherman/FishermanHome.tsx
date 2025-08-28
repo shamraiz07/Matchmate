@@ -45,15 +45,18 @@ const ActionCard = memo(
     label,
     icon,
     onPress,
+    style,
   }: {
     label: string;
     icon: IconName;
     onPress: () => void;
+    style?: any;
   }) => (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
         styles.actionCard,
+        style,
         pressed && { transform: [{ scale: 0.98 }], opacity: 0.96 },
       ]}
       android_ripple={{ color: 'rgba(0,0,0,0.06)' }}
@@ -67,6 +70,7 @@ const ActionCard = memo(
     </Pressable>
   ),
 );
+
 
 const Chip = ({
   color,
@@ -311,30 +315,35 @@ export default function FishermanHome() {
                 {name}
               </Text>
               <View
-                style={[
-                  styles.headerRight,
-                  isNarrow && styles.headerRightStack,
-                ]}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
               >
-                <Chip
-                  bg={isActive ? '#E0F2FE' : '#FEE2E2'}
-                  color={isActive ? '#075985' : '#991B1B'}
-                  icon={isActive ? 'check-circle' : 'cancel'}
+                {/* Edit Profile pill (with icon) */}
+                <Pressable
+                  onPress={() => navigation.navigate('Profile')}
+                  style={({ pressed }) => [
+                    styles.editPill,
+                    pressed && { opacity: 0.9 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit Profile"
                 >
-                  {isActive ? 'Active' : 'Inactive'}
-                </Chip>
+                  <MaterialIcons
+                    name="edit"
+                    size={16}
+                    color={PALETTE.green700}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={styles.editPillText}>Edit Profile</Text>
+                </Pressable>
               </View>
-              {/* NEW intro text */}
+
               <Text style={styles.introText}>
                 You're logged into the Marine Fisheries Department Portal.
+                Here's your dashboard overview.
               </Text>
             </View>
           </View>
         </View>
-
-        {/* status chips */}
-
-        {/* </View> */}
 
         {/* Permission/banner if needed */}
         {!authUser?.token && (
@@ -526,6 +535,19 @@ const styles = StyleSheet.create({
     rowGap: 20,
     flexGrow: 1,
   },
+  editPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    backgroundColor: '#DCFCE7',
+  },
+  editPillText: { color: PALETTE.green700, fontWeight: '800', fontSize: 12 },
 
   headerCard: {
     backgroundColor: PALETTE.green700,

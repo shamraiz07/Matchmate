@@ -13,6 +13,7 @@ import FishingActivity from '../../../screens/Fisherman/AddTrip/FishingActivity'
 import FishingActivitiesListScreen from '../../../screens/Fisherman/Activities/FishingActivitiesList';
 import FishingActivityDetailsScreen from '../../../screens/Fisherman/Activities/FishingActivityDetailsScreen';
 import RecordFishSpeciesScreen from '../../../screens/Fisherman/Activities/RecordFishSpeciesScreen';
+import Profile from '../../../screens/Fisherman/Profile';
 
 export type FishermanStackParamList = {
   FishermanHome: undefined;
@@ -23,6 +24,7 @@ export type FishermanStackParamList = {
   OfflineTrips: undefined;
   Boat: undefined;
   AllTrip: undefined;
+  Profile:undefined
 
   // Trip details
   TripDetails: { id: number | string };
@@ -31,18 +33,6 @@ export type FishermanStackParamList = {
   LotsList: undefined;
   LotDetails: { id: number | string };
 
-  // FishingActivity:
-  //   | {
-  //       tripId: number | string; // UI trip code OR numeric; we’ll choose numeric later
-  //       activityNo?: number;
-  //       meta?: {
-  //         id: number | string; // DB PK (8) -> for API
-  //         captain?: string | null;
-  //         boat?: string | null;
-  //         trip_id?: string | number; // display code
-  //       };
-  //     }
-  //   | { mode: 'edit'; lotId: number | string };
     FishingActivity: {
     mode?: 'create' | 'edit';
     activityId?: number | string;
@@ -86,7 +76,6 @@ export default function FishermanStack() {
     >
       <Stack.Screen name="FishermanHome" component={FishermanHome} />
       <Stack.Screen name="AllTrip" component={TripsScreen} />
-
       <Stack.Screen name="Trip" component={AddTripScreen} />
       <Stack.Screen name="FishingActivity" component={FishingActivity} />
       <Stack.Screen
@@ -105,6 +94,11 @@ export default function FishermanStack() {
       <Stack.Screen
         name="TripDetails"
         component={TripDetailsScreen}
+        options={{ headerShown: false }}
+      />
+       <Stack.Screen
+        name="Profile"
+        component={Profile}
         options={{ headerShown: false }}
       />
 
