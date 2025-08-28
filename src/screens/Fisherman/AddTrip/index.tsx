@@ -170,20 +170,6 @@ function LockNotice({ visible }: { visible: boolean }) {
   );
 }
 
-function LockOverlay({ show }: { show: boolean }) {
-  if (!show) return null;
-  return (
-    <View
-      pointerEvents="none"
-      style={{
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(15, 23, 42, 0.06)', // slate-900 @ 6%
-        borderRadius: 16,
-      }}
-    />
-  );
-}
-
 const pad = (n: number) => String(n).padStart(2, '0');
 const formatYmd = (d: Date) =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -472,11 +458,14 @@ export default function AddTripScreen() {
 
       if (!online) {
         await enqueueTrip(body as any);
-        Alert.alert(
-          'Saved Offline',
-          'No internet. Trip added to upload queue and will auto-submit when online.',
-        );
-        navigation.navigate('FishermanHome');
+        Toast.show({
+          type: 'success',
+          text1: 'Trip Saved Offline 🎉',
+          text2: 'Trip moved to upload queue and will auto-submit when online.',
+          position: 'bottom', // or 'top'
+          visibilityTime: 3000,
+        });
+        navigation.navigate('OfflineTrips');
         return;
       }
 
@@ -499,10 +488,13 @@ export default function AddTripScreen() {
         });
       } catch (err: any) {
         await enqueueTrip(body as any);
-        Alert.alert(
-          'Saved Offline',
-          'Temporary issue submitting. Trip moved to upload queue and will auto-submit when online.',
-        );
+        Toast.show({
+          type: 'success',
+          text1: 'Trip Saved Offline 🎉',
+          text2: 'Trip moved to upload queue and will auto-submit when online.',
+          position: 'bottom', // or 'top'
+          visibilityTime: 3000,
+        });
         navigation.navigate('FishermanHome');
         processQueue();
       }
