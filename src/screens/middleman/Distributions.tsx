@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -32,82 +32,97 @@ const MiddleMen = [
   { label: 'Middle Man 1', value: 'Middle Man 1' },
 ];
 
-const dummyDistribution = [
-  {
-    id: '1',
-    name: 'DIST-1',
-    status: 'Pending',
-    trip: 'Trip11',
-    fisherman: 'Ali',
-    weight: 50,
-    date: '20/August/2025',
-  },
-  {
-    id: '2',
-    name: 'DIST-2',
-    status: 'Verified',
-    trip: 'Trip12',
-    fisherman: 'Faraz',
-    weight: 150,
-    date: '22/August/2025',
-  },
-  {
-    id: '3',
-    name: 'DIST-3',
-    status: 'Rejected',
-    trip: 'Trip13',
-    fisherman: 'John',
-    weight: 30,
-    date: '19/August/2025',
-  },
-  {
-    id: '4',
-    name: 'DIST-4',
-    status: 'Verified',
-    trip: 'Trip14',
-    fisherman: 'Doe',
-    weight: 25,
-    date: '01/August/2025',
-  },
-  {
-    id: '5',
-    name: 'DIST-5',
-    status: 'Verified',
-    trip: 'Trip15',
-    fisherman: 'Behroz',
-    weight: 76,
-    date: '21/August/2025',
-  },
-  {
-    id: '6',
-    name: 'DIST-6',
-    status: 'Pending',
-    trip: 'Trip16',
-    fisherman: 'Khan',
-    weight: 265,
-    date: '29/August/2025',
-  },
-  {
-    id: '7',
-    name: 'DIST-7',
-    status: 'Rejected',
-    trip: 'Trip17',
-    fisherman: 'Niazi',
-    weight: 65,
-    date: '18/August/2025',
-  },
-  {
-    id: '8',
-    name: 'DIST-8',
-    status: 'Verified',
-    trip: 'Trip18',
-    fisherman: 'Sher',
-    weight: 29,
-    date: '11/August/2025',
-  },
-];
+// const dummyDistribution = [
+//   {
+//     id: '1',
+//     name: 'DIST-1',
+//     status: 'Pending',
+//     trip: 'Trip11',
+//     fisherman: 'Ali',
+//     weight: 50,
+//     date: '20/August/2025',
+//   },
+//   {
+//     id: '2',
+//     name: 'DIST-2',
+//     status: 'Verified',
+//     trip: 'Trip12',
+//     fisherman: 'Faraz',
+//     weight: 150,
+//     date: '22/August/2025',
+//   },
+//   {
+//     id: '3',
+//     name: 'DIST-3',
+//     status: 'Rejected',
+//     trip: 'Trip13',
+//     fisherman: 'John',
+//     weight: 30,
+//     date: '19/August/2025',
+//   },
+//   {
+//     id: '4',
+//     name: 'DIST-4',
+//     status: 'Verified',
+//     trip: 'Trip14',
+//     fisherman: 'Doe',
+//     weight: 25,
+//     date: '01/August/2025',
+//   },
+//   {
+//     id: '5',
+//     name: 'DIST-5',
+//     status: 'Verified',
+//     trip: 'Trip15',
+//     fisherman: 'Behroz',
+//     weight: 76,
+//     date: '21/August/2025',
+//   },
+//   {
+//     id: '6',
+//     name: 'DIST-6',
+//     status: 'Pending',
+//     trip: 'Trip16',
+//     fisherman: 'Khan',
+//     weight: 265,
+//     date: '29/August/2025',
+//   },
+//   {
+//     id: '7',
+//     name: 'DIST-7',
+//     status: 'Rejected',
+//     trip: 'Trip17',
+//     fisherman: 'Niazi',
+//     weight: 65,
+//     date: '18/August/2025',
+//   },
+//   {
+//     id: '8',
+//     name: 'DIST-8',
+//     status: 'Verified',
+//     trip: 'Trip18',
+//     fisherman: 'Sher',
+//     weight: 29,
+//     date: '11/August/2025',
+//   },
+// ];
 
 export default function Distributions() {
+  const [products, setProducts] = useState([]);
+  useEffect(() => {
+    getProducts();
+  }, []);
+
+  const getProducts = () => {
+    const URL = 'https://fakestoreapi.com/products';
+    fetch(URL)
+      .then((res) => {
+        return res.json();
+      })
+      .then((data) => {
+        setProducts(data);
+      });
+  };
   const navigation = useNavigation<Nav>();
 
   const [trip, setTrip] = useState(null);
@@ -142,24 +157,32 @@ export default function Distributions() {
         : '#e31305ff';
 
     return (
-      <TouchableOpacity onPress={()=>{navigation.navigate("distributionDetails")}}>
+      <TouchableOpacity
+        onPress={() => {
+          navigation.navigate('distributionDetails');
+        }}
+      >
         <View style={styles.itemContainer}>
           <View style={styles.itemHeader}>
-            <Text style={styles.itemTitle}>{item.name}</Text>
+           {/* <Text style={styles.itemTitle}>{item.name}</Text> */}
+           <Text style={styles.itemTitle}>{item.title}</Text>
             <View
               style={[styles.statusBadge, { backgroundColor: statusColor }]}
             >
-              <Text style={styles.statusBadgeText}>{item.status}</Text>
+              {/* <Text style={styles.statusBadgeText}>{item.status}</Text> */}
+              <Text style={styles.statusBadgeText}>{item.price}</Text>
             </View>
           </View>
 
           <View style={styles.itemRow}>
             <Text style={styles.itemLabel}>Trip:</Text>
-            <Text style={styles.itemValue}>{item.trip}</Text>
+            {/* <Text style={styles.itemValue}>{item.trip}</Text> */}
+            <Text style={styles.itemValue}>{item.category}</Text>
           </View>
           <View style={styles.itemRow}>
             <Text style={styles.itemLabel}>Fisherman:</Text>
-            <Text style={styles.itemValue}>{item.fisherman}</Text>
+            {/* <Text style={styles.itemValue}>{item.fisherman}</Text> */}
+            <Text style={styles.itemValue}>{item.description}</Text>
           </View>
           <View style={styles.itemRow}>
             <Text style={styles.itemLabel}>Weight:</Text>
@@ -292,7 +315,7 @@ export default function Distributions() {
       <View style={styles.flatlistContainer}>
         <Text style={styles.listHeader}>All Distributions</Text>
         <FlatList
-          data={dummyDistribution}
+          data={products}
           keyExtractor={item => item.id}
           renderItem={renderItem}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
