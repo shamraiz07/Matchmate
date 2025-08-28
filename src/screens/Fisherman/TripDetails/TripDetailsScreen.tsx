@@ -371,7 +371,7 @@ export default function TripDetailsScreen() {
           </Pressable>
 
           {/* Add Species / Activity */}
-          <Pressable
+          {/* <Pressable
             style={[
               styles.halfBtn,
               { backgroundColor: PALETTE.info },
@@ -389,7 +389,7 @@ export default function TripDetailsScreen() {
           >
             <MaterialIcons name="add-circle-outline" size={18} color="#fff" />
             <Text style={styles.halfBtnText}>Add Activity</Text>
-          </Pressable>
+          </Pressable> */}
 
           {/* Complete */}
           <Pressable
