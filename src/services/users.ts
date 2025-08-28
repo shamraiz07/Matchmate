@@ -99,9 +99,11 @@ export async function createUser(body: CreateUserBody) {
 }
 
 /** 3) Get User Details — GET /users/{id} */
-export async function getUser(id: ID) {
-  const json = await api(`/users/${id}`);
-  return unwrap<User>(json);
+export async function getUser(): Promise<User> {
+  // NOTE: your `api` wrapper should prefix base URL & attach Authorization header
+  const json = await api('/user', { method: 'GET' });
+  console.log('current user details', json);
+  return (json?.data ?? json) as User;
 }
 
 /** 4) Update User — PUT /users/{id} */

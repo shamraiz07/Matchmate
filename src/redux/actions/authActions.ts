@@ -22,7 +22,10 @@ export const login = (email: string, password: string) => {
       console.groupCollapsed('[AUTH] login request');
       console.log('email:', email);
 
-      const json = await api('/login', { method: 'POST', body: { email, password } });
+      const json = await api('/login', {
+        method: 'POST',
+        body: { email, password },
+      });
 
       const token = json?.data?.token as string | undefined;
       const user = json?.data?.user;
@@ -31,7 +34,8 @@ export const login = (email: string, password: string) => {
 
       if (!token || !user) throw new Error('Malformed login response.');
       const mapped = mapRole(user?.user_type);
-      if (!mapped) throw new Error(`Unsupported role: ${user?.user_type ?? 'unknown'}`);
+      if (!mapped)
+        throw new Error(`Unsupported role: ${user?.user_type ?? 'unknown'}`);
 
       const tokenPreview = `${token.slice(0, 8)}…${token.slice(-4)}`;
       console.log('mapped role:', mapped);
@@ -39,10 +43,13 @@ export const login = (email: string, password: string) => {
       console.groupEnd();
 
       const authUser: AuthUser = {
+        id: user.id, // NEW
+
         email: user.email,
         name: user.name,
         role: mapped,
         token,
+        profile: user, // NEW – keep the full server user
       };
 
       await setAuthToken(token);
@@ -61,7 +68,6 @@ export const login = (email: string, password: string) => {
     }
   };
 };
-
 
 export const loadSession = () => {
   return async (dispatch: Dispatch<AuthAction>) => {
@@ -91,7 +97,9 @@ export const fetchProfile = () => {
 
 export const logout = () => {
   return async (dispatch: Dispatch<AuthAction>) => {
-    try { await api('/logout', { method: 'POST' }); } catch {}
+    try {
+      await api('/logout', { method: 'POST' });
+    } catch {}
     await setAuthToken(null);
     await AsyncStorage.multiRemove(['auth_user']);
     dispatch({ type: LOGOUT });

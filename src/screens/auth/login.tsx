@@ -87,10 +87,6 @@ const Login = () => {
       .then(({ authUser, raw }: any) => {
         setBearerToken(`Bearer ${authUser?.token ?? ''}`);
         setRawResponse(JSON.stringify(raw, null, 2)); // pretty-print
-        // Alert.alert(
-        //   'Login Success',
-        //   'Token and full response are shown below.',
-        // );
         Toast.show({
                 type: 'success',
                 text1: 'Login Success ✅',
