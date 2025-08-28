@@ -167,6 +167,7 @@ export default function FishermanHome() {
 
   const auth = useSelector((s: RootState) => (s as any).auth);
   const authUser = auth?.user;
+  console.log('AuthUser in FishermanHome:', authUser);
 
   /** ✔ useMemo so eslint doesn’t warn about changing deps */
   const profile = useMemo(

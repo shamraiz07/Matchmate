@@ -1,18 +1,9 @@
 /* eslint-disable react-native/no-inline-styles */
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import {
-  View,
-  Pressable,
-  Text,
-  // Platform,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Pressable, Text, ActivityIndicator } from 'react-native';
 import TextField from '../fields/TextField';
 import DropdownField from '../fields/DropdownField';
 import { useFormContext } from 'react-hook-form';
-// import DateTimePicker, {
-//   DateTimePickerEvent,
-// } from '@react-native-community/datetimepicker';
 import NetInfo from '@react-native-community/netinfo';
 
 import {
@@ -23,17 +14,9 @@ import {
   readFishermenCache,
   writeFishermenCache,
 } from '../../../../../offline/fishermenCache';
-
-const PALETTE = {
-  green700: '#1B5E20',
-  text900: '#111827',
-  text600: '#4B5563',
-  border: '#E5E7EB',
-  surface: '#FFFFFF',
-  warn: '#EF6C00',
-  error: '#C62828',
-  chip: '#F1F5F9',
-};
+import PALETTE from '../../../../../theme/palette';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../../../redux/store';
 
 const TRIP_TYPE_OPTIONS = [
   'Fishing Trip',
@@ -77,6 +60,20 @@ export const parseYmd12h = (s?: string) => {
 };
 
 export default function BasicInfoSection() {
+  const auth = useSelector((s: RootState) => (s as any).auth);
+  const authUser = auth?.user;
+  console.log('AuthUser in FishermanHome:', authUser);
+  const profile = useMemo(
+    () => authUser?.profile ?? authUser ?? {},
+    [authUser],
+  );
+
+  const [details, setDetails] = useState<any>(profile);
+
+  const name =
+    details?.name ||
+    `${details?.first_name ?? ''} ${details?.last_name ?? ''}`.trim() ||
+    'Fisherman';
   const { watch, setValue } = useFormContext();
   const departureDT: string = watch('departure_time');
 
@@ -84,8 +81,6 @@ export default function BasicInfoSection() {
   const [fishermen, setFishermen] = useState<Fisherman[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [online, setOnline] = useState<boolean>(false);
-  // const [showDatePicker, setShowDatePicker] = useState(false);
-  // const [showTimePicker, setShowTimePicker] = useState(false);
 
   useEffect(() => {
     if (!departureDT) {
@@ -206,8 +201,7 @@ export default function BasicInfoSection() {
 
   return (
     <>
-      {/* Fisherman (Dropdown) */}
-      <DropdownField
+      {/* <DropdownField
         name="fisherman"
         label="Fisherman"
         options={fisherOptions}
@@ -224,7 +218,6 @@ export default function BasicInfoSection() {
         rules={{ required: 'Fisherman is required' }}
       />
 
-      {/* Retry + Status Row */}
       <View
         style={{
           flexDirection: 'row',
@@ -273,12 +266,12 @@ export default function BasicInfoSection() {
         )}
       </View>
 
-      {/* Manual fallback */}
       {!hasList && (
         <View style={{ marginTop: 12 }}>
           <Text style={{ color: PALETTE.text600, marginBottom: 6 }}>
             No list available — enter Fisherman ID manually:
           </Text>
+
           <TextField
             name="fisherman"
             label="Fisherman ID"
@@ -287,59 +280,12 @@ export default function BasicInfoSection() {
             rules={{ required: 'Fisherman is required' }}
           />
         </View>
-      )}
-
-      {/* Captain + Crew */}
-      <TextField
-        name="captainNameId"
-        label="Captain Name"
-        placeholder="Enter Captain Name"
-        rules={{ required: 'Captain name is required' }}
-      />
-      <TextField
-        name="captainPhone"
-        label="Captain Mobile Number"
-        placeholder="+92 300 1234567"
-        keyboardType="phone-pad"
-        rules={{ required: 'Captain Mobile Number is required' }}
-      />
-      <TextField
-        name="crewNo"
-        label="Number of Crew"
-        placeholder="Enter Number of Crew"
-        keyboardType="numeric"
-        rules={{
-          required: 'Crew count is required',
-        }}
-      />
-      <TextField
-        name="port_clearance_no"
-        label="Port Clearance No"
-        placeholder="Port Clearance No"
-        rules={{ required: 'Port clearance No. is required' }}
-      />
-      <TextField
-        name="fuel_quantity"
-        label="Fuel Quantity"
-        placeholder="0"
-        keyboardType="numeric"
-        rules={{ required: 'Fuel quantity is required' }}
-      />
-      <TextField
-        name="ICE"
-        label="ICE Quantity(kg)"
-        placeholder="e.g., 100kg"
-        keyboardType="numeric"
-        rules={{ required: 'ICE quantity is required' }}
-      />
-
-      {/* Departure Date & Time */}
-      {/* Departure Date & Time (auto-filled, readonly) */}
-      <View style={{ marginTop: 12 }}>
+      )} */}
+      <View style={{ marginBottom: 12 }}>
         <Text
           style={{ fontWeight: '700', marginBottom: 6, color: PALETTE.text900 }}
         >
-          Departure (Date & Time)
+          Fisherman
         </Text>
         <View
           style={{
@@ -348,38 +294,34 @@ export default function BasicInfoSection() {
             borderRadius: 8,
             borderWidth: 1,
             borderColor: PALETTE.border,
-            backgroundColor: PALETTE.chip,
+            backgroundColor: PALETTE.surface,
           }}
         >
-          <Text style={{ color: PALETTE.text600 }}>
-            {departureDT || formatYmd12h(new Date())}
+          <Text style={{ color: PALETTE.text600, fontWeight: '500' }}>
+            {profile?.name || 'Fisherman'}
           </Text>
         </View>
       </View>
-
-      {/* Boat ID */}
       <TextField
         name="boatNameId"
         label="Boat Registration No"
         placeholder="e.g., KHY-44"
         rules={{ required: 'Boat registration number is required' }}
       />
-
-      {/* Trip Type */}
-      <DropdownField
+      <TextField
         name="tripType"
         label="Trip Type"
-        options={TRIP_TYPE_OPTIONS}
         placeholder="Select Trip Type"
         rules={{ required: 'Trip type is required' }}
       />
+     
+     
+     
+
+      {/* Boat ID */}
 
       {/* Trip Purpose */}
-      <TextField
-        name="tripPurpose"
-        label="Trip Purpose"
-        placeholder="Describe the purpose of this trip"
-      />
+     
     </>
   );
 }

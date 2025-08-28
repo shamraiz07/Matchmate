@@ -1,5 +1,5 @@
 /* eslint-disable react-native/no-inline-styles */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,12 @@ import type { RouteProp } from '@react-navigation/native';
 import { isOnline } from '../../../offline/net';
 import { enqueueTrip, processQueue } from '../../../offline/TripQueues';
 import Toast from 'react-native-toast-message';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../redux/store';
+import CaptainInfo from './components/sections/CaptainInfo';
+import FuelIceInformation from './components/sections/FuelIceInformation';
+import LocationInformation from './components/sections/LocationInformation';
+import FishingInformation from './components/sections/FishingInformaton';
 
 /** ---------- local form type (includes new fields) ---------- */
 export type FormValues = {
@@ -99,6 +105,21 @@ const TRIP_TYPE_REVERSE: Record<string, string> = Object.fromEntries(
 );
 
 export default function AddTripScreen() {
+  const auth = useSelector((s: RootState) => (s as any).auth);
+  const authUser = auth?.user;
+  console.log('AuthUser in FishermanHome:', authUser);
+  const profile = useMemo(
+    () => authUser?.profile ?? authUser ?? {},
+    [authUser],
+  );
+  console.log('Profile in AddTripScreen:', profile?.boat_registration_number);
+
+  const [details, setDetails] = useState<any>(profile);
+
+  const name =
+    details?.name ||
+    `${details?.first_name ?? ''} ${details?.last_name ?? ''}`.trim() ||
+    'Fisherman';
   const [saving, setSaving] = useState(false);
 
   const navigation = useNavigation<Nav>();
@@ -115,7 +136,7 @@ export default function AddTripScreen() {
 
   const methods = useForm<FormValues>({
     defaultValues: {
-      fisherman: '',
+      fisherman: name,
       departure_time: formatYmd12h(new Date()),
 
       captainNameId: '',
@@ -125,9 +146,9 @@ export default function AddTripScreen() {
       fuel_quantity: '',
       ICE: '',
 
-      boatNameId: '',
+      boatNameId: profile?.boat_registration_number ?? '',
       crewCount: '',
-      tripType: '',
+      tripType: 'Fishing Trip',
       tripPurpose: '',
 
       departure_site: '',
@@ -652,27 +673,6 @@ export default function AddTripScreen() {
           >
             <FormProvider {...methods}>
               <SectionCard
-                title="Basic Info"
-                subtitle="Captain & vessel details"
-              >
-                <BasicInfoSection />
-              </SectionCard>
-
-              <SectionCard
-                title="Route & Conditions"
-                subtitle="Port and sea conditions"
-              >
-                <DropdownsSection />
-              </SectionCard>
-
-              <SectionCard
-                title="Contacts & Targets"
-                subtitle="Emergency contact and species"
-              >
-                <ContactSpeciesCostSection />
-              </SectionCard>
-
-              <SectionCard
                 title="Starting Location"
                 subtitle={
                   isEdit
@@ -686,6 +686,53 @@ export default function AddTripScreen() {
                   onRecapture={recapture}
                 />
               </SectionCard>
+              <SectionCard
+                title="Basic Info"
+                subtitle="Captain & vessel details"
+              >
+                <BasicInfoSection />
+              </SectionCard>
+              <SectionCard
+                title="Captain & Crew Info"
+                subtitle="Captain & vessel details"
+              >
+                <CaptainInfo />
+              </SectionCard>
+
+              <SectionCard
+                title="Fuel & Ice Info"
+                // subtitle="Captain & vessel details"
+              >
+                <FuelIceInformation />
+              </SectionCard>
+
+              <SectionCard
+                title="Location Information"
+                // subtitle="Captain & vessel details"
+              >
+                <LocationInformation />
+              </SectionCard>
+
+              <SectionCard
+                title="Departure Information"
+                subtitle="Port and sea conditions"
+              >
+                <DropdownsSection />
+              </SectionCard>
+
+              <SectionCard
+                title="Safety & Crew Information"
+                subtitle="Emergency contact and species"
+              >
+                <ContactSpeciesCostSection />
+              </SectionCard>
+               <SectionCard
+                title=" Fishing Information"
+                subtitle="Target species"
+              >
+                <FishingInformation />
+              </SectionCard>
+              
 
               {/* For CREATE: Show Save until created; then show Start */}
               {!isEdit && !createdTrip?.id ? (
