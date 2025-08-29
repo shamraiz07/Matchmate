@@ -5,7 +5,6 @@ import { stripUndefined } from '../utils/json';
 /** Generic ID type */
 export type ID = number | string;
 
-/** Server may paginate like { data, current_page, ... } or just { data } */
 export type Paginated<T> = {
   data: T[];
   current_page: number;
@@ -17,7 +16,7 @@ export type Paginated<T> = {
 };
 
 export type UserRole = string;
-export type UserType = string;       // if your API distinguishes user_type from role
+export type UserType = string;
 
 export type User = {
   id: number;
@@ -28,12 +27,25 @@ export type User = {
   is_verified?: boolean;
   is_active?: boolean;
   phone?: string | null;
+
+  // common profile fields seen in your payload
+  first_name?: string | null;
+  last_name?: string | null;
+  national_id?: string | null;
+  address?: string | null;
+  city?: string | null;
+  province?: string | null;
+  country?: string | null;
+  fishing_zone?: string | null;
+  port_location?: string | null;
+  boat_registration_number?: string | null;
+  profile_picture?: string | null;
+
   created_at?: string;
   updated_at?: string;
-  [k: string]: any; // allow extra fields from API
+  [k: string]: any;
 };
 
-/** Create / Update bodies (adjust to your backend’s fields) */
 export type CreateUserBody = {
   name: string;
   email: string;
@@ -45,6 +57,7 @@ export type CreateUserBody = {
   is_active?: boolean;
 };
 
+/** Include all fields your Profile screen can edit */
 export type UpdateUserBody = Partial<{
   name: string;
   email: string;
@@ -54,17 +67,22 @@ export type UpdateUserBody = Partial<{
   phone: string;
   is_verified: boolean;
   is_active: boolean;
+
+  first_name: string;
+  last_name: string;
+  national_id: string;
+  address: string;
+  city: string;
+  province: string;
+  country: string;
+  fishing_zone: string;
+  port_location: string;
+  boat_registration_number: string;
+  profile_picture: string; // if you send a URL/base64; file uploads usually use multipart
 }>;
 
-/** Listing params */
-export type ListParams = {
-  page?: number;
-  per_page?: number;
-};
+export type ListParams = { page?: number; per_page?: number; };
 
-/** Search params map to your endpoint:
- * GET /users/search?q=&user_type=&is_verified=&is_active=&date_from=&date_to=&page=&per_page=
- */
 export type SearchUsersParams = {
   q?: string;
   user_type?: UserType;
@@ -76,67 +94,69 @@ export type SearchUsersParams = {
   per_page?: number;
 };
 
-/** Some APIs put pagination inside json.data, others at root. Handle both. */
 function unwrap<T>(json: any): T {
   return (json?.data ?? json) as T;
 }
 
-/* =========================================
- * Users (Admin/Super Admin only)
- * ========================================= */
-
-/** 1) Get All Users — GET /users */
+/* =========================
+ * Admin endpoints (kept)
+ * ========================= */
 export async function listUsers(params?: ListParams) {
   const json = await api('/users', { query: params });
   return unwrap<Paginated<User>>(json);
 }
-
-/** 2) Create User — POST /users */
 export async function createUser(body: CreateUserBody) {
-  const clean = stripUndefined(body);
-  const json = await api('/users', { method: 'POST', body: clean });
+  const json = await api('/users', { method: 'POST', body: stripUndefined(body) });
   return unwrap<User>(json);
 }
-
-/** 3) Get User Details — GET /users/{id} */
-export async function getUser(id: ID) {
-  const json = await api(`/users/${id}`);
-  return unwrap<User>(json);
-}
-
-/** 4) Update User — PUT /users/{id} */
 export async function updateUser(id: ID, body: UpdateUserBody) {
-  const clean = stripUndefined(body);
-  const json = await api(`/users/${id}`, { method: 'PUT', body: clean });
+  const json = await api(`/users/${id}`, { method: 'PUT', body: stripUndefined(body) });
   return unwrap<User>(json);
 }
-
-/** 5) Delete User — DELETE /users/{id} */
 export async function deleteUser(id: ID) {
   const json = await api(`/users/${id}`, { method: 'DELETE' });
   return unwrap<{ success: boolean }>(json);
 }
-
-/** 6) Verify User — POST /users/{id}/verify */
 export async function verifyUser(id: ID) {
   const json = await api(`/users/${id}/verify`, { method: 'POST' });
   return unwrap<User>(json);
 }
-
-/** 7) Deactivate User — POST /users/{id}/deactivate */
 export async function deactivateUser(id: ID) {
   const json = await api(`/users/${id}/deactivate`, { method: 'POST' });
   return unwrap<User>(json);
 }
-
-/** 8) Filter Users by Role — GET /users/filter/role/{role} */
 export async function filterUsersByRole(role: UserRole, params?: ListParams) {
   const json = await api(`/users/filter/role/${encodeURIComponent(role)}`, { query: params });
   return unwrap<Paginated<User>>(json);
 }
-
-/** 9) Search Users — GET /users/search */
 export async function searchUsers(params: SearchUsersParams) {
   const json = await api('/users/search', { query: stripUndefined(params) });
   return unwrap<Paginated<User>>(json);
+}
+
+/* =========================
+ * Self-service (current user)
+ * ========================= */
+
+/** Read current user (GET /user) */
+export async function getUser(): Promise<User> {
+  const json = await api('/user', { method: 'GET' });
+  console.log('current user details', json);
+  return unwrap<User>(json);
+}
+
+/** Update current user — NO id required. Preferred path: PUT /user */
+export async function updateMe(body: UpdateUserBody): Promise<User> {
+  const clean = stripUndefined(body);
+  try {
+    const json = await api('/user', { method: 'PUT', body: clean });
+    return unwrap<User>(json);
+  } catch (e: any) {
+    // If your server only allows PATCH for /user, retry seamlessly.
+    if (e?.status === 405) {
+      const json = await api('/user', { method: 'PATCH', body: clean });
+      return unwrap<User>(json);
+    }
+    throw e;
+  }
 }

@@ -716,6 +716,13 @@ export type TripRowDTO = {
   departure_port?: string | null;
   destination_port?: string | null;
   departure_time?: string | null;
+  // additional optional info for richer mobile card rows
+  fisherman_name?: string | null;
+  boat_name?: string | null;
+  boat_registration_number?: string | null;
+  trip_type_label?: string | null;
+  created_at?: string | null; // display friendly
+  fishing_activity_count?: number | null;
 };
 export async function listTripsPage(params?: { page?: number; per_page?: number; }) {
   const page = params?.page ?? 1;
@@ -730,6 +737,12 @@ export async function listTripsPage(params?: { page?: number; per_page?: number;
     departure_port: t.departure_port ?? t.port_location ?? null,
     destination_port: t.destination_port ?? null,
     departure_time: toDisplay12h(t.departure_time),
+    fisherman_name: t.fisherman?.name ?? t.user?.name ?? null,
+    boat_name: t.boat_name ?? null,
+    boat_registration_number: t.boat_registration_number ?? null,
+    trip_type_label: t.trip_type_label ?? t.trip_type ?? null,
+    created_at: toDisplay12h(t.created_at),
+    fishing_activity_count: typeof t.fishing_activity_count === 'number' ? t.fishing_activity_count : (Array.isArray(t.fishing_activities) ? t.fishing_activities.length : null),
   }));
 
   const total = Number(json?.data?.total ?? rows.length);
