@@ -96,7 +96,7 @@ const Chip = ({
       {children}
     </Text>
   </View>
-);
+);  
 
 const Row = ({
   label,
@@ -442,11 +442,11 @@ export default function FishermanHome() {
               icon="surfing"
               onPress={() => navigation.navigate('FishingActivities')}
             />
-            <ActionCard
+            {/* <ActionCard
               label="All Species"
               icon="set-meal"
               onPress={() => navigation.navigate('LotsList')}
-            />
+            /> */}
             <ActionCard
               label="All Boats"
               icon="set-meal"
