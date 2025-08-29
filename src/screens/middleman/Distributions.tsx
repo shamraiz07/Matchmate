@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#555',
-    width: 90,
+    width: 92,
   },
   itemValue: {
     flex: 1,
