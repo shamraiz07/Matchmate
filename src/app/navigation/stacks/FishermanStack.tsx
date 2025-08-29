@@ -9,6 +9,7 @@ import TripDetailsScreen from '../../../screens/Fisherman/TripDetails/TripDetail
 import LotDetailsScreen from '../../../screens/Fisherman/LotsDetails/LotDetailsScreen';
 import OfflineQueueScreen from '../../../screens/Fisherman/OfflineQueue/OfflineQueueScreen';
 import BoatRegisterScreen from '../../../screens/Fisherman/AddBoat/BoatRegistrationScreen';
+import BoatsListScreen from '../../../screens/Fisherman/Boats/BoatsListScreen';
 import FishingActivity from '../../../screens/Fisherman/AddTrip/FishingActivity';
 import FishingActivitiesListScreen from '../../../screens/Fisherman/Activities/FishingActivitiesList';
 import FishingActivityDetailsScreen from '../../../screens/Fisherman/Activities/FishingActivityDetailsScreen';
@@ -23,6 +24,7 @@ export type FishermanStackParamList = {
 
   OfflineTrips: undefined;
   BoatRegister: undefined;
+  BoatsList: undefined;
   AllTrip: undefined;
   Profile:undefined
 
@@ -103,6 +105,7 @@ export default function FishermanStack() {
       />
 
       <Stack.Screen name="BoatRegister" component={BoatRegisterScreen} />
+      <Stack.Screen name="BoatsList" component={BoatsListScreen} />
       <Stack.Screen name="Lots" component={AddLotScreen} />
       <Stack.Screen name="LotsList" component={AllLotsScreen} />
 

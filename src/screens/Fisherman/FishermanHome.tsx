@@ -449,12 +449,12 @@ export default function FishermanHome() {
             /> */}
             <ActionCard
               label="All Boats"
-              icon="set-meal"
-              onPress={() => navigation.navigate('LotsList')}
+              icon="directions-boat"
+              onPress={() => navigation.navigate('BoatsList')}
             />
             <ActionCard
               label="Register Boat"
-              icon="set-meal"
+              icon="add-circle"
               onPress={() => navigation.navigate('BoatRegister')}
             />
           </View>
