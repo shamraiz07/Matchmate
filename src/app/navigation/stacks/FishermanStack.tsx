@@ -22,7 +22,7 @@ export type FishermanStackParamList = {
   Trip: { id?: number | string; mode?: 'create' | 'edit' } | undefined;
 
   OfflineTrips: undefined;
-  Boat: undefined;
+  BoatRegister: undefined;
   AllTrip: undefined;
   Profile:undefined
 
@@ -102,7 +102,7 @@ export default function FishermanStack() {
         options={{ headerShown: false }}
       />
 
-      <Stack.Screen name="Boat" component={BoatRegisterScreen} />
+      <Stack.Screen name="BoatRegister" component={BoatRegisterScreen} />
       <Stack.Screen name="Lots" component={AddLotScreen} />
       <Stack.Screen name="LotsList" component={AllLotsScreen} />
 
