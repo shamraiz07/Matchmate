@@ -5,8 +5,8 @@ import { createTrip, startTrip } from '../services/trips';
 import { createFishingActivity } from '../services/fishingActivity';
 import { createFishSpecies } from '../services/fishSpecies';
 
-const STORAGE_KEY = 'trip_queue_v2';
-const MAP_KEY = 'trip_queue_idmap_v1';
+const STORAGE_KEY = 'trip_queue_v3';
+const MAP_KEY = 'trip_queue_idmap_v2';
 
 /** ---------------- Types ---------------- */
 export type JobType =
@@ -31,6 +31,13 @@ export type QueueJob = {
   createdAt: number;
   attempts: number;
   nextRetryAt?: number | null;
+  
+  /** Additional metadata for better tracking */
+  metadata?: {
+    tripId?: string;
+    activityId?: string;
+    description?: string;
+  };
 };
 
 type QueueState = { items: QueueJob[] };
@@ -104,6 +111,10 @@ export async function enqueueTrip(body: Record<string, any>) {
     createdAt: Date.now(),
     attempts: 0,
     nextRetryAt: null,
+    metadata: {
+      tripId: body.trip_id || body.trip_name,
+      description: `Create trip: ${body.trip_id || body.trip_name}`
+    }
   };
   s.items.push(job);
   s.items.sort((a, b) => a.createdAt - b.createdAt);
@@ -132,6 +143,9 @@ export async function enqueueStartTrip(opts: {
     createdAt: Date.now(),
     attempts: 0,
     nextRetryAt: null,
+    metadata: {
+      description: `Start trip: ${opts.serverId || opts.dependsOnLocalId}`
+    }
   };
   s.items.push(job);
   s.items.sort((a, b) => a.createdAt - b.createdAt);
@@ -144,17 +158,38 @@ export async function enqueueCreateActivity(body: Record<string, any>, opts: {
   tripServerId?: number;
   tripLocalId?: string;
 }) {
+  console.log(`[Queue] Enqueuing createActivity:`, {
+    bodyTripId: body.trip_id,
+    optsTripServerId: opts.tripServerId,
+    optsTripLocalId: opts.tripLocalId
+  });
+  
   const s = await readQueue();
   const job: QueueJob = {
     localId: makeId('activity'),
     type: 'createActivity',
     body,
-    serverId: opts.tripServerId ?? null, // the *trip* server id for API body.trip_id resolution
+    // If we have a trip server ID, store it in serverId for easy access during processing
+    // If we have a trip local ID, use dependsOnLocalId for dependency resolution
+    serverId: opts.tripServerId ?? null,
     dependsOnLocalId: opts.tripServerId ? undefined : opts.tripLocalId,
     createdAt: Date.now(),
     attempts: 0,
     nextRetryAt: null,
+    metadata: {
+      activityId: body.activity_id || body.activity_number,
+      tripId: body.trip_id,
+      description: `Create activity: ${body.activity_id || body.activity_number} for trip: ${body.trip_id}`
+    }
   };
+  
+  console.log(`[Queue] Created job:`, {
+    localId: job.localId,
+    serverId: job.serverId,
+    dependsOnLocalId: job.dependsOnLocalId,
+    bodyTripId: job.body.trip_id
+  });
+  
   s.items.push(job);
   s.items.sort((a, b) => a.createdAt - b.createdAt);
   await writeQueue(s);
@@ -176,6 +211,9 @@ export async function enqueueCreateSpecies(body: Record<string, any>, opts: {
     createdAt: Date.now(),
     attempts: 0,
     nextRetryAt: null,
+    metadata: {
+      description: `Create species: ${body.species_name} for activity: ${opts.activityServerId || opts.activityLocalId}`
+    }
   };
   s.items.push(job);
   s.items.sort((a, b) => a.createdAt - b.createdAt);
@@ -208,14 +246,24 @@ export async function processQueue(): Promise<void> {
     let q = await readQueue();
     q.items.sort((a, b) => a.createdAt - b.createdAt);
 
-    // Try one item per tick (simple, safe)
+    // Process items in order, respecting dependencies
+    let processedCount = 0;
+    const maxPerRun = 5; // Limit to avoid blocking UI
+
     for (const job of [...q.items]) {
+      if (processedCount >= maxPerRun) break;
+      
       const ni = await NetInfo.fetch();
       if (!ni.isConnected) break;
       if (!retryDue(job)) continue;
 
       const ok = await processOne(job.localId);
-      if (!ok) break; // stop on failure/backoff to avoid hammering
+      if (ok) {
+        processedCount++;
+      } else {
+        // Stop on failure to avoid hammering
+        break;
+      }
     }
   } finally {
     processing = false;
@@ -245,6 +293,14 @@ export async function processOne(localId: string): Promise<boolean> {
     }
   }
 
+  console.log(`[Queue] Processing ${job.type} ${job.localId}:`, {
+    serverId: job.serverId,
+    dependsOnLocalId: job.dependsOnLocalId,
+    resolvedId,
+    idmap: Object.keys(idmap).length > 0 ? 'has mappings' : 'no mappings',
+    bodyTripId: job.body?.trip_id
+  });
+
   try {
     switch (job.type) {
       case 'createTrip': {
@@ -252,6 +308,7 @@ export async function processOne(localId: string): Promise<boolean> {
         const trip = res?.trip ?? res;
         const serverId = Number(trip?.id);
         if (!serverId) throw new Error('No server id from createTrip');
+        
         // record mapping: localId (this job) -> server id for downstream jobs
         const map = await readMap();
         map[job.localId] = serverId;
@@ -265,7 +322,11 @@ export async function processOne(localId: string): Promise<boolean> {
             it.dependsOnLocalId = undefined;
           }
         });
-        await writeQueue({ items: q2.items.filter(j => j.localId !== job.localId) });
+        await writeQueue(q2);
+        
+        // Remove this job after successful processing
+        q.items.splice(idx, 1);
+        await writeQueue(q);
         return true;
       }
 
@@ -286,24 +347,66 @@ export async function processOne(localId: string): Promise<boolean> {
       }
 
       case 'createActivity': {
-        // needs trip server id to put into body.trip_id if missing
-        if (!resolvedId && (job.dependsOnLocalId || job.serverId == null)) {
+        // For activities, we need to resolve the trip ID from either:
+        // 1. The job's serverId (if it was set to the trip's server ID)
+        // 2. The job's dependsOnLocalId (if it depends on a local trip)
+        // 3. The body's trip_id (if it's already a server ID)
+        let tripServerId: number | undefined;
+        
+        if (job.serverId && job.serverId > 0) {
+          // This activity job has the trip's server ID directly
+          tripServerId = job.serverId;
+          console.log(`[Queue] Using job.serverId as trip server ID: ${tripServerId}`);
+        } else if (job.dependsOnLocalId) {
+          // This activity depends on a local trip, wait for it to be resolved
+          tripServerId = resolvedId;
+          if (!tripServerId) {
+            console.log(`[Queue] Waiting for trip dependency to resolve for activity ${job.localId}`);
+            job.attempts += 1;
+            job.nextRetryAt = Date.now() + nextDelay(job.attempts);
+            q.items[idx] = job;
+            await writeQueue(q);
+            return false;
+          }
+          console.log(`[Queue] Resolved trip dependency to server ID: ${tripServerId}`);
+        } else if (job.body?.trip_id) {
+          // Check if the body already has a valid server trip ID
+          const bodyTripId = Number(job.body.trip_id);
+          if (!isNaN(bodyTripId) && bodyTripId > 0) {
+            tripServerId = bodyTripId;
+            console.log(`[Queue] Using body.trip_id as trip server ID: ${tripServerId}`);
+          }
+        }
+        
+        if (!tripServerId) {
+          console.log(`[Queue] No valid trip server ID found for activity ${job.localId}`, {
+            jobServerId: job.serverId,
+            dependsOnLocalId: job.dependsOnLocalId,
+            bodyTripId: job.body?.trip_id,
+            resolvedId
+          });
           job.attempts += 1;
           job.nextRetryAt = Date.now() + nextDelay(job.attempts);
           q.items[idx] = job;
           await writeQueue(q);
           return false;
         }
+        
         const body = { ...(job.body || {}) };
-        if (!body.trip_id && resolvedId) body.trip_id = resolvedId;
+        body.trip_id = tripServerId;
+        
+        console.log(`[Queue] Creating activity with body:`, body);
+        
         const created: any = await createFishingActivity(body);
         const act = created?.data ?? created?.activity ?? created;
         const actId = Number(act?.id);
+        
         if (actId) {
           // link local activity job id -> server activity id (lets species depend on it)
           const map = await readMap();
           map[job.localId] = actId;
           await writeMap(map);
+          
           // upgrade species jobs waiting on this activity
           const q2 = await readQueue();
           q2.items.forEach(it => {
@@ -312,12 +415,12 @@ export async function processOne(localId: string): Promise<boolean> {
               it.dependsOnLocalId = undefined;
             }
           });
-          await writeQueue({ items: q2.items.filter(j => j.localId !== job.localId) });
-        } else {
-          // even if we didn't get the id, we consider success (server accepted). Remove to avoid deadlocks.
-          q.items.splice(idx, 1);
-          await writeQueue(q);
+          await writeQueue(q2);
         }
+        
+        // Remove this job after successful processing
+        q.items.splice(idx, 1);
+        await writeQueue(q);
         return true;
       }
 
@@ -345,6 +448,8 @@ export async function processOne(localId: string): Promise<boolean> {
       }
     }
   } catch (err: any) {
+    console.error(`Queue processing error for ${job.type}:`, err);
+    
     const status = err?.response?.status ?? err?.status ?? 0;
     if (status >= 400 && status < 500 && job.type !== 'createSpecies') {
       // Permanent (most likely validation). Drop to unblock.
@@ -352,6 +457,7 @@ export async function processOne(localId: string): Promise<boolean> {
       await writeQueue(q);
       return false;
     }
+    
     job.attempts += 1;
     job.nextRetryAt = Date.now() + nextDelay(job.attempts);
     q.items[idx] = job;
