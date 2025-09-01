@@ -9,6 +9,9 @@ import TripDetailsScreen from '../../../screens/Fisherman/TripDetails/TripDetail
 import LotDetailsScreen from '../../../screens/Fisherman/LotsDetails/LotDetailsScreen';
 import OfflineQueueScreen from '../../../screens/Fisherman/OfflineQueue/OfflineQueueScreen';
 import BoatRegisterScreen from '../../../screens/Fisherman/AddBoat/BoatRegistrationScreen';
+import BoatsListScreen from '../../../screens/Fisherman/Boats/BoatsListScreen';
+import BoatDetailsScreen from '../../../screens/Fisherman/Boats/BoatDetailsScreen';
+import EditBoatScreen from '../../../screens/Fisherman/Boats/EditBoatScreen';
 import FishingActivity from '../../../screens/Fisherman/AddTrip/FishingActivity';
 import FishingActivitiesListScreen from '../../../screens/Fisherman/Activities/FishingActivitiesList';
 import FishingActivityDetailsScreen from '../../../screens/Fisherman/Activities/FishingActivityDetailsScreen';
@@ -22,7 +25,10 @@ export type FishermanStackParamList = {
   Trip: { id?: number | string; mode?: 'create' | 'edit' } | undefined;
 
   OfflineTrips: undefined;
-  Boat: undefined;
+  BoatRegister: undefined;
+  BoatsList: undefined;
+  BoatDetails: { boatId: number };
+  EditBoat: { boatId: number };
   AllTrip: undefined;
   Profile:undefined
 
@@ -102,7 +108,10 @@ export default function FishermanStack() {
         options={{ headerShown: false }}
       />
 
-      <Stack.Screen name="Boat" component={BoatRegisterScreen} />
+      <Stack.Screen name="BoatRegister" component={BoatRegisterScreen} />
+      <Stack.Screen name="BoatsList" component={BoatsListScreen} />
+      <Stack.Screen name="BoatDetails" component={BoatDetailsScreen} />
+      <Stack.Screen name="EditBoat" component={EditBoatScreen} />
       <Stack.Screen name="Lots" component={AddLotScreen} />
       <Stack.Screen name="LotsList" component={AllLotsScreen} />
 
