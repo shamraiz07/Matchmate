@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import NetInfo from '@react-native-community/netinfo';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { logout } from '../../redux/actions/authActions';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -23,6 +23,7 @@ import { getTripCounts, type TripCounts } from '../../services/trips';
 import { fetchFishLots, type FishLot } from '../../services/lots';
 import { fetchPurchases, type FishPurchase } from '../../services/middlemanDistribution';
 import { getUser, type User } from '../../services/users';
+import { fetchTraceabilityRecords } from '../../services/traceability';
 import PALETTE from '../../theme/palette';
 
 type Nav = NativeStackNavigationProp<ExporterStackParamList, 'ExporterHome'>;
@@ -37,7 +38,8 @@ export default function ExporterHome() {
   const [online, setOnline] = useState<boolean>(true);
   const [counts, setCounts] = useState<TripCounts | null>(null);
   const [purchases, setPurchases] = useState<FishPurchase[]>([]);
-  const [lots, setLots] = useState<FishLot[]>([]);
+  const [_lots, setLots] = useState<FishLot[]>([]);
+  const [records, setRecords] = useState<any[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -54,10 +56,11 @@ export default function ExporterHome() {
     setLoading(true);
     setErrText(null);
     try {
-      const [tripCountsRes, purchasesRes, lotsRes, userRes] = await Promise.allSettled([
+      const [tripCountsRes, purchasesRes, lotsRes, recordsRes, userRes] = await Promise.allSettled([
         getTripCounts(),
         fetchPurchases({ page: 1, per_page: 10 }),
         fetchFishLots({ page: 1, per_page: 10 }),
+        fetchTraceabilityRecords({}),
         getUser(),
       ]);
 
@@ -69,6 +72,9 @@ export default function ExporterHome() {
       }
       if (lotsRes.status === 'fulfilled') {
         setLots(lotsRes.value.items);
+      }
+      if (recordsRes.status === 'fulfilled') {
+        setRecords(recordsRes.value);
       }
       if (userRes.status === 'fulfilled') {
         setUser(userRes.value);
@@ -104,15 +110,15 @@ export default function ExporterHome() {
   }, [dispatch]);
 
   const goAllTrips = useCallback(() => {
-    navigation.navigate('boughtLots' as any);
+    navigation.navigate('AllTrips');
   }, [navigation]);
 
   const goPurchases = useCallback(() => {
-    navigation.navigate('boughtLots');
+    navigation.navigate('PurchasesList');
   }, [navigation]);
 
   const goCreatePurchase = useCallback(() => {
-    navigation.navigate('addFinalProduct');
+    navigation.navigate('CreatePurchase');
   }, [navigation]);
 
   const goRecords = useCallback(() => {
@@ -136,8 +142,25 @@ export default function ExporterHome() {
   }, [purchases]);
 
   const totalRecords = useMemo(() => {
-    return lots.length;
-  }, [lots]);
+    return records.length;
+  }, [records]);
+
+  const recordsByStatus = useMemo(() => {
+    const statusCounts = {
+      approved: 0,
+      pending: 0,
+      rejected: 0,
+    };
+    
+    records.forEach(record => {
+      const status = record.status?.toLowerCase();
+      if (status === 'approved') statusCounts.approved++;
+      else if (status === 'pending') statusCounts.pending++;
+      else if (status === 'rejected') statusCounts.rejected++;
+    });
+    
+    return statusCounts;
+  }, [records]);
 
   const name = useMemo(() => {
     return user?.name || user?.first_name || 'Exporter';
@@ -162,7 +185,7 @@ export default function ExporterHome() {
       </View>
 
       {/* Online/Offline Banner */}
-      <View
+              <View
         style={[
           styles.banner,
           {
@@ -177,7 +200,7 @@ export default function ExporterHome() {
           color={online ? PALETTE.green700 : PALETTE.warn}
         />
         <Text
-          style={{
+                style={{
             marginLeft: 8,
             color: online ? PALETTE.green700 : PALETTE.warn,
             flex: 1,
@@ -263,7 +286,7 @@ export default function ExporterHome() {
             <View style={styles.statGrid}>
               <StatCard icon="inbox" label="All Trips" value={totalTrips} onPress={goAllTrips} />
               <StatCard icon="navigation" label="Active Trips" value={activeTrips} onPress={goAllTrips} tone="info" />
-            </View>
+              </View>
           )}
         </View>
 
@@ -295,6 +318,9 @@ export default function ExporterHome() {
 
           <View style={styles.statGrid}>
             <StatCard icon="description" label="All Records" value={totalRecords} onPress={goRecords} />
+            <StatCard icon="check-circle" label="Approved" value={recordsByStatus.approved} onPress={goRecords} tone="ok" />
+            <StatCard icon="schedule" label="Pending" value={recordsByStatus.pending} onPress={goRecords} tone="warn" />
+            <StatCard icon="cancel" label="Rejected" value={recordsByStatus.rejected} onPress={goRecords} tone="error" />
             <StatCard icon="add" label="New Record" value="+" onPress={goNewRecord} tone="ok" />
           </View>
         </View>
@@ -309,13 +335,7 @@ export default function ExporterHome() {
               icon="business"
               title="View Companies"
               subtitle="Browse partner companies"
-              onPress={() => {/* TODO: Navigate to companies list */}}
-            />
-            <ActionTile
-              icon="add-business"
-              title="Add Company"
-              subtitle="Register new partnership"
-              onPress={() => {/* TODO: Navigate to add company */}}
+              onPress={() => navigation.navigate('CompaniesList')}
             />
           </View>
         </View>

@@ -330,6 +330,21 @@ export async function completePurchase(id: number | string): Promise<FishPurchas
   return json?.data ?? json;
 }
 
+// ===== EXPORTER PURCHASE CREATE =====
+export type CreateExporterPurchaseBody = {
+  middle_man_id: number | string;
+  company_id: number | string;
+  purchase_reference?: string;
+  final_product_name?: string;
+  processing_notes?: string;
+  purchased_lots: Array<{ lot_no: string; quantity_kg: number | string }>;
+};
+
+export async function createExporterPurchase(body: CreateExporterPurchaseBody): Promise<FishPurchase> {
+  const json = await api('/exporter-purchases', { method: 'POST', body });
+  return json?.data ?? json;
+}
+
 // ===== CONVENIENCE FUNCTIONS =====
 
 export function fetchDistributionsByStatus(status: DistributionStatus, page = 1, per_page = 15) {
