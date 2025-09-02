@@ -21,7 +21,7 @@ export async function setAuthToken(token: string | null) {
 
 type ReqOpts = {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-  body?: any;
+  body?: any;  
   headers?: Record<string, string>;
   signal?: AbortSignal;
   isUpload?: boolean;
