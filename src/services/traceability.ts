@@ -2,7 +2,7 @@ import { api } from './https';
 
 export type SelectedLot = {
   lot_no: string;
-  quantity: string;
+  quantity_kg: string;
   final_product_name?: string;
 };
 

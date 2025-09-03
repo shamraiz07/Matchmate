@@ -8,6 +8,11 @@ import { fetchPurchases, type FishPurchase, getStatusColor, getStatusText, forma
 
 export default function PurchasesList() {
   const navigation = useNavigation();
+
+  const handleBack = () => {
+    // @ts-ignore
+    navigation.navigate('ExporterHome');
+  };
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<FishPurchase[]>([]);
   const [query, setQuery] = useState('');
@@ -106,7 +111,7 @@ export default function PurchasesList() {
       <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" />
       <View style={styles.screen}>
         <View style={styles.hero}>
-          <Pressable onPress={() => (navigation as any).goBack()} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.85 }]}>
+          <Pressable onPress={handleBack} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.85 }]}>
             <Icon name="arrow-back" size={24} color="#FFFFFF" />
           </Pressable>
           <View style={styles.heroBody}>

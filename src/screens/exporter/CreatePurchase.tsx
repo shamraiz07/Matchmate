@@ -1,6 +1,6 @@
 /* eslint-disable react-native/no-inline-styles */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, Pressable, TextInput, Alert, ScrollView, StatusBar, Platform, Modal, FlatList } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, Pressable, TextInput, ScrollView, StatusBar, Platform, Modal, FlatList, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation } from '@react-navigation/native';
 import PALETTE from '../../theme/palette';
@@ -25,6 +25,12 @@ export default function CreatePurchase() {
   const [distOptions, setDistOptions] = useState<Array<{ id: number; title: string; displayText: string; data: any }>>([]);
   const [companies, setCompanies] = useState<ExporterCompany[]>([]);
   const [loadingDistributions, setLoadingDistributions] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   // preload dropdown data
   useEffect(() => {
@@ -90,11 +96,13 @@ export default function CreatePurchase() {
       console.log('Error status:', error?.status);
       
       if (error?.status === 401) {
-        Alert.alert('Authentication Error', 'Your session has expired. Please log in again.');
-        // @ts-ignore
-        navigation.navigate('Login');
+        showToast('Your session has expired. Please log in again.', 'error');
+        setTimeout(() => {
+          // @ts-ignore
+          navigation.navigate('Login');
+        }, 2000);
       } else {
-        Alert.alert('Error', `Failed to load distributions: ${error?.message || 'Unknown error'}`);
+        showToast(`Failed to load distributions: ${error?.message || 'Unknown error'}`, 'error');
       }
     } finally {
       setLoadingDistributions(false);
@@ -119,7 +127,7 @@ export default function CreatePurchase() {
     // Find the distribution data from our already loaded options
     const selectedDist = distOptions.find(d => d.id === id);
     if (!selectedDist) {
-      Alert.alert('Error', 'Distribution data not found');
+      showToast('Distribution data not found', 'error');
       return;
     }
     
@@ -140,7 +148,7 @@ export default function CreatePurchase() {
   const submit = useCallback(async () => {
     const selectedLots = lots.filter(l => l.selected);
     if (!distributionId || !companyId || selectedLots.length === 0 || selectedLots.some(l => !l.quantity_kg) || !finalWeight) {
-      Alert.alert('Missing fields', 'Please select distribution, company, at least one lot with quantity, and enter final weight.');
+      showToast('Please fill all required fields: distribution, company, lots, and final weight.', 'error');
       return;
     }
     try {
@@ -154,11 +162,13 @@ export default function CreatePurchase() {
         selected_lots: selectedLots.map(l => ({ lot_no: l.lot_no, quantity_kg: l.quantity_kg })),
         final_weight_quantity: finalWeight,
       });
-      Alert.alert('Success', 'Purchase created.');
-      // @ts-ignore
-      navigation.navigate('PurchasesList');
+      showToast('Purchase created successfully!', 'success');
+      setTimeout(() => {
+        // @ts-ignore
+        navigation.navigate('PurchasesList');
+      }, 1500);
     } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Failed to create purchase');
+      showToast(e?.message || 'Failed to create purchase', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -173,14 +183,21 @@ export default function CreatePurchase() {
             <Icon name="arrow-back" size={24} color="#FFFFFF" />
           </Pressable>
           <View style={styles.heroBody}>
-            <Text style={styles.heroTitle}>New Purchase</Text>
-            <Text style={styles.heroSub}>Fill details and submit</Text>
+            <Text style={styles.heroTitle}>Create New Purchase</Text>
+            <Text style={styles.heroSub}>Select distribution and fill purchase details</Text>
+          </View>
+          <View style={styles.heroIcon}>
+            <Icon name="shopping-cart" size={28} color="#FFFFFF" />
           </View>
         </View>
 
         {/* Select Distribution */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Select Distribution</Text>
+          <View style={styles.sectionHeader}>
+            <Icon name="assignment" size={20} color={PALETTE.green700} />
+            <Text style={styles.sectionTitle}>Select Distribution</Text>
+          </View>
+          <Text style={styles.sectionSubtitle}>Choose a distribution to purchase from</Text>
           <Pressable onPress={() => { loadDistributions(); setDistModal(true); }} style={({ pressed }) => [styles.select, pressed && { opacity: 0.95 }]}>
             <Text style={{ color: distributionId ? PALETTE.text900 : '#9CA3AF' }}>
               {distributionId ? distOptions.find(d => String(d.id) === distributionId)?.displayText || `Distribution #${distributionId}` : 'Select a distribution…'}
@@ -191,7 +208,11 @@ export default function CreatePurchase() {
 
         {/* Purchase Details */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Purchase Details</Text>
+          <View style={styles.sectionHeader}>
+            <Icon name="business" size={20} color={PALETTE.green700} />
+            <Text style={styles.sectionTitle}>Purchase Details</Text>
+          </View>
+          <Text style={styles.sectionSubtitle}>Fill in the purchase information</Text>
           <Pressable onPress={() => setCompanyModal(true)} style={({ pressed }) => [styles.select, pressed && { opacity: 0.95 }]}>
             <Text style={{ color: companyId ? PALETTE.text900 : '#9CA3AF' }}>
               {companyId ? companies.find(c => String(c.id) === companyId)?.company_name || `Company ID: ${companyId}` : 'Select company…'}
@@ -260,7 +281,17 @@ export default function CreatePurchase() {
         </View>
 
         <Pressable disabled={submitting} onPress={submit} style={({ pressed }) => [styles.submit, pressed && { opacity: 0.95 }, submitting && { opacity: 0.7 }]}>
-          <Text style={styles.submitText}>{submitting ? 'Submitting…' : 'Create Purchase'}</Text>
+          {submitting ? (
+            <View style={styles.submitContent}>
+              <ActivityIndicator size="small" color="#FFFFFF" />
+              <Text style={styles.submitText}>Creating Purchase...</Text>
+            </View>
+          ) : (
+            <View style={styles.submitContent}>
+              <Icon name="check-circle" size={20} color="#FFFFFF" />
+              <Text style={styles.submitText}>Create Purchase</Text>
+            </View>
+          )}
         </Pressable>
       </ScrollView>
 
@@ -300,6 +331,18 @@ export default function CreatePurchase() {
           )} />
         </View>
       </Modal>
+
+      {/* Toast Notification */}
+      {toast && (
+        <View style={[styles.toast, { backgroundColor: toast.type === 'success' ? '#4CAF50' : toast.type === 'error' ? '#F44336' : '#2196F3' }]}>
+          <Icon 
+            name={toast.type === 'success' ? 'check-circle' : toast.type === 'error' ? 'error' : 'info'} 
+            size={20} 
+            color="#FFFFFF" 
+          />
+          <Text style={styles.toastText}>{toast.message}</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -332,22 +375,59 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   screen: { paddingHorizontal: 16, paddingTop: 38, paddingBottom: 20 },
-  hero: { backgroundColor: PALETTE.green700, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', ...shadow(0.08, 8, 3) },
-  backBtn: { padding: 6, borderRadius: 999, marginRight: 8 },
+  hero: { 
+    backgroundColor: PALETTE.green700, 
+    borderRadius: 20, 
+    paddingVertical: 16, 
+    paddingHorizontal: 16, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginBottom: 8,
+    ...shadow(0.1, 10, 4) 
+  },
+  backBtn: { 
+    padding: 8, 
+    borderRadius: 12, 
+    marginRight: 12, 
+    backgroundColor: 'rgba(255,255,255,0.15)' 
+  },
   heroBody: { flex: 1 },
-  heroTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
-  heroSub: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 },
-  card: { marginTop: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: PALETTE.border, borderRadius: 12, padding: 12 },
+  heroTitle: { color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
+  heroSub: { color: 'rgba(255,255,255,0.9)', fontSize: 14, marginTop: 4 },
+  heroIcon: { 
+    padding: 8, 
+    borderRadius: 12, 
+    backgroundColor: 'rgba(255,255,255,0.15)' 
+  },
+  card: { 
+    marginTop: 16, 
+    backgroundColor: '#fff', 
+    borderWidth: 1, 
+    borderColor: PALETTE.border, 
+    borderRadius: 16, 
+    padding: 16,
+    ...shadow(0.05, 6, 2)
+  },
   label: { color: PALETTE.text700, marginBottom: 6, fontWeight: '700' },
   input: { borderWidth: 1, borderColor: PALETTE.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: Platform.OS === 'ios' ? 10 : 8, color: PALETTE.text900, backgroundColor: '#FFFFFF' },
   blockTitle: { marginTop: 10, marginBottom: 6, color: PALETTE.text900, fontWeight: '800' },
   lotRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   delBtn: { marginLeft: 8, backgroundColor: PALETTE.error, paddingHorizontal: 10, paddingVertical: 10, borderRadius: 10 },
   addLotBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: PALETTE.border, backgroundColor: '#F8FAFC' },
-  submit: { marginTop: 14, backgroundColor: PALETTE.green700, marginHorizontal: 16, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
-  submitText: { color: '#fff', fontWeight: '800' },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  sectionTitle: { color: PALETTE.text900, fontWeight: '800', fontSize: 16, marginLeft: 8 },
+  submit: { 
+    marginTop: 20, 
+    backgroundColor: PALETTE.green700, 
+    marginHorizontal: 16, 
+    paddingVertical: 16, 
+    borderRadius: 16, 
+    alignItems: 'center',
+    ...shadow(0.1, 8, 3)
+  },
+  submitContent: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  submitText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  sectionTitle: { color: PALETTE.text900, fontWeight: '800', fontSize: 18, marginLeft: 8 },
+  sectionSubtitle: { color: PALETTE.text600, fontSize: 14, marginBottom: 12, marginLeft: 28 },
   select: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: PALETTE.border, backgroundColor: '#fff', borderRadius: 10, paddingHorizontal: 12, paddingVertical: Platform.OS === 'ios' ? 10 : 8 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
   modalSheet: { 
@@ -395,6 +475,25 @@ const styles = StyleSheet.create({
     fontSize: 14
   },
   availableText: { color: PALETTE.text600, fontSize: 11, fontStyle: 'italic' },
+  toast: {
+    position: 'absolute',
+    top: 60,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    ...shadow(0.15, 8, 4)
+  },
+  toastText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 14,
+    marginLeft: 8,
+    flex: 1
+  },
 });
 
 function shadow(opacity: number, radius: number, height: number) {

@@ -8,6 +8,12 @@ import { fetchExporterCompanies, type ExporterCompany } from '../../services/tra
 
 export default function CompaniesList() {
   const navigation = useNavigation();
+
+  const handleBack = () => {
+    // @ts-ignore
+    navigation.navigate('ExporterHome');
+  };
+
   const [loading, setLoading] = useState<boolean>(true);
   const [q, setQ] = useState('');
   const [items, setItems] = useState<ExporterCompany[]>([]);
@@ -85,7 +91,7 @@ export default function CompaniesList() {
       <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" />
       <View style={styles.screen}>
         <View style={styles.hero}>
-          <Pressable onPress={() => (navigation as any).goBack()} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.85 }]}>
+          <Pressable onPress={handleBack} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.85 }]}>
             <Icon name="arrow-back" size={24} color="#FFFFFF" />
           </Pressable>
           <View style={styles.heroBody}>

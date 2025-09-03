@@ -3,11 +3,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, TextInput, Platform, FlatList, Modal, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import PALETTE from '../../theme/palette';
 import { fetchExporterCompanies, type ExporterCompany, createTraceabilityRecord } from '../../services/traceability';
 import { getUser } from '../../services/users';
 
-type LotRow = { lot_no: string; final_product_name: string; quantity: string };
+type LotRow = { lot_no: string; final_product_name: string; quantity_kg: string };
 
 export default function traceabilityForm() {
   const navigation = useNavigation();
@@ -23,15 +24,35 @@ export default function traceabilityForm() {
   const [exportCertNo, setExportCertNo] = useState('');
   const [consigneeName, setConsigneeName] = useState('');
   const [consigneeCountry, setConsigneeCountry] = useState('');
-  const [documentDate, setDocumentDate] = useState('');
-  const [shipmentDate, setShipmentDate] = useState('');
+  const [documentDate, setDocumentDate] = useState(new Date());
+  const [shipmentDate, setShipmentDate] = useState(new Date());
+  const [showDocumentDatePicker, setShowDocumentDatePicker] = useState(false);
+  const [showShipmentDatePicker, setShowShipmentDatePicker] = useState(false);
   const [validatingAuthority, setValidatingAuthority] = useState('');
   const [exporterName, setExporterName] = useState('');
   const [plantAddress, setPlantAddress] = useState('');
   const [totalValue, setTotalValue] = useState('');
-  const [lots, setLots] = useState<LotRow[]>([{ lot_no: '', final_product_name: '', quantity: '' }]);
+  const [lots, setLots] = useState<LotRow[]>([{ lot_no: '', final_product_name: '', quantity_kg: '' }]);
 
   const [exporterId, setExporterId] = useState<number | null>(null);
+
+  const formatDate = (date: Date) => {
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+  };
+
+  const handleDocumentDateChange = (event: any, selectedDate?: Date) => {
+    setShowDocumentDatePicker(false);
+    if (selectedDate) {
+      setDocumentDate(selectedDate);
+    }
+  };
+
+  const handleShipmentDateChange = (event: any, selectedDate?: Date) => {
+    setShowShipmentDatePicker(false);
+    if (selectedDate) {
+      setShipmentDate(selectedDate);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -46,12 +67,12 @@ export default function traceabilityForm() {
     })();
   }, []);
 
-  const addLot = () => setLots(prev => [...prev, { lot_no: '', final_product_name: '', quantity: '' }]);
+  const addLot = () => setLots(prev => [...prev, { lot_no: '', final_product_name: '', quantity_kg: '' }]);
   const updateLot = (i: number, key: keyof LotRow, value: string) => setLots(prev => prev.map((l, idx) => (idx === i ? { ...l, [key]: value } : l)));
   const removeLot = (i: number) => setLots(prev => prev.filter((_, idx) => idx !== i));
 
   const totalQuantityKg = useMemo(() => {
-    return lots.reduce((acc, l) => acc + (parseFloat(l.quantity || '0') || 0), 0);
+    return lots.reduce((acc, l) => acc + (parseFloat(l.quantity_kg || '0') || 0), 0);
   }, [lots]);
 
   const handleSubmit = useCallback(async () => {
@@ -63,7 +84,14 @@ export default function traceabilityForm() {
       Alert.alert('Missing Company', 'Please select a company.');
       return;
     }
-    if (!invoiceNo || !consigneeName || !consigneeCountry || !shipmentDate) {
+    
+    // Validate that the selected company exists
+    const selectedCompany = companies.find(c => String(c.id) === companyId);
+    if (!selectedCompany) {
+      Alert.alert('Invalid Company', 'The selected company is not valid. Please select a different company.');
+      return;
+    }
+    if (!invoiceNo || !consigneeName || !consigneeCountry) {
       Alert.alert('Missing Info', 'Please fill required fields.');
       return;
     }
@@ -73,16 +101,22 @@ export default function traceabilityForm() {
     }
     try {
       setSubmitting(true);
+      
+      // Debug: Log available companies and selected company
+      console.log('Available companies:', companies);
+      console.log('Selected company ID:', companyId);
+      console.log('Selected company:', companies.find(c => String(c.id) === companyId));
+      
       const body = {
         exporter_id: exporterId,
-        company_id: Number(companyId),
+        company_id: selectedCompany.id,
         invoice_no: invoiceNo,
         consignee_name: consigneeName,
         consignee_country: consigneeCountry,
-        document_date: documentDate || new Date().toISOString().slice(0, 10),
-        date_of_shipment: shipmentDate,
+        document_date: formatDate(documentDate),
+        date_of_shipment: formatDate(shipmentDate),
         export_certificate_no: exportCertNo || undefined,
-        selected_lots: lots.map(l => ({ lot_no: l.lot_no, quantity: l.quantity || '0', final_product_name: l.final_product_name })),
+        selected_lots: lots.map(l => ({ lot_no: l.lot_no, quantity_kg: l.quantity_kg || '0', final_product_name: l.final_product_name })),
         total_quantity_kg: String(totalQuantityKg),
         total_value: totalValue || '0',
         validating_authority: validatingAuthority || 'Marine Fisheries Department',
@@ -136,8 +170,23 @@ export default function traceabilityForm() {
           <Field label="Export Certificate No" value={exportCertNo} onChangeText={setExportCertNo} placeholder="ECN-0001" />
           <Field label="Consignee Name" value={consigneeName} onChangeText={setConsigneeName} placeholder="Consignee full name" />
           <Field label="Consignee Country" value={consigneeCountry} onChangeText={setConsigneeCountry} placeholder="Country" />
-          <Field label="Document Date (YYYY-MM-DD)" value={documentDate} onChangeText={setDocumentDate} placeholder="YYYY-MM-DD" />
-          <Field label="Date of Shipment (YYYY-MM-DD)" value={shipmentDate} onChangeText={setShipmentDate} placeholder="YYYY-MM-DD" />
+          {/* Document Date Picker */}
+          <View style={{ marginBottom: 10 }}>
+            <Text style={styles.label}>Document Date</Text>
+            <Pressable onPress={() => setShowDocumentDatePicker(true)} style={({ pressed }) => [styles.datePicker, pressed && { opacity: 0.95 }]}>
+              <Text style={{ color: PALETTE.text900, fontSize: 16 }}>{formatDate(documentDate)}</Text>
+              <Icon name="calendar-today" size={20} color={PALETTE.green700} />
+            </Pressable>
+          </View>
+
+          {/* Shipment Date Picker */}
+          <View style={{ marginBottom: 10 }}>
+            <Text style={styles.label}>Date of Shipment</Text>
+            <Pressable onPress={() => setShowShipmentDatePicker(true)} style={({ pressed }) => [styles.datePicker, pressed && { opacity: 0.95 }]}>
+              <Text style={{ color: PALETTE.text900, fontSize: 16 }}>{formatDate(shipmentDate)}</Text>
+              <Icon name="calendar-today" size={20} color={PALETTE.green700} />
+            </Pressable>
+          </View>
           <Field label="Validating Authority" value={validatingAuthority} onChangeText={setValidatingAuthority} placeholder="Marine Fisheries Department" />
           <Field label="Exporter Name" value={exporterName} onChangeText={setExporterName} placeholder="Company Exporter" />
           <Field label="Plant Address" value={plantAddress} onChangeText={setPlantAddress} placeholder="Business address" />
@@ -151,7 +200,7 @@ export default function traceabilityForm() {
             <View key={idx} style={{ marginBottom: 10 }}>
               <Field label="Lot No" value={row.lot_no} onChangeText={t => updateLot(idx, 'lot_no', t)} placeholder="LOT-2025-0001" />
               <Field label="Final Product Name" value={row.final_product_name} onChangeText={t => updateLot(idx, 'final_product_name', t)} placeholder="Tuna" />
-              <Field label="Quantity (KG)" value={row.quantity} onChangeText={t => updateLot(idx, 'quantity', t)} keyboardType="numeric" placeholder="0" />
+              <Field label="Quantity (KG)" value={row.quantity_kg} onChangeText={t => updateLot(idx, 'quantity_kg', t)} keyboardType="numeric" placeholder="0" />
               {lots.length > 1 && (
                 <Pressable onPress={() => removeLot(idx)} style={({ pressed }) => [styles.removeBtn, pressed && { opacity: 0.9 }]}>
                   <Icon name="delete" size={16} color="#fff" />
@@ -196,6 +245,26 @@ export default function traceabilityForm() {
           />
         </View>
       </Modal>
+
+      {/* Document Date Picker Modal */}
+      {showDocumentDatePicker && (
+        <DateTimePicker
+          value={documentDate}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleDocumentDateChange}
+        />
+      )}
+
+      {/* Shipment Date Picker Modal */}
+      {showShipmentDatePicker && (
+        <DateTimePicker
+          value={shipmentDate}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleShipmentDateChange}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -229,6 +298,17 @@ const styles = StyleSheet.create({
   addBtnText: { color: '#fff', fontWeight: '800' },
   removeBtn: { alignSelf: 'flex-start', marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#C62828', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
   removeBtnText: { color: '#fff', fontWeight: '800' },
+  datePicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 8,
+  },
   totalRow: { marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   totalLabel: { color: PALETTE.text700, fontWeight: '700' },
   totalValue: { color: PALETTE.text900, fontWeight: '800' },
