@@ -4,11 +4,11 @@ import { View, Text, StyleSheet, SafeAreaView, Pressable, TextInput, Alert, Scro
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation } from '@react-navigation/native';
 import PALETTE from '../../theme/palette';
-import { createExporterPurchase, fetchDistributions, fetchDistributionById } from '../../services/middlemanDistribution';
-import { fetchFishLotById } from '../../services/lots';
+import { createExporterPurchase, fetchAllDistributions } from '../../services/middlemanDistribution';
 import { fetchExporterCompanies, type ExporterCompany } from '../../services/traceability';
+import { loadTokenFromStorage } from '../../services/https';
 
-type LotRow = { lot_no: string; max?: number | null; quantity_kg: string };
+type LotRow = { lot_no: string; max?: number | null; quantity_kg: string; selected?: boolean };
 
 export default function CreatePurchase() {
   const navigation = useNavigation();
@@ -17,81 +17,142 @@ export default function CreatePurchase() {
   const [reference, setReference] = useState('');
   const [product, setProduct] = useState('');
   const [notes, setNotes] = useState('');
+  const [finalWeight, setFinalWeight] = useState('');
   const [lots, setLots] = useState<LotRow[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [distModal, setDistModal] = useState(false);
   const [companyModal, setCompanyModal] = useState(false);
-  const [distOptions, setDistOptions] = useState<Array<{ id: number; title: string }>>([]);
+  const [distOptions, setDistOptions] = useState<Array<{ id: number; title: string; displayText: string; data: any }>>([]);
   const [companies, setCompanies] = useState<ExporterCompany[]>([]);
+  const [loadingDistributions, setLoadingDistributions] = useState(false);
 
   // preload dropdown data
   useEffect(() => {
     (async () => {
       try {
-        const dRes = await fetchDistributions({ page: 1, per_page: 50 });
-        setDistOptions(dRes.items.map(d => ({ id: d.id, title: `Distribution #${d.id}` })));
-      } catch {}
+        const dRes = await fetchAllDistributions();
+        setDistOptions(dRes.map(d => {
+          const tripId = d.trip?.id || d.trip_id;
+          const middlemanName = d.middle_man?.name || 'Unknown';
+          const totalKg = d.total_quantity_kg;
+          return { 
+            id: d.id, 
+            title: `Distribution #${d.id}`,
+            displayText: `Trip#${tripId} - ${middlemanName} (${totalKg} kg)`,
+            data: d // Store the full distribution data
+          };
+        }));
+      } catch (error: any) {
+        console.log('Error fetching distributions:', error?.message);
+        // Don't show error to user on load, just log it
+      }
       try {
         const companiesRes = await fetchExporterCompanies();
         setCompanies(companiesRes);
-      } catch {}
+      } catch (error: any) {
+        console.log('Error fetching companies:', error?.message);
+        // Don't show error to user on load, just log it
+      }
     })();
   }, []);
 
-  const addLot = () => setLots(prev => [...prev, { lot_no: '', quantity_kg: '' }]);
-  const updateLot = (i: number, key: 'lot_no' | 'quantity_kg', value: string) => {
-    setLots(prev => prev.map((l, idx) => (idx === i ? { ...l, [key]: value } : l)));
+  const toggleLotSelection = (i: number) => {
+    setLots(prev => prev.map((l, idx) => 
+      idx === i ? { ...l, selected: !l.selected, quantity_kg: !l.selected ? l.quantity_kg : '' } : l
+    ));
   };
-  const removeLot = (i: number) => setLots(prev => prev.filter((_, idx) => idx !== i));
+  const updateLotQuantity = (i: number, value: string) => {
+    setLots(prev => prev.map((l, idx) => (idx === i ? { ...l, quantity_kg: value } : l)));
+  };
+
+  const loadDistributions = async () => {
+    if (distOptions.length > 0) return; // Already loaded
+    
+    setLoadingDistributions(true);
+    try {
+      // Ensure token is loaded
+      await loadTokenFromStorage();
+      
+      const dRes = await fetchAllDistributions();
+      setDistOptions(dRes.map(d => {
+        const tripId = d.trip?.id || d.trip_id;
+        const middlemanName = d.middle_man?.name || 'Unknown';
+        const totalKg = d.total_quantity_kg;
+        return { 
+          id: d.id, 
+          title: `Distribution #${d.id}`,
+          displayText: `Trip#${tripId} - ${middlemanName} (${totalKg} kg)`,
+          data: d // Store the full distribution data
+        };
+      }));
+    } catch (error: any) {
+      console.log('Error fetching distributions:', error?.message);
+      console.log('Error status:', error?.status);
+      
+      if (error?.status === 401) {
+        Alert.alert('Authentication Error', 'Your session has expired. Please log in again.');
+        // @ts-ignore
+        navigation.navigate('Login');
+      } else {
+        Alert.alert('Error', `Failed to load distributions: ${error?.message || 'Unknown error'}`);
+      }
+    } finally {
+      setLoadingDistributions(false);
+    }
+  };
 
   // derive summary
   const totalSelectedKg = useMemo(() => {
-    return lots.reduce((acc, l) => acc + (parseFloat(l.quantity_kg || '0') || 0), 0);
+    return lots.filter(l => l.selected).reduce((acc, l) => acc + (parseFloat(l.quantity_kg || '0') || 0), 0);
   }, [lots]);
-  const finalWeightKg = useMemo(() => parseFloat(String(totalSelectedKg ? totalSelectedKg : 0)) || 0, [totalSelectedKg]);
+  const finalWeightKg = useMemo(() => parseFloat(finalWeight || '0') || 0, [finalWeight]);
   const efficiencyPct = useMemo(() => {
-    const f = parseFloat(product ? '0' : '0');
-    const base = finalWeightKg;
-    if (!base) return 0;
+    const base = totalSelectedKg;
+    if (!base || !finalWeightKg) return 0;
     return Math.max(0, Math.min(100, (finalWeightKg / base) * 100));
-  }, [finalWeightKg, product]);
+  }, [finalWeightKg, totalSelectedKg]);
 
-  const onPickDistribution = useCallback(async (id: number) => {
+  const onPickDistribution = useCallback((id: number) => {
     setDistributionId(String(id));
     setDistModal(false);
-    // load available lots for this distribution
-    try {
-      const dist = await fetchDistributionById(id);
-      const enriched: LotRow[] = [];
-      for (const dl of dist.distributed_lots || []) {
-        try {
-          const lot = await fetchFishLotById(dl.lot_id);
-          enriched.push({ lot_no: lot.lot_no, max: parseFloat(dl.quantity_kg || '0') || null, quantity_kg: '' });
-        } catch {
-          enriched.push({ lot_no: String(dl.lot_id), max: parseFloat(dl.quantity_kg || '0') || null, quantity_kg: '' });
-        }
-      }
-      setLots(enriched);
-    } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Failed to load distribution');
-      setLots([]);
+    
+    // Find the distribution data from our already loaded options
+    const selectedDist = distOptions.find(d => d.id === id);
+    if (!selectedDist) {
+      Alert.alert('Error', 'Distribution data not found');
+      return;
     }
-  }, []);
+    
+    const enriched: LotRow[] = [];
+    
+    // Use the distributed_lots directly from the stored data
+    for (const dl of selectedDist.data.distributed_lots || []) {
+      enriched.push({ 
+        lot_no: dl.lot_no || String(dl.lot_id), 
+        max: parseFloat(dl.quantity_kg || '0') || null, 
+        quantity_kg: '',
+        selected: false
+      });
+    }
+    setLots(enriched);
+  }, [distOptions]);
 
   const submit = useCallback(async () => {
-    if (!distributionId || !companyId || lots.length === 0 || lots.some(l => !l.lot_no || !l.quantity_kg)) {
-      Alert.alert('Missing fields', 'Please select distribution, company and at least one lot with quantity.');
+    const selectedLots = lots.filter(l => l.selected);
+    if (!distributionId || !companyId || selectedLots.length === 0 || selectedLots.some(l => !l.quantity_kg) || !finalWeight) {
+      Alert.alert('Missing fields', 'Please select distribution, company, at least one lot with quantity, and enter final weight.');
       return;
     }
     try {
       setSubmitting(true);
       await createExporterPurchase({
-        middle_man_id: 0 as any, // server infers from distribution
+        distribution_id: parseInt(distributionId, 10),
         company_id: companyId,
         purchase_reference: reference || undefined,
         final_product_name: product || undefined,
         processing_notes: notes || undefined,
-        purchased_lots: lots.map(l => ({ lot_no: l.lot_no, quantity_kg: l.quantity_kg })),
+        selected_lots: selectedLots.map(l => ({ lot_no: l.lot_no, quantity_kg: l.quantity_kg })),
+        final_weight_quantity: finalWeight,
       });
       Alert.alert('Success', 'Purchase created.');
       // @ts-ignore
@@ -101,7 +162,7 @@ export default function CreatePurchase() {
     } finally {
       setSubmitting(false);
     }
-  }, [distributionId, companyId, reference, product, notes, lots, navigation]);
+  }, [distributionId, companyId, reference, product, notes, finalWeight, lots, navigation]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: PALETTE.surface }}>
@@ -120,8 +181,10 @@ export default function CreatePurchase() {
         {/* Select Distribution */}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Select Distribution</Text>
-          <Pressable onPress={() => setDistModal(true)} style={({ pressed }) => [styles.select, pressed && { opacity: 0.95 }]}>
-            <Text style={{ color: distributionId ? PALETTE.text900 : '#9CA3AF' }}>{distributionId ? `Distribution #${distributionId}` : 'Select a distribution…'}</Text>
+          <Pressable onPress={() => { loadDistributions(); setDistModal(true); }} style={({ pressed }) => [styles.select, pressed && { opacity: 0.95 }]}>
+            <Text style={{ color: distributionId ? PALETTE.text900 : '#9CA3AF' }}>
+              {distributionId ? distOptions.find(d => String(d.id) === distributionId)?.displayText || `Distribution #${distributionId}` : 'Select a distribution…'}
+            </Text>
             <Icon name="arrow-drop-down" size={22} color={PALETTE.text700} />
           </Pressable>
         </View>
@@ -136,28 +199,51 @@ export default function CreatePurchase() {
             <Icon name="arrow-drop-down" size={22} color={PALETTE.text700} />
           </Pressable>
           <Field label="Final Product Name" value={product} onChangeText={setProduct} />
-          <Field label="Final Weight Quantity (kg)" value={String(finalWeightKg || '')} onChangeText={() => {}} editable={false} />
+          <Field label="Final Weight Quantity (kg)" value={finalWeight} onChangeText={setFinalWeight} keyboardType="decimal-pad" />
           <Field label="Purchase Reference" value={reference} onChangeText={setReference} />
           <Field label="Processing Notes" value={notes} onChangeText={setNotes} multiline />
         </View>
 
         {/* Lots & Quantities */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Select Lots & Quantities</Text>
+          <View style={styles.sectionHeader}>
+            <Icon name="pets" size={20} color={PALETTE.green700} />
+            <Text style={styles.sectionTitle}>Select Lots & Quantities</Text>
+          </View>
           {distributionId ? (
             <>
               {lots.length === 0 ? (
                 <Text style={{ color: PALETTE.text600 }}>No lots available for selected distribution.</Text>
               ) : (
-                lots.map((lot, i) => (
-                  <View key={i} style={styles.lotRow}>
-                    <Text style={{ color: PALETTE.text900, fontWeight: '800', flex: 1 }}>{lot.lot_no}</Text>
-                    <TextInput value={lot.quantity_kg} onChangeText={(t) => updateLot(i, 'quantity_kg', t)} placeholder={`Qty (kg)${lot.max ? ` max ${lot.max}` : ''}`} style={[styles.input, { width: 140 }]} placeholderTextColor="#9CA3AF" keyboardType="decimal-pad" />
-                    <Pressable onPress={() => removeLot(i)} style={({ pressed }) => [styles.delBtn, pressed && { opacity: 0.9 }]}>
-                      <Icon name="delete" size={18} color="#fff" />
-                    </Pressable>
-                  </View>
-                ))
+                <View style={styles.lotsGrid}>
+                  {lots.map((lot, i) => (
+                    <View key={i} style={styles.lotCard}>
+                      <View style={styles.lotCardHeader}>
+                        <Pressable onPress={() => toggleLotSelection(i)} style={({ pressed }) => [styles.checkbox, pressed && { opacity: 0.8 }]}>
+                          <Icon 
+                            name={lot.selected ? "check-box" : "check-box-outline-blank"} 
+                            size={20} 
+                            color={lot.selected ? PALETTE.green700 : PALETTE.text600} 
+                          />
+                        </Pressable>
+                        <Text style={styles.lotNumber}>Lot: {lot.lot_no}</Text>
+                      </View>
+                      <View style={styles.lotCardBody}>
+                        <Text style={styles.quantityLabel}>Quantity (kg)</Text>
+                        <TextInput 
+                          value={lot.quantity_kg} 
+                          onChangeText={(value) => updateLotQuantity(i, value)} 
+                          placeholder="0.00"
+                          placeholderTextColor="#9CA3AF"
+                          style={styles.lotQuantityInput} 
+                          keyboardType="decimal-pad"
+                          editable={lot.selected}
+                        />
+                        <Text style={styles.availableText}>Available: {lot.max?.toFixed(2) || '0.00'} kg</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
               )}
             </>
           ) : (
@@ -183,11 +269,21 @@ export default function CreatePurchase() {
         <Pressable style={styles.modalBackdrop} onPress={() => setDistModal(false)} />
         <View style={styles.modalSheet}>
           <Text style={styles.modalTitle}>Select Distribution</Text>
-          <FlatList data={distOptions} keyExtractor={it => String(it.id)} renderItem={({ item }) => (
-            <Pressable onPress={() => onPickDistribution(item.id)} style={({ pressed }) => [styles.modalItem, pressed && { opacity: 0.9 }]}>
-              <Text style={{ color: PALETTE.text900, fontWeight: '700' }}>{item.title}</Text>
-            </Pressable>
-          )} />
+          {loadingDistributions ? (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <Text style={{ color: PALETTE.text600 }}>Loading distributions...</Text>
+            </View>
+          ) : distOptions.length === 0 ? (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <Text style={{ color: PALETTE.text600 }}>No distributions available</Text>
+            </View>
+          ) : (
+            <FlatList data={distOptions} keyExtractor={it => String(it.id)} renderItem={({ item }) => (
+              <Pressable onPress={() => onPickDistribution(item.id)} style={({ pressed }) => [styles.modalItem, pressed && { opacity: 0.9 }]}>
+                <Text style={{ color: PALETTE.text900, fontWeight: '700' }}>{item.displayText}</Text>
+              </Pressable>
+            )} />
+          )}
         </View>
       </Modal>
 
@@ -250,7 +346,8 @@ const styles = StyleSheet.create({
   addLotBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: PALETTE.border, backgroundColor: '#F8FAFC' },
   submit: { marginTop: 14, backgroundColor: PALETTE.green700, marginHorizontal: 16, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
   submitText: { color: '#fff', fontWeight: '800' },
-  sectionTitle: { color: PALETTE.text900, fontWeight: '800', marginBottom: 10, fontSize: 16 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  sectionTitle: { color: PALETTE.text900, fontWeight: '800', fontSize: 16, marginLeft: 8 },
   select: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: PALETTE.border, backgroundColor: '#fff', borderRadius: 10, paddingHorizontal: 12, paddingVertical: Platform.OS === 'ios' ? 10 : 8 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
   modalSheet: { 
@@ -271,6 +368,33 @@ const styles = StyleSheet.create({
   },
   modalTitle: { color: PALETTE.text900, fontWeight: '800', fontSize: 16, marginBottom: 8 },
   modalItem: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: PALETTE.border },
+  lotsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 8 },
+  lotCard: { 
+    flex: 1, 
+    minWidth: '45%', 
+    backgroundColor: '#fff', 
+    borderWidth: 1, 
+    borderColor: PALETTE.border, 
+    borderRadius: 12, 
+    padding: 12,
+    ...shadow(0.05, 4, 2)
+  },
+  lotCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  checkbox: { marginRight: 8 },
+  lotNumber: { color: PALETTE.text900, fontWeight: '800', fontSize: 14, flex: 1 },
+  lotCardBody: { gap: 6 },
+  quantityLabel: { color: PALETTE.text700, fontWeight: '600', fontSize: 12 },
+  lotQuantityInput: { 
+    borderWidth: 1, 
+    borderColor: PALETTE.border, 
+    borderRadius: 8, 
+    paddingHorizontal: 10, 
+    paddingVertical: 8, 
+    color: PALETTE.text900, 
+    backgroundColor: '#fff',
+    fontSize: 14
+  },
+  availableText: { color: PALETTE.text600, fontSize: 11, fontStyle: 'italic' },
 });
 
 function shadow(opacity: number, radius: number, height: number) {

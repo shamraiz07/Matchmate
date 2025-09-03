@@ -28,6 +28,7 @@ export type DistributedLot = {
   notes: string | null;
   lot_id: string;
   quantity_kg: string;
+  lot_no: string;
 };
 
 export type FishLotDistribution = {
@@ -45,6 +46,86 @@ export type FishLotDistribution = {
   created_at: string;
   updated_at: string;
   verification_status_label: string;
+  trip?: {
+    id: number;
+    trip_id: string;
+    fisherman_id: number;
+    user_id: number;
+    boat_registration_number: string;
+    boat_name: string;
+    trip_type: string;
+    trip_purpose?: string | null;
+    fishing_zone: string;
+    port_location: string;
+    departure_time: string;
+    departure_latitude: string;
+    departure_longitude: string;
+    departure_port: string;
+    departure_notes: string;
+    arrival_time?: string | null;
+    arrival_latitude?: string | null;
+    arrival_longitude?: string | null;
+    arrival_port?: string | null;
+    landing_site: string;
+    landing_time: string;
+    fishing_activity_count: number;
+    trip_started: boolean;
+    trip_completed: boolean;
+    auto_time: string;
+    auto_latitude?: string | null;
+    auto_longitude?: string | null;
+    arrival_notes?: string | null;
+    status: string;
+    approved_by: number;
+    approved_at: string;
+    approval_notes?: string | null;
+    crew_count: number;
+    captain_name: string;
+    captain_mobile_no: string;
+    crew_no: number;
+    port_clearance_no: string;
+    fuel_quantity: string;
+    ice_quantity: string;
+    departure_site: string;
+    safety_equipment: string;
+    emergency_contact: string;
+    emergency_phone: string;
+    weather_conditions: string;
+    sea_conditions: string;
+    wind_speed: string;
+    wave_height: string;
+    estimated_catch_weight: string;
+    target_species: string;
+    catch_notes?: string | null;
+    fuel_cost?: string | null;
+    operational_cost?: string | null;
+    total_cost?: string | null;
+    revenue?: string | null;
+    profit?: string | null;
+    gps_track?: string | null;
+    last_gps_update?: string | null;
+    current_latitude?: string | null;
+    current_longitude?: string | null;
+    current_speed?: string | null;
+    current_heading?: string | null;
+    is_offline: boolean;
+    last_online_at?: string | null;
+    went_offline_at?: string | null;
+    trip_photos?: string | null;
+    documents?: string | null;
+    created_at: string;
+    updated_at: string;
+    duration: string;
+    distance_traveled: string;
+    status_label: string;
+    trip_type_label: string;
+    is_active: boolean;
+    is_completed: boolean;
+    is_pending_approval: boolean;
+    current_location_formatted: string;
+    departure_location_formatted: string;
+    arrival_location_formatted: string;
+  };
   middle_man?: {
     id: number;
     name: string;
@@ -233,6 +314,21 @@ export async function fetchDistributionById(id: number | string): Promise<FishLo
   return json?.data ?? json;
 }
 
+export async function fetchAllDistributions(): Promise<FishLotDistribution[]> {
+  try {
+    const json = await api('/all-middleman-distributions', { method: 'GET' });
+    const data = json?.data;
+    if (!Array.isArray(data)) {
+      console.log('API Response:', json);
+      return [];
+    }
+    return data as FishLotDistribution[];
+  } catch (error: any) {
+    console.log('fetchAllDistributions error:', error);
+    throw error;
+  }
+}
+
 export async function confirmDistribution(id: number | string, purchasePrice: number): Promise<FishLotDistribution> {
   const json = await api(`/middle-man-distributions/${id}/confirm`, { 
     method: 'POST', 
@@ -332,12 +428,13 @@ export async function completePurchase(id: number | string): Promise<FishPurchas
 
 // ===== EXPORTER PURCHASE CREATE =====
 export type CreateExporterPurchaseBody = {
-  middle_man_id: number | string;
+  distribution_id: number;
   company_id: number | string;
   purchase_reference?: string;
   final_product_name?: string;
   processing_notes?: string;
-  purchased_lots: Array<{ lot_no: string; quantity_kg: number | string }>;
+  final_weight_quantity?: string | number;
+  selected_lots: Array<{ lot_no: string; quantity_kg: number | string }>;
 };
 
 export async function createExporterPurchase(body: CreateExporterPurchaseBody): Promise<FishPurchase> {
