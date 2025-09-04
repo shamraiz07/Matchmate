@@ -1,11 +1,9 @@
-// src/navigation/stacks/MFDStaffStack.tsx
+// src/app/navigation/stacks/MFDStack.tsx
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import MFDStaffHome from '../../../screens/mfd/MFDStaffHome';
-import AllTrips from '../../../screens/mfd/TripManagement/allTrips';
-import TripDetailsScreen from '../../../screens/mfd/TripManagement/TripDetailsScreen';
 
-// Import MFD management screens
+// Import MFD screens
+import MFDHome from '../../../screens/mfd/MFDHome';
 import MFDDistributionsList from '../../../screens/mfd/MFDDistributionsList';
 import MFDDistributionDetails from '../../../screens/mfd/MFDDistributionDetails';
 import MFDPurchasesList from '../../../screens/mfd/MFDPurchasesList';
@@ -19,12 +17,8 @@ import MFDAssignmentDetails from '../../../screens/mfd/MFDAssignmentDetails';
 import MFDAssignmentCreate from '../../../screens/mfd/MFDAssignmentCreate';
 import MFDAssignmentEdit from '../../../screens/mfd/MFDAssignmentEdit';
 
-export type MFDStaffStackParamList = {
-  MFDStaffHome: undefined;
-  AllTrips: undefined;
-  CurrentTrip: undefined;
-  TripDetails: { id: number | string };
-  // MFD Management screens
+export type MFDStackParamList = {
+  MFDHome: undefined;
   DistributionsList: undefined;
   DistributionDetails: { distributionId: number };
   PurchasesList: undefined;
@@ -39,25 +33,17 @@ export type MFDStaffStackParamList = {
   AssignmentEdit: { assignmentId: number };
 };
 
-const Stack = createNativeStackNavigator<MFDStaffStackParamList>();
+const Stack = createNativeStackNavigator<MFDStackParamList>();
 
-export default function MFDStaffStack() {
+export default function MFDStack() {
   return (
-    <Stack.Navigator 
-      screenOptions={{ 
+    <Stack.Navigator
+      screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: '#f8f9fa' },
       }}
     >
-      <Stack.Screen name="MFDStaffHome" component={MFDStaffHome} />
-      <Stack.Screen name="AllTrips" component={AllTrips} />
-      <Stack.Screen
-        name="TripDetails"
-        component={TripDetailsScreen}
-        options={{ headerShown: false }}
-      />
-      
-      {/* MFD Management Screens */}
+      <Stack.Screen name="MFDHome" component={MFDHome} />
       <Stack.Screen name="DistributionsList" component={MFDDistributionsList} />
       <Stack.Screen name="DistributionDetails" component={MFDDistributionDetails} />
       <Stack.Screen name="PurchasesList" component={MFDPurchasesList} />
