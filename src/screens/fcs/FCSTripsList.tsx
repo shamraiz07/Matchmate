@@ -7,14 +7,16 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
-  Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { FCSStackParamList } from '../../app/navigation/stacks/FCSStack';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import PALETTE from '../../theme/palette';
-import { listTripsPage, type TripRowDTO } from '../../services/trips';
+import { fetchFCSTrips, type TripRowDTO, approveFCSTrip, rejectFCSTrip } from '../../services/fcs';
+import Toast from 'react-native-toast-message';
 
 type Nav = NativeStackNavigationProp<FCSStackParamList>;
 
@@ -25,15 +27,25 @@ export default function FCSTripsList() {
   const [refreshing, setRefreshing] = useState(false);
   const [trips, setTrips] = useState<TripRowDTO[]>([]);
   const [filter, setFilter] = useState<'All' | 'Active' | 'Completed' | 'Pending'>('All');
+  const [approveLoading, setApproveLoading] = useState<string | null>(null);
+  const [rejectLoading, setRejectLoading] = useState<string | null>(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [selectedTrip, setSelectedTrip] = useState<TripRowDTO | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   const loadTrips = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await listTripsPage({ page: 1, per_page: 50 });
-      setTrips(data.rows || []);
+      const data = await fetchFCSTrips({ page: 1, per_page: 50 });
+      setTrips(data.items || []);
     } catch (error) {
       console.error('Error loading trips:', error);
-      Alert.alert('Error', 'Failed to load trips');
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to load trips',
+        position: 'top',
+      });
     } finally {
       setLoading(false);
     }
@@ -49,6 +61,71 @@ export default function FCSTripsList() {
     loadTrips();
   }, [loadTrips]);
 
+  const handleApprove = useCallback(async (trip: TripRowDTO) => {
+    try {
+      setApproveLoading(trip.id.toString());
+      await approveFCSTrip(trip.id);
+      Toast.show({
+        type: 'success',
+        text1: 'Trip Approved',
+        text2: `Trip ${trip.trip_name} has been approved successfully`,
+        position: 'top',
+      });
+      await loadTrips(); // Refresh the list
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Approval Failed',
+        text2: error?.message || 'Failed to approve trip',
+        position: 'top',
+      });
+    } finally {
+      setApproveLoading(null);
+    }
+  }, [loadTrips]);
+
+  const handleReject = useCallback(async (trip: TripRowDTO) => {
+    setSelectedTrip(trip);
+    setRejectionReason('');
+    setShowRejectModal(true);
+  }, []);
+
+  const confirmReject = useCallback(async () => {
+    if (!selectedTrip || !rejectionReason.trim()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Invalid Input',
+        text2: 'Please provide a rejection reason',
+        position: 'top',
+      });
+      return;
+    }
+
+    try {
+      setRejectLoading(selectedTrip.id.toString());
+      await rejectFCSTrip(selectedTrip.id, { rejection_reason: rejectionReason.trim() });
+      Toast.show({
+        type: 'success',
+        text1: 'Trip Rejected',
+        text2: `Trip ${selectedTrip.trip_name} has been rejected`,
+        position: 'top',
+      });
+      setShowRejectModal(false);
+      setSelectedTrip(null);
+      setRejectionReason('');
+      await loadTrips(); // Refresh the list
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Rejection Failed',
+        text2: error?.message || 'Failed to reject trip',
+        position: 'top',
+      });
+    } finally {
+      setRejectLoading(null);
+    }
+  }, [selectedTrip, rejectionReason, loadTrips]);
+
   const handleBack = () => {
     navigation.goBack();
   };
@@ -57,43 +134,7 @@ export default function FCSTripsList() {
     navigation.navigate('TripDetails', { tripId: String(trip.id), trip: trip as any });
   };
 
-  const handleApprove = async (trip: TripRowDTO) => {
-    Alert.alert(
-      'Approve Trip',
-      `Are you sure you want to approve trip ${trip.trip_name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Approve', 
-          style: 'default',
-          onPress: () => {
-            // TODO: Implement approve trip API call
-            Alert.alert('Success', 'Trip approved successfully');
-            loadTrips();
-          }
-        }
-      ]
-    );
-  };
 
-  const handleReject = async (trip: TripRowDTO) => {
-    Alert.alert(
-      'Reject Trip',
-      `Are you sure you want to reject trip ${trip.trip_name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Reject', 
-          style: 'destructive',
-          onPress: () => {
-            // TODO: Implement reject trip API call
-            Alert.alert('Success', 'Trip rejected successfully');
-            loadTrips();
-          }
-        }
-      ]
-    );
-  };
 
   const filteredTrips = trips.filter(trip => {
     switch (filter) {
@@ -162,17 +203,39 @@ export default function FCSTripsList() {
         <View style={styles.actionButtons}>
           <Pressable 
             onPress={() => handleApprove(trip)}
-            style={[styles.actionButton, styles.approveButton]}
+            style={[
+              styles.actionButton, 
+              styles.approveButton,
+              approveLoading === trip.id.toString() && { opacity: 0.6 }
+            ]}
+            disabled={approveLoading === trip.id.toString() || rejectLoading === trip.id.toString()}
           >
-            <Icon name="check" size={16} color="#fff" />
-            <Text style={styles.actionButtonText}>Approve</Text>
+            {approveLoading === trip.id.toString() ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Icon name="check" size={16} color="#fff" />
+                <Text style={styles.actionButtonText}>Approve</Text>
+              </>
+            )}
           </Pressable>
           <Pressable 
             onPress={() => handleReject(trip)}
-            style={[styles.actionButton, styles.rejectButton]}
+            style={[
+              styles.actionButton, 
+              styles.rejectButton,
+              rejectLoading === trip.id.toString() && { opacity: 0.6 }
+            ]}
+            disabled={approveLoading === trip.id.toString() || rejectLoading === trip.id.toString()}
           >
-            <Icon name="close" size={16} color="#fff" />
-            <Text style={styles.actionButtonText}>Reject</Text>
+            {rejectLoading === trip.id.toString() ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Icon name="close" size={16} color="#fff" />
+                <Text style={styles.actionButtonText}>Reject</Text>
+              </>
+            )}
           </Pressable>
         </View>
       )}
@@ -247,6 +310,68 @@ export default function FCSTripsList() {
           </View>
         )}
       />
+
+      {/* Rejection Modal */}
+      <Modal
+        visible={showRejectModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRejectModal(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Icon name="warning" size={24} color={PALETTE.error} />
+              <Text style={styles.modalTitle}>Reject Trip</Text>
+            </View>
+            
+            <Text style={styles.modalMessage}>
+              Please provide a reason for rejecting this trip:
+            </Text>
+            
+            <Text style={styles.modalTripInfo}>
+              Trip: {selectedTrip?.trip_name}
+            </Text>
+            
+            <TextInput
+              style={styles.reasonInput}
+              placeholder="Enter rejection reason..."
+              placeholderTextColor={PALETTE.text400}
+              value={rejectionReason}
+              onChangeText={setRejectionReason}
+              multiline
+              numberOfLines={3}
+            />
+            
+            <View style={styles.modalButtons}>
+              <Pressable
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowRejectModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              
+              <Pressable
+                style={[
+                  styles.modalButton, 
+                  styles.confirmButton,
+                  (!rejectionReason.trim() || rejectLoading) && { opacity: 0.6 }
+                ]}
+                onPress={confirmReject}
+                disabled={!rejectionReason.trim() || !!rejectLoading}
+              >
+                {rejectLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.confirmButtonText}>Reject Trip</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Toast />
     </View>
   );
 }
@@ -416,5 +541,81 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: PALETTE.text500,
     textAlign: 'center',
+  },
+  // Modal styles
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: PALETTE.text900,
+    marginLeft: 8,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: PALETTE.text600,
+    marginBottom: 12,
+  },
+  modalTripInfo: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: PALETTE.text900,
+    marginBottom: 16,
+  },
+  reasonInput: {
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: PALETTE.text900,
+    backgroundColor: '#f8f9fa',
+    textAlignVertical: 'top',
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    backgroundColor: PALETTE.border,
+  },
+  confirmButton: {
+    backgroundColor: PALETTE.error,
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: PALETTE.text600,
+  },
+  confirmButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

@@ -7,14 +7,23 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
-  Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { FCSStackParamList } from '../../app/navigation/stacks/FCSStack';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import PALETTE from '../../theme/palette';
-import { fetchAllDistributions, type FishLotDistribution } from '../../services/middlemanDistribution';
+import { 
+  fetchFCSDistributions, 
+  type FishLotDistribution, 
+  verifyFCSDistribution, 
+  rejectFCSDistribution,
+  getStatusColor,
+  getStatusText 
+} from '../../services/fcs';
+import Toast from 'react-native-toast-message';
 
 type Nav = NativeStackNavigationProp<FCSStackParamList>;
 
@@ -24,16 +33,26 @@ export default function FCSDistributionsList() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [distributions, setDistributions] = useState<FishLotDistribution[]>([]);
-  const [filter, setFilter] = useState<'All' | 'Verified' | 'Pending'>('All');
+  const [filter, setFilter] = useState<'All' | 'Pending' | 'Verified' | 'Rejected'>('All');
+  const [verifyLoading, setVerifyLoading] = useState<string | null>(null);
+  const [rejectLoading, setRejectLoading] = useState<string | null>(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [selectedDistribution, setSelectedDistribution] = useState<FishLotDistribution | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   const loadDistributions = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await fetchAllDistributions();
-      setDistributions(data || []);
+      const data = await fetchFCSDistributions({ page: 1, per_page: 50 });
+      setDistributions(data.items || []);
     } catch (error) {
       console.error('Error loading distributions:', error);
-      Alert.alert('Error', 'Failed to load distributions');
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to load distributions',
+        position: 'top',
+      });
     } finally {
       setLoading(false);
     }
@@ -49,75 +68,89 @@ export default function FCSDistributionsList() {
     loadDistributions();
   }, [loadDistributions]);
 
+  const handleVerify = useCallback(async (distribution: FishLotDistribution) => {
+    try {
+      setVerifyLoading(distribution.id.toString());
+      await verifyFCSDistribution(distribution.id);
+      Toast.show({
+        type: 'success',
+        text1: 'Distribution Verified',
+        text2: `Distribution #${distribution.id} has been verified successfully`,
+        position: 'top',
+      });
+      await loadDistributions(); // Refresh the list
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Verification Failed',
+        text2: error?.message || 'Failed to verify distribution',
+        position: 'top',
+      });
+    } finally {
+      setVerifyLoading(null);
+    }
+  }, [loadDistributions]);
+
+  const handleReject = useCallback(async (distribution: FishLotDistribution) => {
+    setSelectedDistribution(distribution);
+    setRejectionReason('');
+    setShowRejectModal(true);
+  }, []);
+
+  const confirmReject = useCallback(async () => {
+    if (!selectedDistribution || !rejectionReason.trim()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Invalid Input',
+        text2: 'Please provide a rejection reason',
+        position: 'top',
+      });
+      return;
+    }
+
+    try {
+      setRejectLoading(selectedDistribution.id.toString());
+      await rejectFCSDistribution(selectedDistribution.id, { verification_notes: rejectionReason.trim() });
+      Toast.show({
+        type: 'success',
+        text1: 'Distribution Rejected',
+        text2: `Distribution #${selectedDistribution.id} has been rejected`,
+        position: 'top',
+      });
+      setShowRejectModal(false);
+      setSelectedDistribution(null);
+      setRejectionReason('');
+      await loadDistributions(); // Refresh the list
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Rejection Failed',
+        text2: error?.message || 'Failed to reject distribution',
+        position: 'top',
+      });
+    } finally {
+      setRejectLoading(null);
+    }
+  }, [selectedDistribution, rejectionReason, loadDistributions]);
+
   const handleBack = () => {
     navigation.goBack();
   };
 
   const handleDistributionPress = (distribution: FishLotDistribution) => {
-    navigation.navigate('DistributionDetails', { 
-      distributionId: String(distribution.id), 
-      distribution 
-    });
-  };
-
-  const handleApprove = async (distribution: FishLotDistribution) => {
-    Alert.alert(
-      'Approve Distribution',
-      `Are you sure you want to approve distribution #${distribution.id}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Approve', 
-          style: 'default',
-          onPress: () => {
-            // TODO: Implement approve distribution API call
-            Alert.alert('Success', 'Distribution approved successfully');
-            loadDistributions();
-          }
-        }
-      ]
-    );
-  };
-
-  const handleReject = async (distribution: FishLotDistribution) => {
-    Alert.alert(
-      'Reject Distribution',
-      `Are you sure you want to reject distribution #${distribution.id}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Reject', 
-          style: 'destructive',
-          onPress: () => {
-            // TODO: Implement reject distribution API call
-            Alert.alert('Success', 'Distribution rejected successfully');
-            loadDistributions();
-          }
-        }
-      ]
-    );
+    navigation.navigate('DistributionDetails', { distributionId: distribution.id });
   };
 
   const filteredDistributions = distributions.filter(distribution => {
-    switch (filter) {
-      case 'Verified': return distribution.verification_status === 'verified';
-      case 'Pending': return distribution.verification_status === 'pending';
-      default: return true;
-    }
+    if (filter === 'All') return true;
+    return distribution.verification_status === filter.toLowerCase();
   });
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'verified': return PALETTE.green700;
-      case 'pending': return PALETTE.orange700;
-      default: return PALETTE.text600;
-    }
-  };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'verified': return 'Verified';
       case 'pending': return 'Pending';
+      case 'verified': return 'Verified';
+      case 'rejected': return 'Rejected';
       default: return status;
     }
   };
@@ -130,7 +163,7 @@ export default function FCSDistributionsList() {
       <View style={styles.distributionHeader}>
         <View style={styles.distributionInfo}>
           <Text style={styles.distributionId}>Distribution #{distribution.id}</Text>
-          <Text style={styles.tripId}>Trip: {distribution.trip?.trip_id || 'Unknown'}</Text>
+          <Text style={styles.tripInfo}>Trip: {distribution.trip?.trip_id || 'Unknown'}</Text>
         </View>
         <View style={[styles.statusPill, { backgroundColor: getStatusColor(distribution.verification_status) + '20' }]}>
           <Text style={[styles.statusText, { color: getStatusColor(distribution.verification_status) }]}>
@@ -143,25 +176,25 @@ export default function FCSDistributionsList() {
         <View style={styles.detailRow}>
           <Icon name="person" size={16} color={PALETTE.text600} />
           <Text style={styles.detailText}>
-            Middleman: {distribution.middle_man?.name || 'Unknown'}
-          </Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Icon name="inventory" size={16} color={PALETTE.text600} />
-          <Text style={styles.detailText}>
-            Lots: {distribution.distributed_lots?.length || 0}
+            Fisherman: {distribution.trip?.captain_name || 'Unknown'}
           </Text>
         </View>
         <View style={styles.detailRow}>
           <Icon name="scale" size={16} color={PALETTE.text600} />
           <Text style={styles.detailText}>
-            Total Weight: {distribution.total_quantity_kg || '0'} kg
+            Total Weight: {distribution.total_quantity_kg} kg
           </Text>
         </View>
         <View style={styles.detailRow}>
           <Icon name="schedule" size={16} color={PALETTE.text600} />
           <Text style={styles.detailText}>
-            {new Date(distribution.created_at).toLocaleDateString()}
+            Created: {new Date(distribution.created_at).toLocaleDateString()}
+          </Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Icon name="inventory" size={16} color={PALETTE.text600} />
+          <Text style={styles.detailText}>
+            Lots: {distribution.distributed_lots.length} lot(s)
           </Text>
         </View>
       </View>
@@ -169,18 +202,40 @@ export default function FCSDistributionsList() {
       {distribution.verification_status === 'pending' && (
         <View style={styles.actionButtons}>
           <Pressable 
-            onPress={() => handleApprove(distribution)}
-            style={[styles.actionButton, styles.approveButton]}
+            onPress={() => handleVerify(distribution)}
+            style={[
+              styles.actionButton, 
+              styles.verifyButton,
+              verifyLoading === distribution.id.toString() && { opacity: 0.6 }
+            ]}
+            disabled={verifyLoading === distribution.id.toString() || rejectLoading === distribution.id.toString()}
           >
-            <Icon name="check" size={16} color="#fff" />
-            <Text style={styles.actionButtonText}>Approve</Text>
+            {verifyLoading === distribution.id.toString() ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Icon name="check" size={16} color="#fff" />
+                <Text style={styles.actionButtonText}>Verify</Text>
+              </>
+            )}
           </Pressable>
           <Pressable 
             onPress={() => handleReject(distribution)}
-            style={[styles.actionButton, styles.rejectButton]}
+            style={[
+              styles.actionButton, 
+              styles.rejectButton,
+              rejectLoading === distribution.id.toString() && { opacity: 0.6 }
+            ]}
+            disabled={verifyLoading === distribution.id.toString() || rejectLoading === distribution.id.toString()}
           >
-            <Icon name="close" size={16} color="#fff" />
-            <Text style={styles.actionButtonText}>Reject</Text>
+            {rejectLoading === distribution.id.toString() ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Icon name="close" size={16} color="#fff" />
+                <Text style={styles.actionButtonText}>Reject</Text>
+              </>
+            )}
           </Pressable>
         </View>
       )}
@@ -222,7 +277,7 @@ export default function FCSDistributionsList() {
       <View style={styles.filtersContainer}>
         <Text style={styles.filtersTitle}>Filter by status</Text>
         <View style={styles.filtersRow}>
-          {(['All', 'Verified', 'Pending'] as const).map((status) => (
+          {(['All', 'Pending', 'Verified', 'Rejected'] as const).map((status) => (
             <FilterChip
               key={status}
               label={status}
@@ -244,7 +299,7 @@ export default function FCSDistributionsList() {
         }
         ListEmptyComponent={() => (
           <View style={styles.emptyState}>
-            <Icon name="local-shipping" size={64} color={PALETTE.text400} />
+            <Icon name="inventory" size={64} color={PALETTE.text400} />
             <Text style={styles.emptyTitle}>No distributions found</Text>
             <Text style={styles.emptyMessage}>
               {filter === 'All' 
@@ -255,6 +310,68 @@ export default function FCSDistributionsList() {
           </View>
         )}
       />
+
+      {/* Rejection Modal */}
+      <Modal
+        visible={showRejectModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRejectModal(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Icon name="warning" size={24} color={PALETTE.error} />
+              <Text style={styles.modalTitle}>Reject Distribution</Text>
+            </View>
+            
+            <Text style={styles.modalMessage}>
+              Please provide a reason for rejecting this distribution:
+            </Text>
+            
+            <Text style={styles.distributionInfo}>
+              Distribution #{selectedDistribution?.id}
+            </Text>
+            
+            <TextInput
+              style={styles.reasonInput}
+              placeholder="Enter rejection reason..."
+              placeholderTextColor={PALETTE.text400}
+              value={rejectionReason}
+              onChangeText={setRejectionReason}
+              multiline
+              numberOfLines={3}
+            />
+            
+            <View style={styles.modalButtons}>
+              <Pressable
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowRejectModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              
+              <Pressable
+                style={[
+                  styles.modalButton, 
+                  styles.confirmButton,
+                  (!rejectionReason.trim() || rejectLoading) && { opacity: 0.6 }
+                ]}
+                onPress={confirmReject}
+                disabled={!rejectionReason.trim() || !!rejectLoading}
+              >
+                {rejectLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.confirmButtonText}>Reject Distribution</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Toast />
     </View>
   );
 }
@@ -332,12 +449,12 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: 16,
+    gap: 12,
   },
   distributionCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -359,7 +476,7 @@ const styles = StyleSheet.create({
     color: PALETTE.text900,
     marginBottom: 4,
   },
-  tripId: {
+  tripInfo: {
     fontSize: 14,
     color: PALETTE.text600,
   },
@@ -395,10 +512,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 8,
     gap: 6,
   },
-  approveButton: {
+  verifyButton: {
     backgroundColor: PALETTE.green700,
   },
   rejectButton: {
@@ -406,10 +524,12 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: '#fff',
-    fontSize: 14,
     fontWeight: '600',
+    fontSize: 14,
   },
   emptyState: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 60,
   },
@@ -424,5 +544,81 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: PALETTE.text500,
     textAlign: 'center',
+  },
+  // Modal styles
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: PALETTE.text900,
+    marginLeft: 8,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: PALETTE.text600,
+    marginBottom: 12,
+  },
+  distributionInfo: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: PALETTE.text900,
+    marginBottom: 16,
+  },
+  reasonInput: {
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: PALETTE.text900,
+    backgroundColor: '#f8f9fa',
+    textAlignVertical: 'top',
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    backgroundColor: PALETTE.border,
+  },
+  confirmButton: {
+    backgroundColor: PALETTE.error,
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: PALETTE.text600,
+  },
+  confirmButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

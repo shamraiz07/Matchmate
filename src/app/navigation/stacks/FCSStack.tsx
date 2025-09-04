@@ -6,8 +6,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import FCSHome from '../../../screens/fcs/FCSHome';
 import FCSTripsList from '../../../screens/fcs/FCSTripsList';
 import FCSDistributionsList from '../../../screens/fcs/FCSDistributionsList';
-import TripDetails from '../../../screens/common/TripDetails';
-import DistributionDetails from '../../../screens/common/DistributionDetails';
+import FCSTripDetails from '../../../screens/fcs/FCSTripDetails';
+import FCSDistributionDetails from '../../../screens/fcs/FCSDistributionDetails';
 
 export type FCSStackParamList = {
   FCSHome: undefined;
@@ -30,8 +30,8 @@ export default function FCSStack() {
       <Stack.Screen name="FCSHome" component={FCSHome} />
       <Stack.Screen name="FCSTripsList" component={FCSTripsList} />
       <Stack.Screen name="FCSDistributionsList" component={FCSDistributionsList} />
-      <Stack.Screen name="TripDetails" component={TripDetails} />
-      <Stack.Screen name="DistributionDetails" component={DistributionDetails} />
+      <Stack.Screen name="TripDetails" component={FCSTripDetails} />
+      <Stack.Screen name="DistributionDetails" component={FCSDistributionDetails} />
     </Stack.Navigator>
   );
 }

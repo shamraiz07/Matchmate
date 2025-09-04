@@ -506,3 +506,18 @@ export function getStatusColor(status: string) {
 export function getStatusText(status: string) {
   return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
 }
+
+// ===== VERIFICATION FUNCTIONS =====
+
+export async function verifyDistribution(id: number | string): Promise<FishLotDistribution> {
+  const json = await api(`/fish-lot-distributions/${id}/verify`, { method: 'POST' });
+  return json?.data ?? json;
+}
+
+export async function rejectDistribution(id: number | string, payload: { verification_notes: string }): Promise<FishLotDistribution> {
+  const json = await api(`/fish-lot-distributions/${id}/reject`, {
+    method: 'POST',
+    body: payload,
+  });
+  return json?.data ?? json;
+}
