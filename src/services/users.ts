@@ -3,7 +3,9 @@ import { api, unwrap } from './https';
 import { stripUndefined } from '../utils/json';
 
 // Import BASE_URL to keep it consistent with the main API
-const BASE_URL = 'http://192.168.18.44:1000/api';
+// const BASE_URL = 'http://192.168.18.44:1000/api';
+const BASE_URL = 'https://smartaisoft.com/MFD-Trace-Fish/api';
+
 
 /** Generic ID type */
 export type ID = number | string;
