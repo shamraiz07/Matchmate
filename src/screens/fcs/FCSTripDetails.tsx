@@ -289,39 +289,40 @@ export default function FCSTripDetails() {
       <ScrollView contentContainerStyle={{ padding: 14, gap: 12 }}>
         {/* Basic Trip Information */}
         <Section title="Basic Trip Information" icon="assignment">
-          <Row icon="badge" label="Trip ID" value={trip.trip_name} />
-          <Row icon="info" label="Status Label" value={trip.status_label ?? '—'} />
-          <Row icon="category" label="Trip Type" value={trip.trip_type} />
+          <Row icon="badge" label="Trip ID" value={trip.trip_id} />
+          <Row icon="info" label="Status Label" value={trip.status_label} />
+          <Row icon="category" label="Trip Type" value={trip.trip_type_label} />
           <Row icon="flag" label="Trip Purpose" value={trip.trip_purpose} />
+          <Row icon="public" label="Fishing Zone" value={trip.fishing_zone} />
         </Section>
 
         {/* Associations */}
         <Section title="Associations" icon="link">
-          <Row icon="person" label="Fisherman" value={trip.fisherman?.name ?? '—'} />
-          <Row icon="call" label="Fisherman Phone" value={trip.fisherman?.phone ?? '—'} />
-          <Row icon="sailing" label="Boat Reg. No." value={trip.boat_registration_no} />
+          <Row icon="person" label="Fisherman" value={trip.fisherman?.name} />
+          <Row icon="call" label="Fisherman Phone" value={trip.fisherman?.phone} />
+          <Row icon="email" label="Fisherman Email" value={trip.fisherman?.email} />
+          <Row icon="sailing" label="Boat Reg. No." value={trip.boat_registration_number} />
           <Row icon="directions-boat" label="Boat Name" value={trip.boat_name} />
         </Section>
 
         {/* Location & Schedule */}
         <Section title="Location & Schedule" icon="map">
-          <Row icon="public" label="Fishing Zone" value={trip.fishing_zone} />
           <Row icon="place" label="Port Location" value={trip.port_location} />
           <Row icon="place" label="Departure Port" value={trip.departure_port} />
           <Row icon="schedule" label="Departure Time" value={trip.departure_time} />
-          <Row icon="my-location" label="Departure Lat" value={n(trip.departure_lat)} />
-          <Row icon="my-location" label="Departure Lng" value={n(trip.departure_lng)} />
-          <Row icon="notes" label="Departure Notes" value={trip.departure_notes ?? '—'} />
+          <Row icon="my-location" label="Departure Lat" value={trip.departure_latitude} />
+          <Row icon="my-location" label="Departure Lng" value={trip.departure_longitude} />
+          <Row icon="notes" label="Departure Notes" value={trip.departure_notes} />
           <Row icon="flag" label="Arrival Port" value={trip.arrival_port} />
           <Row icon="schedule" label="Arrival Time" value={trip.arrival_time} />
-          <Row icon="my-location" label="Arrival Lat" value={n(trip.arrival_lat)} />
-          <Row icon="my-location" label="Arrival Lng" value={n(trip.arrival_lng)} />
-          <Row icon="notes" label="Arrival Notes" value={trip.arrival_notes ?? '—'} />
+          <Row icon="my-location" label="Arrival Lat" value={trip.arrival_latitude} />
+          <Row icon="my-location" label="Arrival Lng" value={trip.arrival_longitude} />
+          <Row icon="notes" label="Arrival Notes" value={trip.arrival_notes} />
           <Row icon="anchor" label="Landing Site" value={trip.landing_site} />
           <Row icon="event" label="Landing Time" value={trip.landing_time} />
-          <Row icon="location-on" label="Departure Location" value={trip.departure_location_formatted ?? '—'} />
-          <Row icon="location-on" label="Arrival Location" value={trip.arrival_location_formatted ?? '—'} />
-          <Row icon="location-on" label="Current Location" value={trip.current_location_formatted ?? '—'} />
+          <Row icon="location-on" label="Departure Location" value={trip.departure_location_formatted} />
+          <Row icon="location-on" label="Arrival Location" value={trip.arrival_location_formatted} />
+          <Row icon="location-on" label="Current Location" value={trip.current_location_formatted} />
         </Section>
 
         {/* Flags & Approval */}
@@ -329,11 +330,11 @@ export default function FCSTripDetails() {
           <Row icon="play-arrow" label="Trip Started" value={n(trip.trip_started)} />
           <Row icon="check-circle" label="Trip Completed" value={n(trip.trip_completed)} />
           <Row icon="wifi-off" label="Is Offline" value={n(trip.is_offline)} />
-          <Row icon="schedule" label="Last Online At" value={trip.last_online_at ?? '—'} />
-          <Row icon="schedule" label="Went Offline At" value={trip.went_offline_at ?? '—'} />
-          <Row icon="person" label="Approved By" value={n(trip.approved_by)} />
-          <Row icon="schedule" label="Approved At" value={trip.approved_at ?? '—'} />
-          <Row icon="notes" label="Approval Notes" value={trip.approval_notes ?? '—'} />
+          <Row icon="schedule" label="Last Online At" value={trip.last_online_at} />
+          <Row icon="schedule" label="Went Offline At" value={trip.went_offline_at} />
+          <Row icon="person" label="Approved By" value={trip.approver?.name || n(trip.approved_by)} />
+          <Row icon="schedule" label="Approved At" value={trip.approved_at} />
+          <Row icon="notes" label="Approval Notes" value={trip.approval_notes} />
         </Section>
 
         {/* Crew & Admin */}
@@ -343,8 +344,8 @@ export default function FCSTripDetails() {
           <Row icon="call" label="Captain Mobile" value={trip.captain_mobile_no} />
           <Row icon="groups" label="Crew No." value={n(trip.crew_no)} />
           <Row icon="assignment-turned-in" label="Port Clearance No." value={trip.port_clearance_no} />
-          <Row icon="local-gas-station" label="Fuel Quantity" value={n(trip.fuel_quantity)} />
-          <Row icon="ac-unit" label="Ice Quantity" value={n(trip.ice_quantity)} />
+          <Row icon="local-gas-station" label="Fuel Quantity" value={trip.fuel_quantity} />
+          <Row icon="ac-unit" label="Ice Quantity" value={trip.ice_quantity} />
         </Section>
 
         {/* Safety & Weather */}
@@ -352,17 +353,17 @@ export default function FCSTripDetails() {
           <Row icon="medical-services" label="Safety Equipment" value={trip.safety_equipment} />
           <Row icon="contacts" label="Emergency Contact" value={trip.emergency_contact} />
           <Row icon="phone" label="Emergency Phone" value={trip.emergency_phone} />
-          <Row icon="cloud" label="Weather" value={trip.weather} />
+          <Row icon="cloud" label="Weather Conditions" value={trip.weather_conditions} />
           <Row icon="waves" label="Sea Conditions" value={trip.sea_conditions} />
-          <Row icon="air" label="Wind Speed" value={n(trip.wind_speed)} />
-          <Row icon="opacity" label="Wave Height" value={n(trip.wave_height)} />
+          <Row icon="air" label="Wind Speed" value={trip.wind_speed} />
+          <Row icon="opacity" label="Wave Height" value={trip.wave_height} />
         </Section>
 
         {/* Catch & Economics */}
         <Section title="Catch & Economics" icon="attach-money">
           <Row icon="restaurant" label="Target Species" value={trip.target_species} />
-          <Row icon="scale" label="Estimated Catch (kg)" value={n(trip.estimated_catch)} />
-          <Row icon="notes" label="Catch Notes" value={trip.catch_notes ?? '—'} />
+          <Row icon="scale" label="Estimated Catch (kg)" value={trip.estimated_catch_weight} />
+          <Row icon="notes" label="Catch Notes" value={trip.catch_notes} />
           <Row icon="local-gas-station" label="Fuel Cost" value={currency(trip.fuel_cost)} />
           <Row icon="build" label="Operational Cost" value={currency(trip.operational_cost)} />
           <Row icon="summarize" label="Total Cost" value={currency(trip.total_cost)} />
@@ -372,49 +373,50 @@ export default function FCSTripDetails() {
 
         {/* Telemetry */}
         <Section title="Live Telemetry" icon="my-location">
-          <Row icon="schedule" label="Last GPS Update" value={trip.last_gps_update ?? '—'} />
-          <Row icon="gps-fixed" label="Current Lat" value={n(trip.current_latitude)} />
-          <Row icon="gps-fixed" label="Current Lng" value={n(trip.current_longitude)} />
-          <Row icon="speed" label="Current Speed" value={n(trip.current_speed)} />
-          <Row icon="explore" label="Current Heading" value={n(trip.current_heading)} />
-          <Row icon="schedule" label="Auto Time" value={trip.auto_time ?? '—'} />
-          <Row icon="gps-fixed" label="Auto Latitude" value={n(trip.auto_latitude)} />
-          <Row icon="gps-fixed" label="Auto Longitude" value={n(trip.auto_longitude)} />
+          <Row icon="schedule" label="Last GPS Update" value={trip.last_gps_update} />
+          <Row icon="gps-fixed" label="Current Lat" value={trip.current_latitude} />
+          <Row icon="gps-fixed" label="Current Lng" value={trip.current_longitude} />
+          <Row icon="speed" label="Current Speed" value={trip.current_speed} />
+          <Row icon="explore" label="Current Heading" value={trip.current_heading} />
+          <Row icon="schedule" label="Auto Time" value={trip.auto_time} />
+          <Row icon="gps-fixed" label="Auto Latitude" value={trip.auto_latitude} />
+          <Row icon="gps-fixed" label="Auto Longitude" value={trip.auto_longitude} />
         </Section>
 
         {/* Metadata */}
         <Section title="Metadata" icon="info">
-          <Row icon="update" label="Created At" value={trip.created_at ?? '—'} />
-          <Row icon="update" label="Updated At" value={trip.updated_at ?? '—'} />
-          <Row icon="av-timer" label="Duration" value={trip.duration ?? '—'} />
-          <Row icon="route" label="Distance Traveled" value={trip.distance_traveled ?? '—'} />
+          <Row icon="update" label="Created At" value={trip.created_at} />
+          <Row icon="update" label="Updated At" value={trip.updated_at} />
+          <Row icon="av-timer" label="Duration" value={trip.duration} />
+          <Row icon="route" label="Distance Traveled" value={trip.distance_traveled} />
+          <Row icon="inventory" label="Fishing Activity Count" value={n(trip.fishing_activity_count)} />
         </Section>
 
         {/* Fishing Activities */}
         <Section title="Fishing Activities" icon="inventory">
-          {trip.activities?.length ? (
+          {trip.fishing_activities?.length ? (
             <View style={{ gap: 10 }}>
-              {trip.activities.map(a => (
+              {trip.fishing_activities.map(a => (
                 <View key={String(a.id)} style={styles.activityCard}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <MaterialIcons name="list-alt" size={18} color={PALETTE.text700} />
                     <Text style={styles.activityTitle} numberOfLines={1}>
-                      {a.activity_id} {a.number ? `(#${a.number})` : ''}
+                      {a.activity_id} {a.activity_number ? `(#${a.activity_number})` : ''}
                     </Text>
                   </View>
 
                   <View style={{ marginTop: 6, gap: 4 }}>
                     <Text style={styles.muted} numberOfLines={1}>
-                      {a.location_formatted || `${a.gps_latitude ?? '—'}, ${a.gps_longitude ?? '—'}`}
+                      {a.location_formatted || `${a.gps_latitude}, ${a.gps_longitude}`}
                     </Text>
                     <Text style={styles.muted} numberOfLines={1}>
-                      Netting: {a.time_of_netting ?? '—'} | Hauling: {a.time_of_hauling ?? '—'}
+                      Netting: {a.time_of_netting} | Hauling: {a.time_of_hauling}
                     </Text>
                     <Text style={styles.muted} numberOfLines={1}>
-                      Gear: {a.gear_type_label ?? a.gear_type ?? '—'} | Mesh: {a.mesh_size_label ?? a.mesh_size ?? '—'}
+                      Gear: {a.gear_type_label || a.gear_type} | Mesh: {a.mesh_size_label || a.mesh_size}
                     </Text>
                     <Text style={styles.muted} numberOfLines={1}>
-                      Size: {a.net_length ?? '—'} × {a.net_width ?? '—'} | Status: {a.status_label ?? a.status ?? '—'}
+                      Size: {a.net_length} × {a.net_width} | Status: {a.status_label || a.status}
                     </Text>
                   </View>
 
@@ -426,18 +428,18 @@ export default function FCSTripDetails() {
                         <Text style={{ fontWeight: '800', color: PALETTE.text900 }}>Species</Text>
                       </View>
                       {a.fish_species.map((s, idx) => (
-                        <View key={String((s as any)?.id ?? idx)} style={styles.speciesRow}>
+                        <View key={String(s?.id ?? idx)} style={styles.speciesRow}>
                           <MaterialIcons name="chevron-right" size={18} color={PALETTE.text700} />
                           <View style={{ flex: 1, minWidth: 0 }}>
                             <Text style={styles.lotText} numberOfLines={1}>
-                              {(s as any)?.species_name ?? '—'}
+                              {s?.species_name}
                             </Text>
                             <Text style={styles.muted} numberOfLines={1}>
-                              Qty: {(s as any)?.quantity_kg ?? '—'} kg | Type: {(s as any)?.type_label ?? (s as any)?.type ?? '—'}
+                              Qty: {s?.quantity_kg} kg | Type: {s?.type_label || s?.type}
                             </Text>
-                            {(s as any)?.grade_label || (s as any)?.grade ? (
+                            {s?.grade_label || s?.grade ? (
                               <Text style={styles.muted} numberOfLines={1}>
-                                Grade: {(s as any)?.grade_label ?? (s as any)?.grade}
+                                Grade: {s?.grade_label || s?.grade}
                               </Text>
                             ) : null}
                           </View>
@@ -449,20 +451,30 @@ export default function FCSTripDetails() {
               ))}
             </View>
           ) : (
-            <Text style={styles.muted}>—</Text>
+            <Text style={styles.muted}>No fishing activities recorded</Text>
           )}
         </Section>
 
-        {/* Fish Lots (legacy / if present) */}
-        {trip.lots?.length ? (
-          <Section title="Fish Lots" icon="inventory-2">
+        {/* Fish Species (if present) */}
+        {trip.fish_species?.length ? (
+          <Section title="Fish Species" icon="inventory-2">
             <View style={{ gap: 8 }}>
-              {trip.lots.map(l => (
-                <View key={String(l.id)} style={styles.lotRow}>
+              {trip.fish_species.map(s => (
+                <View key={String(s.id)} style={styles.lotRow}>
                   <MaterialIcons name="chevron-right" size={18} color={PALETTE.text700} />
-                  <Text style={styles.lotText} numberOfLines={1}>
-                    {l.lot_no ? l.lot_no : `Lot #${l.id}`} — {toTitle(l.status)}
-                  </Text>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.lotText} numberOfLines={1}>
+                      {s.lot_no} — {s.species_name}
+                    </Text>
+                    <Text style={styles.muted} numberOfLines={1}>
+                      Qty: {s.quantity_kg} kg | Type: {s.type_label || s.type} | Grade: {s.grade_label || s.grade || 'Not graded'}
+                    </Text>
+                    {s.notes && (
+                      <Text style={styles.muted} numberOfLines={1}>
+                        Notes: {s.notes}
+                      </Text>
+                    )}
+                  </View>
                 </View>
               ))}
             </View>

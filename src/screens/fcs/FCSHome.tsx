@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  StatusBar,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { FCSStackParamList } from '../../app/navigation/stacks/FCSStack';
@@ -15,7 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import PALETTE from '../../theme/palette';
 import { listTripsPage, getTripCounts } from '../../services/trips';
-import { fetchAllDistributions } from '../../services/middlemanDistribution';
+import { getFCSDistributionCounts } from '../../services/fcs';
 import { useDispatch } from 'react-redux';
 import { logout } from '../../redux/actions/authActions';
 
@@ -44,7 +45,7 @@ export default function FCSHome() {
       setLoading(true);
       const [tripsData, distributionsData] = await Promise.all([
         getTripCounts(),
-        fetchAllDistributions(),
+        getFCSDistributionCounts(),
       ]);
       
       setTripCounts({
@@ -54,15 +55,11 @@ export default function FCSHome() {
         pending: tripsData.totals.pending,
       });
       
-      // Calculate distribution counts
-      const distributions = distributionsData || [];
-      const verified = distributions.filter(d => d.verification_status === 'verified').length;
-      const pending = distributions.filter(d => d.verification_status === 'pending').length;
-      
+      // Set distribution counts from FCS distribution counts
       setDistributionCounts({
-        total: distributions.length,
-        verified,
-        pending,
+        total: distributionsData.totals.all,
+        verified: distributionsData.totals.verified,
+        pending: distributionsData.totals.pending,
       });
     } catch (error) {
       console.error('Error loading FCS data:', error);
@@ -139,6 +136,7 @@ export default function FCSHome() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
+        <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" />
         <ActivityIndicator size="large" color={PALETTE.green700} />
         <Text style={styles.loadingText}>Loading FCS Dashboard...</Text>
       </View>
@@ -147,10 +145,11 @@ export default function FCSHome() {
 
   return (
     <View style={styles.container}>
+      <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" />
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <View>
+          <View style={styles.headerTextContainer}>
             <Text style={styles.welcomeText}>Welcome to FCS Portal</Text>
             <Text style={styles.subtitleText}>Fisheries Control System</Text>
           </View>
@@ -260,13 +259,15 @@ export default function FCSHome() {
       </ScrollView>
 
       {/* Logout (secondary) */}
-      <Pressable
-        onPress={confirmLogout}
-        style={({ pressed }) => [styles.logoutBtn, pressed && { opacity: 0.9 }]}
-      >
-        <Icon name="logout" size={18} color="#fff" />
-        <Text style={{ color: '#fff', marginLeft: 8, fontWeight: '700' }}>Logout</Text>
-      </Pressable>
+      <View style={styles.logoutContainer}>
+        <Pressable
+          onPress={confirmLogout}
+          style={({ pressed }) => [styles.logoutBtn, pressed && { opacity: 0.9 }]}
+        >
+          <Icon name="logout" size={18} color="#fff" />
+          <Text style={styles.logoutText}>Logout</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -297,6 +298,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    minHeight: 60,
+  },
+  headerTextContainer: {
+    flex: 1,
+    marginRight: 16,
   },
   welcomeText: {
     fontSize: 24,
@@ -405,14 +411,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
+  logoutContainer: {
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 20,
+    backgroundColor: '#f8f9fa',
+  },
   logoutBtn: {
-    marginHorizontal: 14,
-    marginTop: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#d32f2f',
     paddingVertical: 12,
     borderRadius: 10,
+  },
+  logoutText: {
+    color: '#fff',
+    marginLeft: 8,
+    fontWeight: '700',
+    fontSize: 16,
   },
 });

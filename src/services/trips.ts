@@ -690,7 +690,7 @@ export async function getTripCounts(): Promise<{ totals: { all: number; pending:
   const reqs = [api('/trips', { query: { page: 1, per_page: 1 } }), ...statuses.map(status => api('/trips', { query: { status, page: 1, per_page: 1 } }))];
   const settled = await Promise.allSettled(reqs);
 
-  const totals = { all: 0, pending: 0,pending_approval:0, approved: 0, active: 0, completed: 0, cancelled: 0 };
+  const totals = { all: 0, pending: 0, pending_approval: 0, approved: 0, active: 0, completed: 0, cancelled: 0 };
   const errors: Partial<Record<'all' | TripStatus, string>> = {};
 
   const allRes = settled[0];
@@ -702,6 +702,9 @@ export async function getTripCounts(): Promise<{ totals: { all: number; pending:
     if (res.status === 'fulfilled') totals[status] = readTotal(res.value);
     else { totals[status] = 0; errors[status] = (res as any).reason?.message || 'Failed'; }
   });
+
+  // Map pending_approval to pending for FCS dashboard display
+  totals.pending = totals.pending + totals.pending_approval;
 
   return { totals, errors };
 }

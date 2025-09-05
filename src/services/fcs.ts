@@ -164,31 +164,173 @@ export type TripRowDTO = {
 
 export type TripDetails = {
   id: number;
-  trip_name: string;
+  trip_id: string;
+  fisherman_id: number;
+  user_id: number | null;
+  boat_registration_number: string;
   boat_name: string | null;
-  fisherman_name: string | null;
-  departure_port: string | null;
-  departure_time: string | null;
-  created_at: string | null;
-  status: TripStatus;
-  trip_type: string | null;
+  trip_type: string;
   trip_purpose: string | null;
   fishing_zone: string | null;
-  port_location: string | null;
-  landing_site: string | null;
-  landing_time: string | null;
-  crew_count: number | null;
-  captain_name: string | null;
-  captain_mobile_no: string | null;
-  status_label: string | null;
-  trip_type_label: string | null;
-  is_active: boolean | null;
-  is_completed: boolean | null;
-  is_pending_approval: boolean | null;
-  current_location_formatted: string | null;
-  departure_location_formatted: string | null;
-  arrival_location_formatted: string | null;
-  // Add other trip details as needed
+  port_location: string;
+  departure_time: string;
+  departure_latitude: string;
+  departure_longitude: string;
+  departure_port: string;
+  departure_notes: string | null;
+  arrival_time: string | null;
+  arrival_latitude: string | null;
+  arrival_longitude: string | null;
+  arrival_port: string | null;
+  landing_site: string;
+  landing_time: string;
+  fishing_activity_count: number;
+  trip_started: boolean;
+  trip_completed: boolean;
+  auto_time: string;
+  auto_latitude: string | null;
+  auto_longitude: string | null;
+  arrival_notes: string | null;
+  status: TripStatus;
+  approved_by: number | null;
+  approved_at: string | null;
+  approval_notes: string | null;
+  crew_count: number;
+  captain_name: string;
+  captain_mobile_no: string;
+  crew_no: number;
+  port_clearance_no: string;
+  fuel_quantity: string;
+  ice_quantity: string;
+  departure_site: string;
+  safety_equipment: string | null;
+  emergency_contact: string | null;
+  emergency_phone: string | null;
+  weather_conditions: string | null;
+  sea_conditions: string | null;
+  wind_speed: string | null;
+  wave_height: string | null;
+  estimated_catch_weight: string | null;
+  target_species: string;
+  catch_notes: string | null;
+  fuel_cost: string | null;
+  operational_cost: string | null;
+  total_cost: string | null;
+  revenue: string | null;
+  profit: string | null;
+  gps_track: string | null;
+  last_gps_update: string | null;
+  current_latitude: string | null;
+  current_longitude: string | null;
+  current_speed: string | null;
+  current_heading: string | null;
+  is_offline: boolean;
+  last_online_at: string | null;
+  went_offline_at: string | null;
+  trip_photos: string | null;
+  documents: string | null;
+  created_at: string;
+  updated_at: string;
+  duration: string;
+  distance_traveled: string;
+  status_label: string;
+  trip_type_label: string;
+  is_active: boolean;
+  is_completed: boolean;
+  is_pending_approval: boolean;
+  current_location_formatted: string;
+  departure_location_formatted: string;
+  arrival_location_formatted: string;
+  fisherman?: {
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+    first_name: string;
+    last_name: string;
+    boat_registration_number: string;
+    fishing_zone: string;
+    port_location: string;
+  };
+  approver?: {
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+    first_name: string;
+    last_name: string;
+  };
+  boat?: any;
+  fishing_activities?: Array<{
+    id: number;
+    activity_id: string;
+    trip_id: number;
+    fisherman_id: number;
+    activity_number: number;
+    activity_date: string;
+    activity_time: string;
+    gps_latitude: string;
+    gps_longitude: string;
+    time_of_netting: string;
+    time_of_hauling: string;
+    gear_type: string;
+    mesh_size: string;
+    net_length: string;
+    net_width: string;
+    status: string;
+    created_at: string;
+    updated_at: string;
+    status_label: string;
+    gear_type_label: string;
+    mesh_size_label: string;
+    location_formatted: string;
+    fish_species?: Array<{
+      id: number;
+      lot_no: string;
+      fishing_activity_id: number;
+      trip_id: number;
+      fisherman_id: number;
+      species_name: string;
+      quantity_kg: string;
+      type: string;
+      grade: string | null;
+      notes: string | null;
+      photos: string | null;
+      created_at: string;
+      updated_at: string;
+      type_label: string;
+      grade_label: string;
+    }>;
+  }>;
+  fish_species?: Array<{
+    id: number;
+    lot_no: string;
+    fishing_activity_id: number;
+    trip_id: number;
+    fisherman_id: number;
+    species_name: string;
+    quantity_kg: string;
+    type: string;
+    grade: string | null;
+    notes: string | null;
+    photos: string | null;
+    created_at: string;
+    updated_at: string;
+    type_label: string;
+    grade_label: string;
+  }>;
+  // Legacy fields for backward compatibility
+  trip_name: string;
+  fisherman_name: string | null;
+  departure_lat: string | null;
+  departure_lng: string | null;
+  arrival_lat: string | null;
+  arrival_lng: string | null;
+  estimated_catch: string | null;
+  weather: string | null;
+  boat_registration_no: string | null;
+  activities?: any[];
+  lots?: any[];
 };
 
 export type PaginatedResponse<T> = {
@@ -223,7 +365,37 @@ export async function fetchFCSTrips(params: {
   const json = await api(`/trips?${query.toString()}`, { method: 'GET' });
   const envelope = json?.data ?? json;
 
-  const items = Array.isArray(envelope.data) ? envelope.data : [];
+  const rawItems = Array.isArray(envelope.data) ? envelope.data : [];
+  
+  // Map the API response to TripRowDTO format
+  const items: TripRowDTO[] = rawItems.map((trip: any) => ({
+    id: trip.id,
+    trip_name: trip.trip_id || `Trip-${trip.id}`,
+    boat_name: trip.boat_name || trip.boat_registration_number || 'Unknown Boat',
+    fisherman_name: trip.fisherman?.name || trip.captain_name || 'Unknown Captain',
+    departure_port: trip.departure_port || trip.port_location || 'Unknown Port',
+    departure_time: trip.departure_time || trip.created_at,
+    created_at: trip.created_at,
+    status: trip.status,
+    trip_type: trip.trip_type,
+    trip_purpose: trip.trip_purpose,
+    fishing_zone: trip.fishing_zone,
+    port_location: trip.port_location,
+    landing_site: trip.landing_site,
+    landing_time: trip.landing_time,
+    crew_count: trip.crew_count,
+    captain_name: trip.captain_name,
+    captain_mobile_no: trip.captain_mobile_no,
+    status_label: trip.status_label,
+    trip_type_label: trip.trip_type_label,
+    is_active: trip.is_active,
+    is_completed: trip.is_completed,
+    is_pending_approval: trip.is_pending_approval,
+    current_location_formatted: trip.current_location_formatted,
+    departure_location_formatted: trip.departure_location_formatted,
+    arrival_location_formatted: trip.arrival_location_formatted,
+  }));
+
   const meta: PaginatedResponse<TripRowDTO>['meta'] = {
     current_page: Number(envelope.current_page ?? 1),
     per_page: Number(envelope.per_page ?? items.length),
@@ -243,7 +415,106 @@ export async function fetchFCSTrips(params: {
 
 export async function fetchFCSTripById(id: number | string): Promise<TripDetails> {
   const json = await api(`/trips/${id}`, { method: 'GET' });
-  return json?.data ?? json;
+  const trip = json?.data ?? json;
+  
+  // Map the API response to TripDetails format
+  return {
+    id: trip.id,
+    trip_id: trip.trip_id,
+    fisherman_id: trip.fisherman_id,
+    user_id: trip.user_id,
+    boat_registration_number: trip.boat_registration_number,
+    boat_name: trip.boat_name,
+    trip_type: trip.trip_type,
+    trip_purpose: trip.trip_purpose,
+    fishing_zone: trip.fishing_zone,
+    port_location: trip.port_location,
+    departure_time: trip.departure_time,
+    departure_latitude: trip.departure_latitude,
+    departure_longitude: trip.departure_longitude,
+    departure_port: trip.departure_port,
+    departure_notes: trip.departure_notes,
+    arrival_time: trip.arrival_time,
+    arrival_latitude: trip.arrival_latitude,
+    arrival_longitude: trip.arrival_longitude,
+    arrival_port: trip.arrival_port,
+    landing_site: trip.landing_site,
+    landing_time: trip.landing_time,
+    fishing_activity_count: trip.fishing_activity_count,
+    trip_started: trip.trip_started,
+    trip_completed: trip.trip_completed,
+    auto_time: trip.auto_time,
+    auto_latitude: trip.auto_latitude,
+    auto_longitude: trip.auto_longitude,
+    arrival_notes: trip.arrival_notes,
+    status: trip.status,
+    approved_by: trip.approved_by,
+    approved_at: trip.approved_at,
+    approval_notes: trip.approval_notes,
+    crew_count: trip.crew_count,
+    captain_name: trip.captain_name,
+    captain_mobile_no: trip.captain_mobile_no,
+    crew_no: trip.crew_no,
+    port_clearance_no: trip.port_clearance_no,
+    fuel_quantity: trip.fuel_quantity,
+    ice_quantity: trip.ice_quantity,
+    departure_site: trip.departure_site,
+    safety_equipment: trip.safety_equipment,
+    emergency_contact: trip.emergency_contact,
+    emergency_phone: trip.emergency_phone,
+    weather_conditions: trip.weather_conditions,
+    sea_conditions: trip.sea_conditions,
+    wind_speed: trip.wind_speed,
+    wave_height: trip.wave_height,
+    estimated_catch_weight: trip.estimated_catch_weight,
+    target_species: trip.target_species,
+    catch_notes: trip.catch_notes,
+    fuel_cost: trip.fuel_cost,
+    operational_cost: trip.operational_cost,
+    total_cost: trip.total_cost,
+    revenue: trip.revenue,
+    profit: trip.profit,
+    gps_track: trip.gps_track,
+    last_gps_update: trip.last_gps_update,
+    current_latitude: trip.current_latitude,
+    current_longitude: trip.current_longitude,
+    current_speed: trip.current_speed,
+    current_heading: trip.current_heading,
+    is_offline: trip.is_offline,
+    last_online_at: trip.last_online_at,
+    went_offline_at: trip.went_offline_at,
+    trip_photos: trip.trip_photos,
+    documents: trip.documents,
+    created_at: trip.created_at,
+    updated_at: trip.updated_at,
+    duration: trip.duration,
+    distance_traveled: trip.distance_traveled,
+    status_label: trip.status_label,
+    trip_type_label: trip.trip_type_label,
+    is_active: trip.is_active,
+    is_completed: trip.is_completed,
+    is_pending_approval: trip.is_pending_approval,
+    current_location_formatted: trip.current_location_formatted,
+    departure_location_formatted: trip.departure_location_formatted,
+    arrival_location_formatted: trip.arrival_location_formatted,
+    fisherman: trip.fisherman,
+    approver: trip.approver,
+    boat: trip.boat,
+    fishing_activities: trip.fishing_activities,
+    fish_species: trip.fish_species,
+    // Legacy fields for backward compatibility
+    trip_name: trip.trip_id || `Trip-${trip.id}`,
+    fisherman_name: trip.fisherman?.name || trip.captain_name,
+    departure_lat: trip.departure_latitude,
+    departure_lng: trip.departure_longitude,
+    arrival_lat: trip.arrival_latitude,
+    arrival_lng: trip.arrival_longitude,
+    estimated_catch: trip.estimated_catch_weight,
+    weather: trip.weather_conditions,
+    boat_registration_no: trip.boat_registration_number,
+    activities: trip.fishing_activities,
+    lots: trip.fish_species,
+  };
 }
 
 export async function approveFCSTrip(id: number | string): Promise<TripDetails> {
@@ -260,6 +531,38 @@ export async function rejectFCSTrip(id: number | string, payload: { rejection_re
 }
 
 // ===== DISTRIBUTION SERVICES =====
+
+export async function getFCSDistributionCounts(): Promise<{ totals: { all: number; verified: number; pending: number; rejected: number; }; errors: Partial<Record<'all' | DistributionStatus, string>>; }> {
+  const statuses: DistributionStatus[] = ['verified', 'pending', 'rejected'];
+  const reqs = [
+    fetchFCSDistributions({ page: 1, per_page: 1 }), // Get total count
+    ...statuses.map(status => fetchFCSDistributions({ status, page: 1, per_page: 1 }))
+  ];
+  const settled = await Promise.allSettled(reqs);
+
+  const totals = { all: 0, verified: 0, pending: 0, rejected: 0 };
+  const errors: Partial<Record<'all' | DistributionStatus, string>> = {};
+
+  const allRes = settled[0];
+  if (allRes.status === 'fulfilled') {
+    totals.all = allRes.value.meta?.total || allRes.value.items?.length || 0;
+  } else {
+    totals.all = 0;
+    errors.all = (allRes as any).reason?.message || 'Failed';
+  }
+
+  statuses.forEach((status, i) => {
+    const res = settled[i + 1];
+    if (res.status === 'fulfilled') {
+      totals[status] = res.value.meta?.total || res.value.items?.length || 0;
+    } else {
+      totals[status] = 0;
+      errors[status] = (res as any).reason?.message || 'Failed';
+    }
+  });
+
+  return { totals, errors };
+}
 
 export async function fetchFCSDistributions(params: {
   page?: number;

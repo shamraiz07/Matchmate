@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Modal,
   TextInput,
+  StatusBar,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { FCSStackParamList } from '../../app/navigation/stacks/FCSStack';
@@ -19,6 +20,189 @@ import { fetchFCSTrips, type TripRowDTO, approveFCSTrip, rejectFCSTrip } from '.
 import Toast from 'react-native-toast-message';
 
 type Nav = NativeStackNavigationProp<FCSStackParamList>;
+
+const TripCard = ({ 
+  trip, 
+  onPress, 
+  onApprove, 
+  onReject, 
+  approveLoading, 
+  rejectLoading 
+}: { 
+  trip: TripRowDTO; 
+  onPress: (trip: TripRowDTO) => void;
+  onApprove: (trip: TripRowDTO) => void;
+  onReject: (trip: TripRowDTO) => void;
+  approveLoading: string | null;
+  rejectLoading: string | null;
+}) => {
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return PALETTE.blue700;
+      case 'completed': return PALETTE.green700;
+      case 'pending':
+      case 'pending_approval': return PALETTE.orange700;
+      default: return PALETTE.text600;
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'active': return 'Active';
+      case 'completed': return 'Completed';
+      case 'pending':
+      case 'pending_approval': return 'Pending';
+      default: return status;
+    }
+  };
+
+  const color = getStatusColor(trip.status);
+  const isPendingApproval = trip.status === 'pending_approval';
+  const isPending = trip.status === 'pending';
+  
+  return (
+    <Pressable 
+      onPress={() => onPress(trip)} 
+      style={({ pressed }) => [styles.card, pressed && { opacity: 0.93 }]}
+      accessibilityRole="button"
+      accessibilityLabel={`Open trip ${trip.trip_name}`}
+    >
+      {/* Top row: Trip ID + status pill */}
+      <View style={styles.cardTop}>
+        <Text style={styles.cardTitle} numberOfLines={1}>
+          {trip.trip_name}
+        </Text>
+
+        <View
+          style={[
+            styles.badge,
+            { borderColor: color },
+          ]}
+        >
+          <View style={[styles.badgeDot, { backgroundColor: color }]} />
+          <Text style={[styles.badgeText, { color }]}>
+            {getStatusLabel(trip.status)}
+          </Text>
+        </View>
+      </View>
+
+      {/* Info grid row (Fisherman • Boat • Type) */}
+      <View style={styles.infoRow}>
+        <Icon name="person" size={16} color={PALETTE.text600} />
+        <Text style={styles.infoText} numberOfLines={1}>
+          {trip.fisherman_name || '—'}
+        </Text>
+        <View style={styles.dot} />
+        <Icon name="directions-boat" size={16} color={PALETTE.text600} />
+        <Text style={styles.infoText} numberOfLines={1}>
+          {trip.boat_name || '—'}
+        </Text>
+        <View style={styles.dot} />
+        <Icon name="category" size={16} color={PALETTE.text600} />
+        <Text style={styles.infoText} numberOfLines={1}>
+          {trip.trip_type_label || '—'}
+        </Text>
+      </View>
+
+      {/* Route row */}
+      <View style={styles.routeRow}>
+        <Icon name="place" size={16} color={PALETTE.text600} />
+        <Text style={styles.routeText} numberOfLines={1}>
+          {trip.departure_port || 'Unknown'}
+        </Text>
+      </View>
+
+      {/* Time row */}
+      <View style={styles.timeRow}>
+        <Icon name="schedule" size={16} color={PALETTE.text600} />
+        <Text style={styles.cardTime} numberOfLines={1}>
+          {trip.departure_time || 'Time not set'}
+        </Text>
+      </View>
+
+      {/* Footer actions */}
+      <View style={styles.cardActions}>
+        <Pressable
+          onPress={() => onPress(trip)}
+          style={[styles.actionBtn, styles.btnGhost]}
+          accessibilityLabel="View"
+        >
+          <Icon name="visibility" size={18} color={PALETTE.text900} />
+          <Text style={styles.btnGhostText}>View</Text>
+        </Pressable>
+
+        {(isPending || isPendingApproval) && (
+          <>
+            <Pressable
+              onPress={() => onApprove(trip)}
+              style={[
+                styles.actionBtn, 
+                styles.btnSuccess,
+                approveLoading === trip.id.toString() && styles.loadingOpacity
+              ]}
+              disabled={approveLoading === trip.id.toString() || rejectLoading === trip.id.toString()}
+              accessibilityLabel="Approve"
+            >
+              {approveLoading === trip.id.toString() ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Icon name="check" size={18} color="#fff" />
+                  <Text style={styles.btnWhiteText}>Approve</Text>
+                </>
+              )}
+            </Pressable>
+
+            <Pressable
+              onPress={() => onReject(trip)}
+              style={[
+                styles.actionBtn, 
+                styles.btnDanger,
+                rejectLoading === trip.id.toString() && styles.loadingOpacity
+              ]}
+              disabled={approveLoading === trip.id.toString() || rejectLoading === trip.id.toString()}
+              accessibilityLabel="Reject"
+            >
+              {rejectLoading === trip.id.toString() ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Icon name="close" size={18} color="#fff" />
+                  <Text style={styles.btnWhiteText}>Reject</Text>
+                </>
+              )}
+            </Pressable>
+          </>
+        )}
+      </View>
+    </Pressable>
+  );
+};
+
+const FilterChip = ({ label, isActive, onPress }: { label: string; isActive: boolean; onPress: () => void }) => (
+  <Pressable 
+    onPress={onPress}
+    style={[styles.filterChip, isActive && styles.filterChipActive]}
+  >
+    <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+      {label}
+    </Text>
+  </Pressable>
+);
+
+const EmptyState = ({ filter }: { filter: string }) => (
+  <View style={styles.emptyState}>
+    <Icon name="sailing" size={64} color={PALETTE.text400} />
+    <Text style={styles.emptyTitle}>No trips found</Text>
+    <Text style={styles.emptyMessage}>
+      {filter === 'All' 
+        ? "No trips available at the moment."
+        : `No ${filter.toLowerCase()} trips found.`
+      }
+    </Text>
+  </View>
+);
+
 
 export default function FCSTripsList() {
   const navigation = useNavigation<Nav>();
@@ -145,117 +329,12 @@ export default function FCSTripsList() {
     }
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return PALETTE.blue700;
-      case 'completed': return PALETTE.green700;
-      case 'pending':
-      case 'pending_approval': return PALETTE.orange700;
-      default: return PALETTE.text600;
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'active': return 'Active';
-      case 'completed': return 'Completed';
-      case 'pending':
-      case 'pending_approval': return 'Pending';
-      default: return status;
-    }
-  };
-
-  const TripCard = ({ trip }: { trip: TripRowDTO }) => (
-    <Pressable 
-      onPress={() => handleTripPress(trip)} 
-      style={({ pressed }) => [styles.tripCard, pressed && { opacity: 0.9 }]}
-    >
-      <View style={styles.tripHeader}>
-        <View style={styles.tripInfo}>
-          <Text style={styles.tripId}>{trip.trip_name}</Text>
-          <Text style={styles.boatName}>{trip.boat_name || 'Unknown Boat'}</Text>
-        </View>
-        <View style={[styles.statusPill, { backgroundColor: getStatusColor(trip.status) + '20' }]}>
-          <Text style={[styles.statusText, { color: getStatusColor(trip.status) }]}>
-            {getStatusLabel(trip.status)}
-          </Text>
-        </View>
-      </View>
-      
-      <View style={styles.tripDetails}>
-        <View style={styles.detailRow}>
-          <Icon name="person" size={16} color={PALETTE.text600} />
-          <Text style={styles.detailText}>{trip.fisherman_name || 'Unknown Captain'}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Icon name="location-on" size={16} color={PALETTE.text600} />
-          <Text style={styles.detailText}>{trip.departure_port || 'Unknown Port'}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Icon name="schedule" size={16} color={PALETTE.text600} />
-          <Text style={styles.detailText}>
-            {trip.departure_time || trip.created_at || 'Unknown Date'}
-          </Text>
-        </View>
-      </View>
-
-      {(trip.status === 'pending' || trip.status === 'pending_approval') && (
-        <View style={styles.actionButtons}>
-          <Pressable 
-            onPress={() => handleApprove(trip)}
-            style={[
-              styles.actionButton, 
-              styles.approveButton,
-              approveLoading === trip.id.toString() && { opacity: 0.6 }
-            ]}
-            disabled={approveLoading === trip.id.toString() || rejectLoading === trip.id.toString()}
-          >
-            {approveLoading === trip.id.toString() ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Icon name="check" size={16} color="#fff" />
-                <Text style={styles.actionButtonText}>Approve</Text>
-              </>
-            )}
-          </Pressable>
-          <Pressable 
-            onPress={() => handleReject(trip)}
-            style={[
-              styles.actionButton, 
-              styles.rejectButton,
-              rejectLoading === trip.id.toString() && { opacity: 0.6 }
-            ]}
-            disabled={approveLoading === trip.id.toString() || rejectLoading === trip.id.toString()}
-          >
-            {rejectLoading === trip.id.toString() ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Icon name="close" size={16} color="#fff" />
-                <Text style={styles.actionButtonText}>Reject</Text>
-              </>
-            )}
-          </Pressable>
-        </View>
-      )}
-    </Pressable>
-  );
-
-  const FilterChip = ({ label, isActive, onPress }: { label: string; isActive: boolean; onPress: () => void }) => (
-    <Pressable 
-      onPress={onPress}
-      style={[styles.filterChip, isActive && styles.filterChipActive]}
-    >
-      <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
+  const emptyComponent = useMemo(() => <EmptyState filter={filter} />, [filter]);
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
+        <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" />
         <ActivityIndicator size="large" color={PALETTE.green700} />
         <Text style={styles.loadingText}>Loading trips...</Text>
       </View>
@@ -264,13 +343,14 @@ export default function FCSTripsList() {
 
   return (
     <View style={styles.container}>
+      <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" />
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={handleBack} style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.8 }]}>
           <Icon name="arrow-back" size={24} color="#fff" />
         </Pressable>
         <Text style={styles.headerTitle}>FCS Trips Management</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.headerSpacer} />
       </View>
 
       {/* Filters */}
@@ -292,23 +372,21 @@ export default function FCSTripsList() {
       <FlatList
         data={filteredTrips}
         keyExtractor={(item) => String(item.id)}
-        renderItem={({ item }) => <TripCard trip={item} />}
+        renderItem={({ item }) => (
+          <TripCard 
+            trip={item} 
+            onPress={handleTripPress}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            approveLoading={approveLoading}
+            rejectLoading={rejectLoading}
+          />
+        )}
         contentContainerStyle={styles.listContainer}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        ListEmptyComponent={() => (
-          <View style={styles.emptyState}>
-            <Icon name="sailing" size={64} color={PALETTE.text400} />
-            <Text style={styles.emptyTitle}>No trips found</Text>
-            <Text style={styles.emptyMessage}>
-              {filter === 'All' 
-                ? "No trips available at the moment."
-                : `No ${filter.toLowerCase()} trips found.`
-              }
-            </Text>
-          </View>
-        )}
+        ListEmptyComponent={() => emptyComponent}
       />
 
       {/* Rejection Modal */}
@@ -355,7 +433,7 @@ export default function FCSTripsList() {
                 style={[
                   styles.modalButton, 
                   styles.confirmButton,
-                  (!rejectionReason.trim() || rejectLoading) && { opacity: 0.6 }
+                  (!rejectionReason.trim() || rejectLoading) && styles.loadingOpacity
                 ]}
                 onPress={confirmReject}
                 disabled={!rejectionReason.trim() || !!rejectLoading}
@@ -414,6 +492,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
   },
+  headerSpacer: {
+    width: 40,
+  },
   filtersContainer: {
     backgroundColor: '#fff',
     padding: 16,
@@ -450,7 +531,8 @@ const styles = StyleSheet.create({
   listContainer: {
     padding: 16,
   },
-  tripCard: {
+  // Card styles matching fisherman implementation
+  card: {
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
@@ -461,70 +543,113 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  tripHeader: {
+  cardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 12,
   },
-  tripInfo: {
-    flex: 1,
-  },
-  tripId: {
+  cardTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: PALETTE.text900,
-    marginBottom: 4,
+    flex: 1,
+    marginRight: 8,
   },
-  boatName: {
-    fontSize: 14,
-    color: PALETTE.text600,
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    backgroundColor: '#fff',
   },
-  statusPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+  badgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
   },
-  statusText: {
+  badgeText: {
     fontSize: 12,
     fontWeight: '600',
   },
-  tripDetails: {
-    marginBottom: 12,
-  },
-  detailRow: {
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
+    flexWrap: 'wrap',
   },
-  detailText: {
+  infoText: {
+    fontSize: 14,
+    color: PALETTE.text600,
+    marginLeft: 4,
+    flex: 1,
+  },
+  dot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: PALETTE.text400,
+    marginHorizontal: 8,
+  },
+  routeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  routeText: {
     fontSize: 14,
     color: PALETTE.text600,
     marginLeft: 8,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  actionButton: {
     flex: 1,
+  },
+  timeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  cardTime: {
+    fontSize: 14,
+    color: PALETTE.text600,
+    marginLeft: 8,
+    flex: 1,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 8,
     gap: 6,
   },
-  approveButton: {
+  btnGhost: {
+    backgroundColor: PALETTE.border,
+  },
+  btnSuccess: {
     backgroundColor: PALETTE.green700,
   },
-  rejectButton: {
+  btnDanger: {
     backgroundColor: PALETTE.error,
   },
-  actionButtonText: {
-    color: '#fff',
+  btnGhostText: {
     fontSize: 14,
     fontWeight: '600',
+    color: PALETTE.text900,
+  },
+  btnWhiteText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  loadingOpacity: {
+    opacity: 0.6,
   },
   emptyState: {
     alignItems: 'center',

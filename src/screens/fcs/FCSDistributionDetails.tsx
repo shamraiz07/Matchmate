@@ -29,7 +29,6 @@ import {
   verifyFCSDistribution,
   rejectFCSDistribution,
   getStatusColor,
-  getStatusText,
 } from '../../services/fcs';
 import { FCSStackParamList } from '../../app/navigation/stacks/FCSStack';
 import PALETTE from '../../theme/palette';
@@ -273,8 +272,33 @@ export default function FCSDistributionDetails() {
             <Row icon="phone" label="Captain Phone" value={distribution.trip.captain_mobile_no} />
             <Row icon="place" label="Departure Port" value={distribution.trip.departure_port} />
             <Row icon="schedule" label="Departure Time" value={distribution.trip.departure_time} />
-            <Row icon="flag" label="Fishing Zone" value={distribution.trip.fishing_zone} />
+            <Row icon="flag" label="Fishing Zone" value={distribution.trip.fishing_zone || 'Not specified'} />
             <Row icon="category" label="Trip Type" value={distribution.trip.trip_type} />
+          </Section>
+        )}
+
+        {/* Fisherman Information */}
+        {distribution.trip?.fisherman && (
+          <Section title="Fisherman" icon="person">
+            <Row icon="person" label="Name" value={distribution.trip.fisherman.name} />
+            <Row icon="email" label="Email" value={distribution.trip.fisherman.email} />
+            <Row icon="phone" label="Phone" value={distribution.trip.fisherman.phone} />
+            <Row icon="badge" label="Boat Registration" value={distribution.trip.fisherman.boat_registration_number} />
+            <Row icon="public" label="Fishing Zone" value={distribution.trip.fisherman.fishing_zone} />
+            <Row icon="place" label="Port Location" value={distribution.trip.fisherman.port_location} />
+          </Section>
+        )}
+
+        {/* Middle Man Information */}
+        {distribution.middle_man && (
+          <Section title="Assigned Middle Man" icon="business">
+            <Row icon="person" label="Name" value={distribution.middle_man.name} />
+            <Row icon="email" label="Email" value={distribution.middle_man.email} />
+            <Row icon="phone" label="Phone" value={distribution.middle_man.phone} />
+            <Row icon="business" label="Company" value={distribution.middle_man.company_name} />
+            <Row icon="location-on" label="Business Address" value={distribution.middle_man.business_address} />
+            <Row icon="phone" label="Business Phone" value={distribution.middle_man.business_phone} />
+            <Row icon="email" label="Business Email" value={distribution.middle_man.business_email} />
           </Section>
         )}
 

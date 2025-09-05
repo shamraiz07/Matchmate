@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Modal,
   TextInput,
+  StatusBar,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { FCSStackParamList } from '../../app/navigation/stacks/FCSStack';
@@ -256,6 +257,7 @@ export default function FCSDistributionsList() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
+        <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" />
         <ActivityIndicator size="large" color={PALETTE.green700} />
         <Text style={styles.loadingText}>Loading distributions...</Text>
       </View>
@@ -264,6 +266,7 @@ export default function FCSDistributionsList() {
 
   return (
     <View style={styles.container}>
+      <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" />
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={handleBack} style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.8 }]}>
