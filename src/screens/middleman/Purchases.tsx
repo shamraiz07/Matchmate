@@ -1,23 +1,23 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  Alert,
   RefreshControl,
-  TextInput,
+  Alert,
+  StatusBar,
+  Pressable,
 } from 'react-native';
-import { Dropdown } from 'react-native-element-dropdown';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MiddleManStackParamList } from '../../app/navigation/stacks/MiddleManStack';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import PALETTE from '../../theme/palette';
 import {
   fetchPurchases,
-  confirmPurchase,
-  type FishPurchase,
+  type MiddlemanPurchase,
   type PaginatedResponse,
   getStatusColor,
   getStatusText,
@@ -27,26 +27,16 @@ import {
 // --- Types ---
 type Nav = NativeStackNavigationProp<MiddleManStackParamList, 'MiddleManHome'>;
 
-// --- Dropdown Data ---
-const Status = [
-  { label: 'All Status', value: 'All Status' },
-  { label: 'Pending', value: 'pending' },
-  { label: 'Confirmed', value: 'confirmed' },
-  { label: 'Completed', value: 'completed' },
-  { label: 'Cancelled', value: 'cancelled' },
-];
-
 export default function Purchases() {
   const navigation = useNavigation<Nav>();
 
-  const [purchases, setPurchases] = useState<FishPurchase[]>([]);
-  const [meta, setMeta] = useState<PaginatedResponse<FishPurchase>['meta'] | null>(null);
+  const [purchases, setPurchases] = useState<MiddlemanPurchase[]>([]);
+  const [, setMeta] = useState<PaginatedResponse<MiddlemanPurchase>['meta'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [page, setPage] = useState(1);
+  const [, setPage] = useState(1);
 
-  const [status, setStatus] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState<string | null>('All Status');
 
   // --- Fetch API ---
   const loadPurchases = useCallback(async (p = 1, replace = false) => {
@@ -60,12 +50,11 @@ export default function Purchases() {
       if (status && status !== 'All Status') {
         params.status = status;
       }
-      
-      if (search.trim()) {
-        params.search = search.trim();
-      }
 
+      console.log('Loading purchases with params:', params);
       const response = await fetchPurchases(params);
+      console.log('Purchases response:', response);
+      
       setMeta(response.meta);
       setPage(response.meta.current_page);
       setPurchases(prev => (replace || p === 1 ? response.items : [...prev, ...response.items]));
@@ -76,7 +65,7 @@ export default function Purchases() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [status, search]);
+  }, [status]);
 
   useEffect(() => {
     loadPurchases(1, true);
@@ -87,209 +76,210 @@ export default function Purchases() {
     loadPurchases(1, true);
   }, [loadPurchases]);
 
-  const onEndReached = useCallback(() => {
-    if (!meta || page >= meta.last_page) return;
-    loadPurchases(page + 1);
-  }, [meta, page, loadPurchases]);
-
-  // --- Handle Confirm Purchase ---
-  const handleConfirmPurchase = useCallback(async (purchaseId: number) => {
-    Alert.alert(
-      'Confirm Purchase',
-      'Are you sure you want to confirm this purchase?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          style: 'default',
-          onPress: async () => {
-            try {
-              await confirmPurchase(purchaseId);
-              // Refresh the data
-              loadPurchases(1, true);
-              Alert.alert('Success', 'Purchase confirmed successfully!');
-            } catch (error) {
-              console.error('Error confirming purchase:', error);
-              Alert.alert('Error', 'Failed to confirm purchase. Please try again.');
-            }
-          },
-        },
-      ]
-    );
-  }, [loadPurchases]);
-
   // --- Render List Item ---
-  const renderItem = ({ item }: { item: FishPurchase }) => {
+  const renderItem = ({ item }: { item: MiddlemanPurchase }) => {
     const statusColor = getStatusColor(item.status);
-    const isPending = item.status === 'pending';
+    const statusText = item.status_label || getStatusText(item.status);
 
     return (
-      <TouchableOpacity
-        onPress={() => navigation.navigate('distributionDetails')}
-        activeOpacity={0.8}
-      >
-        <View style={styles.card}>
-          {/* Header */}
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle} numberOfLines={1}>
-              Purchase #{item.id}
-            </Text>
-            <View style={[styles.badge, { backgroundColor: statusColor }]}>
-              <Text style={styles.badgeText}>{getStatusText(item.status)}</Text>
-            </View>
-          </View>
-
-          {/* Info Rows */}
-          <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>Lot No:</Text>
-            <Text style={styles.cardValue}>{item.distribution?.lot_no || '—'}</Text>
-          </View>
-
-          <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>Species:</Text>
-            <Text style={styles.cardValue}>{item.distribution?.species || '—'}</Text>
-          </View>
-
-          <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>Quantity:</Text>
-            <Text style={styles.cardValue}>{item.quantity_kg} kg</Text>
-          </View>
-
-          <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>Price:</Text>
-            <Text style={styles.cardValue}>${item.purchase_price}</Text>
-          </View>
-
-          <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>Date:</Text>
-            <Text style={styles.cardValue}>{formatDate(item.purchase_date)}</Text>
-          </View>
-
-          <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>Payment:</Text>
-            <Text style={styles.cardValue}>{item.payment_status}</Text>
-          </View>
-
-          {/* Confirm Button for Pending Purchases */}
-          {isPending && (
-            <TouchableOpacity
-              style={styles.confirmButton}
-              onPress={() => handleConfirmPurchase(item.id)}
-            >
-              <Text style={styles.confirmButtonText}>Confirm Purchase</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </TouchableOpacity>
+      <PurchaseCard
+        purchase={item}
+        onPress={() => navigation.navigate('purchaseDetails', { purchaseId: item.id })}
+        statusColor={statusColor}
+        statusText={statusText}
+      />
     );
   };
-
-  // --- Render Header (Filters) ---
-  const renderHeader = () => (
-    <View>
-      {/* Filters */}
-      <View style={styles.filterCard}>
-        <Text style={styles.filterHeader}>Filter Purchases</Text>
-
-        {/* Status */}
-        <FilterDropdown label="Status" data={Status} value={status} onChange={setStatus} />
-
-        {/* Search */}
-        <View style={styles.searchRow}>
-          <Text style={styles.searchLabel}>Search:</Text>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by lot no, species..."
-            value={search}
-            onChangeText={setSearch}
-            onSubmitEditing={() => loadPurchases(1, true)}
-          />
-        </View>
-
-        {/* Buttons */}
-        <View style={styles.filterButtons}>
-          <TouchableOpacity 
-            style={styles.applyBtn}
-            onPress={() => loadPurchases(1, true)}
-          >
-            <Text style={styles.btnText}>🔍 Apply Filters</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.clearBtn}
-            onPress={() => {
-              setStatus(null);
-              setSearch('');
-              loadPurchases(1, true);
-            }}
-          >
-            <Text style={styles.btnText}>✖️ Clear Filters</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* List Header */}
-      <View style={styles.listCard}>
-        <Text style={styles.listHeader}>
-          All Purchases ({meta?.total || 0})
-        </Text>
-      </View>
-    </View>
-  );
 
   // --- Loader ---
   if (loading) {
     return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#07890bff" />
-        <Text style={styles.loaderText}>Loading purchases...</Text>
+      <View style={styles.container}>
+        <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={PALETTE.green700} />
+          <Text style={styles.loadingText}>Loading purchases...</Text>
+        </View>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable onPress={() => navigation.goBack()} style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.8 }]}>
+          <Icon name="arrow-back" size={24} color="#fff" />
+        </Pressable>
+        <Text style={styles.headerTitle}>Purchases</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      {/* Filters */}
+      <View style={styles.filtersContainer}>
+        <Text style={styles.filtersTitle}>Filter by status</Text>
+        <View style={styles.filtersRow}>
+          {(['All Status', 'Pending', 'Confirmed', 'Completed', 'Cancelled'] as const).map((statusOption) => (
+            <FilterChip
+              key={statusOption}
+              label={statusOption}
+              isActive={status === statusOption}
+              onPress={() => {
+                console.log('Filter changed to:', statusOption);
+                setStatus(statusOption);
+              }}
+            />
+          ))}
+        </View>
+      </View>
+
+      {/* Purchases List */}
       <FlatList
         data={purchases}
         keyExtractor={item => item.id.toString()}
         renderItem={renderItem}
-        ListHeaderComponent={renderHeader}
-        ItemSeparatorComponent={() => <View style={{ height: 12, marginHorizontal: 12 }} />}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        onEndReached={onEndReached}
-        onEndReachedThreshold={0.2}
-        contentContainerStyle={{ paddingBottom: 24 }}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No purchases found</Text>
-            <Text style={styles.emptySubText}>Try adjusting your filters</Text>
-          </View>
-        }
+        contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={EmptyState}
       />
     </View>
   );
 }
 
-// --- Reusable Dropdown Component ---
-const FilterDropdown = ({ label, data, value, onChange }: any) => (
-  <View style={styles.dropdownRow}>
-    <Text style={styles.dropdownLabel}>{label}</Text>
-    <Dropdown
-      style={styles.dropdown}
-      placeholderStyle={styles.dropdownPlaceholder}
-      selectedTextStyle={styles.dropdownText}
-      data={data}
-      search
-      maxHeight={200}
-      labelField="label"
-      valueField="value"
-      placeholder={`Select ${label}`}
-      searchPlaceholder="Search..."
-      value={value}
-      onChange={item => onChange(item.value)}
-    />
+// --- Components ---
+
+const PurchaseCard = ({
+  purchase,
+  onPress,
+  statusColor,
+  statusText
+}: {
+  purchase: MiddlemanPurchase;
+  onPress: () => void;
+  statusColor: string;
+  statusText: string;
+}) => (
+  <Pressable
+    onPress={onPress}
+    style={({ pressed }) => [styles.card, pressed && { opacity: 0.95, transform: [{ scale: 0.98 }] }]}
+    accessibilityRole="button"
+    accessibilityLabel={`Open purchase ${purchase.id}`}
+  >
+    {/* Header with Purchase ID and Status */}
+    <View style={styles.cardHeader}>
+      <View style={styles.cardTitleContainer}>
+        <Text style={styles.cardTitle}>Purchase #{purchase.id}</Text>
+        <View style={styles.productBadge}>
+          <Text style={styles.productText}>{purchase.final_product_name}</Text>
+        </View>
+      </View>
+      <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+        <Text style={styles.statusText}>{statusText}</Text>
+      </View>
+    </View>
+
+    {/* Purchase Info */}
+    <View style={styles.cardInfo}>
+      <View style={styles.infoItem}>
+        <View style={styles.infoIconContainer}>
+          <Icon name="business" size={18} color={PALETTE.blue700} />
+        </View>
+        <View style={styles.infoContent}>
+          <Text style={styles.infoLabel}>Exporter</Text>
+          <Text style={styles.infoValue} numberOfLines={1}>
+            {purchase.exporter?.name || '—'}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.infoItem}>
+        <View style={styles.infoIconContainer}>
+          <Icon name="person" size={18} color={PALETTE.green700} />
+        </View>
+        <View style={styles.infoContent}>
+          <Text style={styles.infoLabel}>Middleman</Text>
+          <Text style={styles.infoValue} numberOfLines={1}>
+            {purchase.middle_man?.name || '—'}
+          </Text>
+        </View>
+      </View>
+    </View>
+
+    {/* Quantity and Value */}
+    <View style={styles.metricsContainer}>
+      <View style={styles.metricItem}>
+        <Text style={styles.metricLabel}>Total Quantity</Text>
+        <Text style={styles.metricValue}>{purchase.total_quantity_kg} kg</Text>
+      </View>
+      <View style={styles.metricItem}>
+        <Text style={styles.metricLabel}>Total Value</Text>
+        <Text style={styles.metricValue}>${purchase.total_value}</Text>
+      </View>
+      <View style={styles.metricItem}>
+        <Text style={styles.metricLabel}>Reference</Text>
+        <Text style={styles.metricValue}>{purchase.purchase_reference}</Text>
+      </View>
+    </View>
+
+    {/* Date */}
+    <View style={styles.dateContainer}>
+      <Icon name="schedule" size={16} color={PALETTE.text500} />
+      <Text style={styles.dateText}>
+        Created: {formatDate(purchase.created_at)}
+      </Text>
+    </View>
+
+    {/* Action Button */}
+    <View style={styles.cardFooter}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.viewButton,
+          pressed && { opacity: 0.8 }
+        ]}
+        accessibilityLabel="View Details"
+      >
+        <Icon name="arrow-forward-ios" size={16} color={PALETTE.green700} />
+        <Text style={styles.viewButtonText}>View Details</Text>
+      </Pressable>
+    </View>
+  </Pressable>
+);
+
+const FilterChip = ({
+  label,
+  isActive,
+  onPress
+}: {
+  label: string;
+  isActive: boolean;
+  onPress: () => void;
+}) => (
+  <Pressable
+    onPress={onPress}
+    style={[
+      styles.filterChip,
+      isActive && styles.filterChipActive
+    ]}
+  >
+    <Text style={[
+      styles.filterChipText,
+      isActive && styles.filterChipTextActive
+    ]}>
+      {label}
+    </Text>
+  </Pressable>
+);
+
+const EmptyState = () => (
+  <View style={styles.emptyContainer}>
+    <Icon name="shopping-cart" size={48} color={PALETTE.text400} />
+    <Text style={styles.emptyText}>No purchases found</Text>
+    <Text style={styles.emptySubText}>Try adjusting your filters</Text>
   </View>
 );
 
@@ -297,203 +287,243 @@ const FilterDropdown = ({ label, data, value, onChange }: any) => (
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f5f7fa',
   },
-  loaderContainer: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f5f7fa',
   },
-  loaderText: {
-    marginTop: 12,
+  loadingText: {
+    marginTop: 16,
     fontSize: 16,
-    color: '#666',
+    color: PALETTE.text600,
   },
-
-  // --- Filter Section ---
-  filterCard: {
-    backgroundColor: '#ffffff',
-    padding: 20,
-    margin: 12,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 5,
-    elevation: 2,
+  header: {
+    backgroundColor: PALETTE.green700,
+    paddingTop: 20,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  filterHeader: {
-    fontWeight: '700',
+  backButton: {
+    padding: 8,
+    marginRight: 12,
+  },
+  headerTitle: {
     fontSize: 20,
-    marginBottom: 16,
-    textAlign: 'center',
-    color: '#2a2a2a',
-  },
-  dropdownRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  dropdownLabel: {
-    width: '28%',
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#444',
-  },
-  dropdown: {
-    flex: 1,
-    height: 45,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    backgroundColor: '#fff',
-  },
-  dropdownPlaceholder: {
-    color: '#aaa',
-    fontSize: 14,
-  },
-  dropdownText: {
-    fontSize: 14,
-    color: '#222',
-  },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  searchLabel: {
-    width: '28%',
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#444',
-  },
-  searchInput: {
-    flex: 1,
-    height: 45,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    backgroundColor: '#fff',
-    fontSize: 14,
-    color: '#222',
-  },
-  filterButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  applyBtn: {
-    backgroundColor: '#368a33ff',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-  },
-  clearBtn: {
-    backgroundColor: '#828282ff',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-  },
-  btnText: {
-    color: '#fff',
     fontWeight: 'bold',
+    color: '#fff',
+    flex: 1,
   },
-
-  // --- List Section ---
-  listCard: {
+  headerSpacer: {
+    width: 40,
+  },
+  filtersContainer: {
     backgroundColor: '#fff',
-    padding: 15,
-    margin: 12,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 5,
-    elevation: 2,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: PALETTE.border,
   },
-  listHeader: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 15,
-    color: '#222',
-  },
-  emptyContainer: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyText: {
+  filtersTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#666',
+    color: PALETTE.text900,
+    marginBottom: 12,
+  },
+  filtersRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 25,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    marginRight: 8,
+  },
+  filterChipActive: {
+    backgroundColor: PALETTE.green700,
+    borderColor: PALETTE.green700,
+    shadowColor: PALETTE.green700,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  filterChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: PALETTE.text600,
+  },
+  filterChipTextActive: {
+    color: '#fff',
+  },
+  listContainer: {
+    padding: 20,
+    gap: 16,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  cardHeader: {
+    marginBottom: 16,
+  },
+  cardTitleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: PALETTE.text900,
+    flex: 1,
+  },
+  productBadge: {
+    backgroundColor: PALETTE.green50,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: PALETTE.green600,
+  },
+  productText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: PALETTE.green700,
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  cardInfo: {
+    marginBottom: 16,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  infoIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: PALETTE.text500,
+    marginBottom: 2,
+  },
+  infoValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: PALETTE.text900,
+  },
+  metricsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+  },
+  metricItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  metricLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: PALETTE.text500,
+    marginBottom: 4,
+  },
+  metricValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PALETTE.text900,
+  },
+  dateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+  },
+  dateText: {
+    fontSize: 14,
+    color: PALETTE.text600,
+    marginLeft: 8,
+    fontWeight: '500',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  viewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: PALETTE.green50,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: PALETTE.green600,
+  },
+  viewButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: PALETTE.green700,
+    marginLeft: 6,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: PALETTE.text900,
+    marginTop: 16,
     marginBottom: 8,
   },
   emptySubText: {
     fontSize: 14,
-    color: '#999',
-  },
-
-  // --- Card ---
-  card: {
-    backgroundColor: '#f4f8f4',
-    padding: 15,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    marginHorizontal: 12,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-    alignItems: 'center',
-  },
-  cardTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#333',
-    flex: 1,
-    marginRight: 10,
-  },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  badgeText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 3,
-  },
-  cardLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#555',
-    width: '35%',
-  },
-  cardValue: {
-    fontSize: 14,
-    color: '#333',
-    flex: 1,
-    textAlign: 'right',
-  },
-  confirmButton: {
-    backgroundColor: '#4caf50',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginTop: 12,
-    alignItems: 'center',
-  },
-  confirmButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
+    color: PALETTE.text600,
   },
 });

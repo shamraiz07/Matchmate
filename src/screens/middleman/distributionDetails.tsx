@@ -1,355 +1,464 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, FlatList } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  StatusBar,
+  Pressable,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { MiddleManStackParamList } from '../../app/navigation/stacks/MiddleManStack';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import PALETTE from '../../theme/palette';
+import {
+  fetchDistributionById,
+  type FishLotDistribution,
+  getStatusColor,
+  getStatusText,
+  formatDate,
+  formatDateTime,
+} from '../../services/middlemanDistribution';
 
-const Distribution = [
-  {
-    id: '1',
-    distributionName: 'DIST-1',
-    status: 'VERIFIED',
-    totalQuantity: '50.00 KG',
-    totalValue: 'N/A',
-    createdDate: 'Aug 26, 2025 13:51',
-    updatedDate: 'Aug 26, 2025 13:52',
-    tripId: 'TRIP-20250826-001',
-    boatName: 'Sea Explorer',
-    departureSite: 'karachi_fish_harbor',
-    landingSite: 'korangi_fish_harbor',
-    tripStatus: 'Completed',
-    tripCompleted: 'Yes',
-    lots: [
-      {
-        number: 'LOT-20250826-001',
-        species: 'Tuna',
-        quantity: '25.00 KG',
-        notes: 'Nothing',
-      },
-      {
-        number: 'LOT-20250826-002',
-        species: 'Shrimp',
-        quantity: '25.00 KG',
-        notes: 'Nothing',
-      },
-    ],
-    totalLots: 2,
-    lotsTotalQuantity: '50.00 KG',
-    verifiedBy: 'MFD Staff',
-    verifiedAt: 'Aug 26, 2025 13:52',
-    fishermanName: 'Fisher Man',
-    fishermanRole: 'Fishermen',
-    fishermanEmail: 'fisher.man@gmail.com',
-    fishermanPhone: '03004554587',
-    middleManName: 'Middle Man',
-    middleManRole: 'Middle_man',
-    middleManEmail: 'middle.man@gmail.com',
-    middleManPhone: '03215487963',
-  },
-];
+// --- Types ---
+type Nav = NativeStackNavigationProp<MiddleManStackParamList, 'MiddleManHome'>;
+type Route = RouteProp<MiddleManStackParamList, 'distributionDetails'>;
 
 export default function DistributionDetails() {
-//   const [example, setExample] = useState([]);
-//   useEffect(() => {
-//     getExample();
-//   }, []);
-//   const getExample = () => {
-//     const URL = '';
-//     fetch(URL)
-//       .then(res => {
-//         return res.json();
-//       })
-//       .then(data => {
-//         setExample(data);
-//       });
-//   };
+  const navigation = useNavigation<Nav>();
+  const route = useRoute<Route>();
+  const { distributionId } = route.params || { distributionId: 0 };
+
+  const [distribution, setDistribution] = useState<FishLotDistribution | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // --- Fetch Distribution Details ---
+  const loadDistributionDetails = async () => {
+    try {
+      setLoading(true);
+      const response = await fetchDistributionById(distributionId);
+      setDistribution(response);
+    } catch (error) {
+      console.error('Error loading distribution details:', error);
+      Alert.alert('Error', 'Failed to load distribution details. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDistributionDetails();
+  }, [distributionId]);
+
+  // --- Loader ---
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={PALETTE.green700} />
+          <Text style={styles.loadingText}>Loading distribution details...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!distribution) {
+    return (
+      <View style={styles.container}>
+        <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.errorText}>Distribution not found</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const statusColor = getStatusColor(distribution.verification_status);
+  const statusText = distribution.verification_status_label || getStatusText(distribution.verification_status);
+
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" />
+      
       {/* Header */}
-      <FlatList
-        data={Distribution}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => {
-          const statusColor =
-            item.status === 'VERIFIED'
-              ? '#4CAF50'
-              : item.status === 'PENDING'
-              ? '#FF9800'
-              : '#E53935';
-          return (
-            <View style={styles.distributionHead}>
-              <Text style={styles.distributionName}>
-                {item.distributionName}
-              </Text>
-              <View
-                style={[styles.statusBadge, { backgroundColor: statusColor }]}
-              >
-                <Text style={styles.statusName}>{item.status}</Text>
+      <View style={styles.header}>
+        <Pressable onPress={() => navigation.goBack()} style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.8 }]}>
+          <Icon name="arrow-back" size={24} color="#fff" />
+        </Pressable>
+        <Text style={styles.headerTitle}>Distribution Details</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Distribution Information Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Icon name="info" size={20} color={PALETTE.blue700} />
+            <Text style={styles.cardTitle}>Distribution Information</Text>
+          </View>
+          
+          <View style={styles.cardContent}>
+            <Row label="Status" value={statusText} valueColor={statusColor} />
+            <Row label="Total Quantity" value={`${distribution.total_quantity_kg} KG`} />
+            <Row label="Total Value" value={distribution.total_value ? `$${distribution.total_value}` : 'N/A'} />
+            <Row label="Created Date" value={formatDateTime(distribution.created_at)} />
+            <Row label="Updated Date" value={formatDateTime(distribution.updated_at)} />
+            {distribution.verification_notes && (
+              <Row label="Verification Notes" value={distribution.verification_notes} />
+            )}
+          </View>
+        </View>
+
+        {/* Trip Information Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Icon name="directions-boat" size={20} color={PALETTE.blue700} />
+            <Text style={styles.cardTitle}>Trip Information</Text>
+          </View>
+          
+          <View style={styles.cardContent}>
+            <Row label="Trip ID" value={distribution.trip?.trip_id || '—'} />
+            <Row label="Boat Name" value={distribution.trip?.boat_name || 'N/A'} />
+            <Row label="Departure Site" value={distribution.trip?.departure_site || '—'} />
+            <Row label="Landing Site" value={distribution.trip?.landing_site || '—'} />
+            <Row label="Trip Status" value={distribution.trip?.status_label || '—'} />
+            <Row label="Trip Completed" value={distribution.trip?.trip_completed ? 'Yes' : 'No'} />
+          </View>
+        </View>
+
+        {/* Distributed Lots Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Icon name="inventory" size={20} color={PALETTE.blue700} />
+            <Text style={styles.cardTitle}>Distributed Lots ({distribution.distributed_lots.length})</Text>
+          </View>
+          
+          <View style={styles.cardContent}>
+            <View style={styles.tableHeader}>
+              <Text style={styles.tableHeaderText}>LOT NUMBER</Text>
+              <Text style={styles.tableHeaderText}>SPECIES</Text>
+              <Text style={styles.tableHeaderText}>QUANTITY</Text>
+              <Text style={styles.tableHeaderText}>NOTES</Text>
+            </View>
+            
+            {distribution.processed_lots.map((lot, index) => (
+              <View key={index} style={styles.tableRow}>
+                <Text style={styles.lotNumber}>{lot.lot_no}</Text>
+                <Text style={styles.speciesText}>{lot.species_name || 'Unknown'}</Text>
+                <Text style={styles.quantityText}>{lot.quantity_kg} KG</Text>
+                <Text style={styles.notesText}>{lot.notes || 'No notes'}</Text>
+              </View>
+            ))}
+            
+            <View style={styles.tableFooter}>
+              <Text style={styles.footerLabel}>TOTAL LOTS:</Text>
+              <Text style={styles.footerValue}>{distribution.processed_lots.length}</Text>
+              <Text style={styles.footerLabel}>TOTAL QUANTITY:</Text>
+              <Text style={styles.footerValue}>{distribution.total_quantity_kg} KG</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Verification Details Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Icon name="verified" size={20} color={PALETTE.blue700} />
+            <Text style={styles.cardTitle}>Verification Details</Text>
+          </View>
+          
+          <View style={styles.cardContent}>
+            <Row label="Verified By" value={distribution.verifier?.name || '—'} />
+            <Row label="Verified At" value={distribution.verified_at ? formatDateTime(distribution.verified_at) : '—'} />
+          </View>
+        </View>
+
+        {/* Fisherman Information Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Icon name="person" size={20} color={PALETTE.green700} />
+            <Text style={styles.cardTitle}>Fisherman</Text>
+          </View>
+          
+          <View style={styles.cardContent}>
+            <View style={styles.contactCard}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {distribution.trip?.fisherman?.name?.charAt(0) || 'F'}
+                </Text>
+              </View>
+              <View style={styles.contactInfo}>
+                <Text style={styles.contactName}>{distribution.trip?.fisherman?.name || '—'}</Text>
+                <Text style={styles.contactRole}>{distribution.trip?.fisherman?.user_type || '—'}</Text>
+                <Text style={styles.contactEmail}>{distribution.trip?.fisherman?.email || '—'}</Text>
+                <Text style={styles.contactPhone}>{distribution.trip?.fisherman?.phone || '—'}</Text>
               </View>
             </View>
-          );
-        }}
-      />
+          </View>
+        </View>
 
-      {/* Distribution Information */}
-      <InfoCard title="ℹ️ Distribution Information">
-        <FlatList
-          data={Distribution}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <>
-              <DataRow label="Total Quantity" value={item.totalQuantity} />
-              <DataRow label="Total Value" value={item.totalValue} />
-              <DataRow label="Created Date" value={item.createdDate} />
-              <DataRow label="Updated Date" value={item.updatedDate} />
-            </>
-          )}
-        />
-      </InfoCard>
-
-      {/* Trip Information */}
-      <InfoCard title="🚢 Trip Information">
-        <FlatList
-          data={Distribution}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <>
-              <DataRow label="TRIP ID" value={item.tripId} />
-              <DataRow label="Boat Name" value={item.boatName} />
-              <DataRow label="Departure Site" value={item.departureSite} />
-              <DataRow label="Landing Site" value={item.landingSite} />
-              <DataRow label="Trip Status" value={item.tripStatus} />
-              <DataRow label="Trip Completed" value={item.tripCompleted} />
-            </>
-          )}
-        />
-      </InfoCard>
-
-      {/* Distributed Lots */}
-      <InfoCard title="🐟 Distributed Lots">
-        <FlatList
-          data={Distribution}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <>
-              <View style={styles.lotTable}>
-                {/* Table Header */}
-                <View style={styles.tableHeader}>
-                  <Text style={styles.tableHeaderCell}>Lot Number</Text>
-                  <Text style={styles.tableHeaderCell}>Species</Text>
-                  <Text style={styles.tableHeaderCell}>Quantity</Text>
-                  <Text style={styles.tableHeaderCell}>Notes</Text>
-                </View>
-
-                {/* Dynamic Rows */}
-                {item.lots.map((lot, index) => (
-                  <View
-                    key={index}
-                    style={[
-                      styles.tableRow,
-                      index % 2 !== 0 && styles.altRow, // zebra striping
-                    ]}
-                  >
-                    <Text style={styles.tableCell}>{lot.number}</Text>
-                    <Text style={styles.tableCell}>{lot.species}</Text>
-                    <Text style={styles.tableCell}>{lot.quantity}</Text>
-                    <Text style={styles.tableCell}>{lot.notes}</Text>
-                  </View>
-                ))}
+        {/* Middle Man Information Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Icon name="person" size={20} color={PALETTE.green700} />
+            <Text style={styles.cardTitle}>Middle Man</Text>
+          </View>
+          
+          <View style={styles.cardContent}>
+            <View style={styles.contactCard}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {distribution.middle_man?.name?.charAt(0) || 'M'}
+                </Text>
               </View>
+              <View style={styles.contactInfo}>
+                <Text style={styles.contactName}>{distribution.middle_man?.name || '—'}</Text>
+                <Text style={styles.contactRole}>{distribution.middle_man?.user_type || '—'}</Text>
+                <Text style={styles.contactEmail}>{distribution.middle_man?.email || '—'}</Text>
+                <Text style={styles.contactPhone}>{distribution.middle_man?.phone || '—'}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
 
-              {/* Totals */}
-              <DataRow label="Total Lots" value={item.totalLots} />
-              <DataRow label="Total Quantity" value={item.lotsTotalQuantity} />
-            </>
-          )}
-        />
-      </InfoCard>
-
-      {/* Verification Details */}
-      <InfoCard title="✅ Verification Details">
-        <FlatList
-          data={Distribution}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <>
-              <DataRow label="Verified By" value={item.verifiedBy} />
-              <DataRow label="Verified At" value={item.verifiedAt} />
-            </>
-          )}
-        />
-      </InfoCard>
-
-      {/* Fisherman */}
-      <InfoCard title="👤 Fisher Man">
-        <FlatList
-          data={Distribution}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <>
-              <Text style={styles.personName}>{item.fishermanName}</Text>
-              <Text style={styles.personRole}>{item.fishermanRole}</Text>
-              <DataRow label="Email" value={item.fishermanEmail} />
-              <DataRow label="Phone" value={item.fishermanPhone} />
-            </>
-          )}
-        />
-      </InfoCard>
-
-      {/* Middle Man */}
-      <InfoCard title="👨‍💼 Middle Man">
-        <FlatList
-          data={Distribution}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <>
-              <Text style={styles.personName}>{item.middleManName}</Text>
-              <Text style={styles.personRole}>{item.middleManRole}</Text>
-              <DataRow label="Email" value={item.middleManEmail} />
-              <DataRow label="Phone" value={item.middleManPhone} />
-            </>
-          )}
-        />
-      </InfoCard>
-
-      {/* Actions */}
-      <InfoCard title="⚙️ Actions">
-        <FlatList
-          data={Distribution}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => <></>}
-        />
-      </InfoCard>
-    </ScrollView>
+        {/* Actions Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Icon name="settings" size={20} color={PALETTE.blue700} />
+            <Text style={styles.cardTitle}>Actions</Text>
+          </View>
+          
+          <View style={styles.cardContent}>
+            <Text style={styles.actionsText}>No actions available at this time</Text>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
-/* Reusable Components */
-const InfoCard = ({ title, children }) => (
-  <View style={styles.upperCard}>
-    <Text style={styles.cardTitle}>{title}</Text>
-    {children}
+// --- Components ---
+
+const Row = ({ 
+  label, 
+  value, 
+  valueColor 
+}: { 
+  label: string; 
+  value: string; 
+  valueColor?: string; 
+}) => (
+  <View style={styles.row}>
+    <Text style={styles.rowLabel}>{label}:</Text>
+    <Text style={[styles.rowValue, valueColor && { color: valueColor }]} numberOfLines={2}>
+      {value}
+    </Text>
   </View>
 );
 
-const DataRow = ({ label, value }) => (
-  <View style={styles.innerCard}>
-    <Text style={styles.label}>{label}</Text>
-    <Text style={styles.mainData}>{value}</Text>
-  </View>
-);
-
-/* Styles */
+// --- Styles ---
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#f8f9fa',
+    flex: 1,
+    backgroundColor: '#f5f7fa',
   },
-  distributionHead: {
-    backgroundColor: '#2E7D32',
-    borderRadius: 16,
-    padding: 16,
-    marginVertical: 8,
-    marginHorizontal: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
+    backgroundColor: '#f5f7fa',
   },
-  distributionName: {
-    color: '#fff',
-    fontWeight: 'bold',
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: PALETTE.text600,
+  },
+  errorText: {
+    fontSize: 16,
+    color: PALETTE.text600,
+  },
+  header: {
+    backgroundColor: PALETTE.green700,
+    paddingTop: 20,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 12,
+  },
+  headerTitle: {
     fontSize: 20,
-    letterSpacing: 0.5,
-  },
-  statusBadge: {
-    borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  statusName: {
+    fontWeight: 'bold',
     color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
-    textTransform: 'uppercase',
+    flex: 1,
   },
-  upperCard: {
+  headerSpacer: {
+    width: 40,
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+  },
+  card: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    margin: 12,
+    borderRadius: 12,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: PALETTE.border,
+  },
   cardTitle: {
-    fontWeight: '700',
     fontSize: 18,
+    fontWeight: 'bold',
+    color: PALETTE.text900,
+    marginLeft: 8,
+  },
+  cardContent: {
+    padding: 16,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 12,
-    color: '#333',
   },
-  label: {
-    color: '#555',
+  rowLabel: {
     fontSize: 14,
-    marginBottom: 4,
-  },
-  innerCard: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
-  },
-  mainData: {
     fontWeight: '600',
-    fontSize: 15,
-    color: '#222',
+    color: PALETTE.text600,
+    width: '40%',
   },
-  lotTable: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginBottom: 16,
+  rowValue: {
+    fontSize: 14,
+    color: PALETTE.text900,
+    flex: 1,
+    textAlign: 'right',
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#2E7D32',
-    paddingVertical: 10,
+    backgroundColor: '#f8f9fa',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    marginBottom: 8,
   },
-  tableHeaderCell: {
-    flex: 1,
+  tableHeaderText: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#fff',
-    fontSize: 14,
+    color: PALETTE.text600,
+    flex: 1,
     textAlign: 'center',
   },
   tableRow: {
     flexDirection: 'row',
-    paddingVertical: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     borderBottomWidth: 1,
-    borderColor: '#eee',
+    borderBottomColor: '#f0f0f0',
   },
-  altRow: {
-    backgroundColor: '#f9f9f9', // zebra striping
-  },
-  tableCell: {
+  lotNumber: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: PALETTE.green700,
     flex: 1,
-    fontSize: 13,
     textAlign: 'center',
-    color: '#333',
   },
-  personName: {
-    fontSize: 20,
+  speciesText: {
+    fontSize: 12,
+    color: PALETTE.text900,
+    flex: 1,
+    textAlign: 'center',
+  },
+  quantityText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: PALETTE.text900,
+    flex: 1,
+    textAlign: 'center',
+  },
+  notesText: {
+    fontSize: 12,
+    color: PALETTE.text600,
+    flex: 1,
+    textAlign: 'center',
+  },
+  tableFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  footerLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: PALETTE.text600,
+  },
+  footerValue: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: PALETTE.text900,
+  },
+  contactCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: PALETTE.green700,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  avatarText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  contactInfo: {
+    flex: 1,
+  },
+  contactName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: PALETTE.text900,
+    marginBottom: 4,
+  },
+  contactRole: {
+    fontSize: 12,
+    color: PALETTE.text600,
     marginBottom: 2,
   },
-  personRole: {
-    color: '#777',
-    fontWeight: '500',
-    marginBottom: 12,
-    marginLeft: 4,
+  contactEmail: {
+    fontSize: 12,
+    color: PALETTE.text600,
+    marginBottom: 2,
+  },
+  contactPhone: {
+    fontSize: 12,
+    color: PALETTE.text600,
+  },
+  actionsText: {
+    fontSize: 14,
+    color: PALETTE.text600,
+    fontStyle: 'italic',
   },
 });

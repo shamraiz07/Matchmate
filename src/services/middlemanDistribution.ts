@@ -6,6 +6,70 @@ export type DistributionStatus = 'pending' | 'confirmed' | 'completed' | 'cancel
 export type AssignmentStatus = 'active' | 'inactive' | 'pending';
 export type PurchaseStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
 
+// ===== PURCHASE TYPES =====
+
+export type PurchasedLot = {
+  lot_no: string;
+  quantity_kg: string;
+};
+
+export type MiddlemanPurchase = {
+  id: number;
+  exporter_id: number;
+  middle_man_id: number;
+  company_id: number;
+  purchased_lots: PurchasedLot[];
+  total_quantity_kg: string;
+  total_value: string;
+  purchase_reference: string;
+  final_product_name: string;
+  final_weight_quantity: string;
+  processing_notes: string | null;
+  status: PurchaseStatus;
+  created_at: string;
+  updated_at: string;
+  status_label: string;
+  exporter: {
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+    user_type: string;
+    export_license_number: string | null;
+    verification_status: string;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+  };
+  middle_man: {
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+    user_type: string;
+    company_name: string | null;
+    business_address: string | null;
+    business_phone: string | null;
+    business_email: string | null;
+    verification_status: string;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+  };
+  company: {
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+    user_type: string;
+    export_license_number: string | null;
+    verification_status: string;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+  };
+};
+
 // ===== CREATE DISTRIBUTION TYPES =====
 
 export type CreateDistributionLot = {
@@ -46,6 +110,13 @@ export type FishLotDistribution = {
   created_at: string;
   updated_at: string;
   verification_status_label: string;
+  processed_lots: {
+    lot_id: number;
+    lot_no: string;
+    species_name: string;
+    quantity_kg: number;
+    notes: string | null;
+  }[];
   trip?: {
     id: number;
     trip_id: string;
@@ -125,6 +196,22 @@ export type FishLotDistribution = {
     current_location_formatted: string;
     departure_location_formatted: string;
     arrival_location_formatted: string;
+    fisherman?: {
+      id: number;
+      name: string;
+      email: string;
+      phone: string;
+      user_type: string;
+      boat_registration_number: string;
+      fishing_zone: string;
+      port_location: string;
+      is_verified: boolean;
+      verification_status: string;
+      is_active: boolean;
+      created_at: string;
+      updated_at: string;
+    };
+    boat?: any;
   };
   middle_man?: {
     id: number;
@@ -144,15 +231,14 @@ export type FishLotDistribution = {
     id: number;
     name: string;
     email: string;
-    phone?: string | null;
-    mfd_employee_id?: string | null;
-    user_type?: string | null;
-    role?: string | null;
-    first_name?: string | null;
-    last_name?: string | null;
-    is_verified?: boolean;
-    verification_status?: string | null;
-    is_active?: boolean;
+    phone: string;
+    user_type: string;
+    fcs_license_number: string | null;
+    is_verified: boolean;
+    verification_status: string;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
   };
 };
 
@@ -385,7 +471,7 @@ export async function fetchAssignmentById(id: number | string): Promise<Middlema
 
 // ===== PURCHASES API =====
 
-export async function fetchPurchases(params: ListPurchasesParams = {}): Promise<PaginatedResponse<FishPurchase>> {
+export async function fetchPurchases(params: ListPurchasesParams = {}): Promise<PaginatedResponse<MiddlemanPurchase>> {
   const json = await api('/exporter-purchases', { method: 'GET', query: params });
 
   const envelope = json?.data;
@@ -393,8 +479,8 @@ export async function fetchPurchases(params: ListPurchasesParams = {}): Promise<
     throw new Error('Invalid server response for /exporter-purchases');
   }
 
-  const items = envelope.data as FishPurchase[];
-  const meta: PaginatedResponse<FishPurchase>['meta'] = {
+  const items = envelope.data as MiddlemanPurchase[];
+  const meta: PaginatedResponse<MiddlemanPurchase>['meta'] = {
     current_page: Number(envelope.current_page ?? 1),
     per_page: Number(envelope.per_page ?? items.length),
     total: Number(envelope.total ?? items.length),
@@ -411,7 +497,7 @@ export async function fetchPurchases(params: ListPurchasesParams = {}): Promise<
   return { items, meta };
 }
 
-export async function fetchPurchaseById(id: number | string): Promise<FishPurchase> {
+export async function fetchPurchaseById(id: number | string): Promise<MiddlemanPurchase> {
   const json = await api(`/exporter-purchases/${id}`, { method: 'GET' });
   return json?.data ?? json;
 }
@@ -463,6 +549,7 @@ export function fetchActiveAssignments(page = 1, per_page = 15) {
 export function fetchPurchasesByStatus(status: PurchaseStatus, page = 1, per_page = 15) {
   return fetchPurchases({ status, page, per_page });
 }
+
 
 export function fetchPendingPurchases(page = 1, per_page = 15) {
   return fetchPurchases({ status: 'pending', page, per_page });

@@ -9,7 +9,6 @@ import {
   RefreshControl,
   Alert,
   SafeAreaView,
-  Dimensions,
 } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import { useNavigation } from '@react-navigation/native';
@@ -24,7 +23,6 @@ import {
   formatDate,
 } from '../../services/middlemanDistribution';
 
-const { width: screenWidth } = Dimensions.get('window');
 
 type Nav = NativeStackNavigationProp<MiddleManStackParamList, 'MiddleManHome'>;
 
@@ -42,7 +40,7 @@ const MiddleMen = [
 
 export default function Distributions() {
   const [allDistributions, setAllDistributions] = useState<FishLotDistribution[]>([]);
-  const [distributions, setDistributions] = useState<FishLotDistribution[]>([]);
+  const [, setDistributions] = useState<FishLotDistribution[]>([]);
   const [meta, setMeta] = useState<PaginatedResponse<FishLotDistribution>['meta'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -140,7 +138,7 @@ export default function Distributions() {
     if (allDistributions.length > 0) {
       applyFilters();
     }
-  }, [applyFilters]);
+  }, [applyFilters, allDistributions.length]);
 
   useEffect(() => {
     loadDistributions(1, true);
@@ -164,7 +162,11 @@ export default function Distributions() {
     const statusText = item.verification_status_label || getStatusText(item.verification_status);
 
     return (
-      <View style={styles.distributionCard}>
+      <TouchableOpacity 
+        style={styles.distributionCard}
+        onPress={() => navigation.navigate('distributionDetails' as any, { distributionId: item.id })}
+        activeOpacity={0.8}
+      >
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle}>DIST-{item.id}</Text>
           <View style={[styles.statusTag, { backgroundColor: statusColor }]}>
@@ -176,12 +178,12 @@ export default function Distributions() {
           <View style={styles.infoSection}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Trip:</Text>
-              <Text style={styles.infoValue}>TRIP-{String(item.trip_id).padStart(8, '0')}</Text>
+              <Text style={styles.infoValue}>{item.trip?.trip_id || '—'}</Text>
             </View>
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Fisherman:</Text>
-              <Text style={styles.infoValue}>Ali Fisherman</Text>
+              <Text style={styles.infoValue}>{item.trip?.fisherman?.name || '—'}</Text>
             </View>
 
             <View style={styles.infoRow}>
@@ -210,13 +212,13 @@ export default function Distributions() {
           </View>
 
           {/* Show distributed lots summary */}
-          {item.distributed_lots && item.distributed_lots.length > 0 && (
+          {item.processed_lots && item.processed_lots.length > 0 && (
             <View style={styles.lotsSection}>
               <Text style={styles.lotsHeader}>Distributed Lots:</Text>
-              {item.distributed_lots.map((lot, index) => (
+              {item.processed_lots.map((lot, index) => (
                 <View key={index} style={styles.lotRow}>
                   <Text style={styles.lotText}>
-                    LOT-{String(lot.lot_id).padStart(8, '0')} - Tuna
+                    {lot.lot_no} - {lot.species_name || 'Unknown'}
                   </Text>
                   <View style={styles.quantityTag}>
                     <Text style={styles.quantityTagText}>{lot.quantity_kg} KG</Text>
@@ -227,10 +229,10 @@ export default function Distributions() {
           )}
         </View>
 
-        {/* <TouchableOpacity style={styles.viewButton}>
-          <Text style={styles.viewButtonText}>👁️ View Details</Text>
-        </TouchableOpacity> */}
-      </View>
+        <TouchableOpacity style={styles.viewButton}>
+          <Text style={styles.viewButtonText}>👁️ View</Text>
+        </TouchableOpacity>
+      </TouchableOpacity>
     );
   };
 
@@ -327,28 +329,33 @@ export default function Distributions() {
   return (
     <SafeAreaView style={styles.container}>
       <FlatList
-        data={distributions}
+        data={allDistributions}
         keyExtractor={item => item.id.toString()}
         renderItem={renderItem}
         ListHeaderComponent={renderHeader}
-        ItemSeparatorComponent={() => <View style={{ height: 20 }} />}
+        ItemSeparatorComponent={ItemSeparator}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         onEndReached={onEndReached}
         onEndReachedThreshold={0.2}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+        contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No distributions found</Text>
-            <Text style={styles.emptySubText}>Try adjusting your filters</Text>
-          </View>
-        }
+        ListEmptyComponent={EmptyState}
       />
     </SafeAreaView>
   );
 }
+
+// --- Components ---
+const ItemSeparator = () => <View style={styles.itemSeparator} />;
+
+const EmptyState = () => (
+  <View style={styles.emptyContainer}>
+    <Text style={styles.emptyText}>No distributions found</Text>
+    <Text style={styles.emptySubText}>Try adjusting your filters</Text>
+  </View>
+);
 
 // --- Styles ---
 const styles = StyleSheet.create({
@@ -658,6 +665,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#9ca3af',
     textAlign: 'center',
+  },
+  itemSeparator: {
+    height: 20,
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
   },
 });
 
