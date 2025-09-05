@@ -26,9 +26,10 @@ import {
   fetchPurchases,
   type FishLotDistribution,
   type MiddlemanAssignment,
-  type FishPurchase,
+  type MiddlemanPurchase,
   type PaginatedResponse,
 } from '../../services/middlemanDistribution';
+import { getUser, type User } from '../../services/users';
 
 type Nav = NativeStackNavigationProp<MiddleManStackParamList, 'MiddleManHome'>;
 
@@ -41,7 +42,8 @@ export default function MiddleManHome() {
   // list state
   const [, setDistributions] = useState<FishLotDistribution[]>([]);
   const [assignments, setAssignments] = useState<MiddlemanAssignment[]>([]);
-  const [purchases, setPurchases] = useState<FishPurchase[]>([]);
+  const [purchases, setPurchases] = useState<MiddlemanPurchase[]>([]);
+  const [user, setUser] = useState<User | null>(null);
   const [meta, setMeta] = useState<PaginatedResponse<FishLotDistribution>['meta'] | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -53,28 +55,36 @@ export default function MiddleManHome() {
       loadingMoreRef.current = true;
       if (!replace) setLoading(true);
       try {
-        // Load distributions
-        const distributionsRes = await fetchDistributions({
-          page: 1,
-          per_page: 15,
-        });
-        
-        // Load assignments
-        const assignmentsRes = await fetchAssignments({
-          page: 1,
-          per_page: 15,
-        });
-        
-        // Load purchases
-        const purchasesRes = await fetchPurchases({
-          page: 1,
-          per_page: 15,
-        });
+        // Load all data in parallel
+        const [distributionsRes, assignmentsRes, purchasesRes, userRes] = await Promise.allSettled([
+          fetchDistributions({
+            page: 1,
+            per_page: 15,
+          }),
+          fetchAssignments({
+            page: 1,
+            per_page: 15,
+          }),
+          fetchPurchases({
+            page: 1,
+            per_page: 15,
+          }),
+          getUser(),
+        ]);
 
-        setMeta(distributionsRes.meta);
-        setDistributions(distributionsRes.items);
-        setAssignments(assignmentsRes.items);
-        setPurchases(purchasesRes.items);
+        if (distributionsRes.status === 'fulfilled') {
+          setMeta(distributionsRes.value.meta);
+          setDistributions(distributionsRes.value.items);
+        }
+        if (assignmentsRes.status === 'fulfilled') {
+          setAssignments(assignmentsRes.value.items);
+        }
+        if (purchasesRes.status === 'fulfilled') {
+          setPurchases(purchasesRes.value.items);
+        }
+        if (userRes.status === 'fulfilled') {
+          setUser(userRes.value);
+        }
       } catch (e) {
         // non-fatal; surface as needed (Toast, Sentry, etc.)
         console.log('[MiddleManHome] load error', e);
@@ -125,10 +135,10 @@ export default function MiddleManHome() {
     navigation.navigate('Purchases' as any);
   }, [navigation]);
 
-  const name = "Hamza Middleman";
-  const email = "middle.man@gmail.com";
-  const phone = "03216598562";
-  const license = "Lic-1212";
+  // Computed values from user data
+  const name = useMemo(() => {
+    return user?.name || user?.first_name || 'Middleman';
+  }, [user]);
 
   return (
     <View style={{ flex: 1, backgroundColor: PALETTE.green50 }}>
@@ -178,21 +188,31 @@ export default function MiddleManHome() {
           <Text style={styles.sectionTitle}>Your Profile</Text>
 
           <Row icon="person" label="Full Name" value={name} />
-          <Row icon="mail" label="Email Address" value={email} />
-          <Row icon="phone" label="Phone Number" value={phone} />
+          <Row icon="mail" label="Email Address" value={user?.email || '—'} />
+          <Row icon="phone" label="Phone Number" value={user?.phone || '—'} />
 
           <View style={[styles.row, { marginTop: 8 }]}>
             <Icon name="verified" size={18} color={PALETTE.green700} style={{ marginRight: 10 }} />
             <Text style={styles.rowLabel}>Account Status</Text>
             <View style={{ flex: 1 }} />
-            <StatusPill text="Active" tone="ok" />
+            <StatusPill text={user?.is_active ? "Active" : "Inactive"} tone={user?.is_active ? "ok" : "error"} />
           </View>
 
           <View style={styles.divider} />
 
-          <Row icon="business" label="License Number" value={license} />
+          <Row icon="business" label="License Number" value={user?.national_id || '—'} />
           <Row icon="location-on" label="Business Type" value="Fish Distribution" />
-          <Row icon="verified" label="Verification Status" value="Verified" />
+          <Row icon="verified" label="Verification Status" value={user?.is_verified ? "Verified" : "Pending"} />
+          
+          {user?.address && (
+            <Row icon="home" label="Address" value={user.address} />
+          )}
+          {user?.city && (
+            <Row icon="location-city" label="City" value={user.city} />
+          )}
+          {user?.province && (
+            <Row icon="map" label="Province" value={user.province} />
+          )}
         </View>
 
         {/* Distributions Overview */}
