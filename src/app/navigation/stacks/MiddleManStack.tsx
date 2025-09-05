@@ -6,6 +6,7 @@ import LotDetails from '../../../screens/middleman/lotDetails';
 import Distributions from '../../../screens/middleman/Distributions';
 import distributionDetails from '../../../screens/middleman/distributionDetails';
 import Assignments from '../../../screens/middleman/Assignments';
+import AssignmentDetails from '../../../screens/middleman/AssignmentDetails';
 import Purchases from '../../../screens/middleman/Purchases';
 import AddDistribution from '../../../screens/middleman/AddDistribution';
 
@@ -15,6 +16,7 @@ export type MiddleManStackParamList = {
   Distributions: { id: number | string };
   distributionDetails: undefined;
   Assignments: undefined;
+  assignmentDetails: { assignmentId: number };
   Purchases: undefined;
   AddDistribution: undefined;
 };
@@ -43,7 +45,12 @@ export default function MiddleManStack() {
       <Stack.Screen 
         name="Assignments"
         component={Assignments}
-        options={{headerShown:true, title: 'Assignments Screen'}}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen 
+        name="assignmentDetails"
+        component={AssignmentDetails}
+        options={{headerShown: false}}
       />
       <Stack.Screen 
         name="Purchases"

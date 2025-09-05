@@ -227,9 +227,9 @@ export default function Distributions() {
           )}
         </View>
 
-        <TouchableOpacity style={styles.viewButton}>
+        {/* <TouchableOpacity style={styles.viewButton}>
           <Text style={styles.viewButtonText}>👁️ View Details</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
     );
   };
@@ -237,14 +237,7 @@ export default function Distributions() {
   // --- Render Header (Filters) ---
   const renderHeader = () => (
     <View style={styles.headerContainer}>
-      {/* Main Header */}
-      <View style={styles.mainHeader}>
-        <Text style={styles.mainTitle}>Middle Man Distributions</Text>
-        <TouchableOpacity style={styles.newButton}>
-          <Text style={styles.newButtonText}>+ New</Text>
-        </TouchableOpacity>
-      </View>
-
+      
       {/* Filters */}
       <View style={styles.filterCard}>
         <Text style={styles.filterTitle}>Filter Distributions</Text>

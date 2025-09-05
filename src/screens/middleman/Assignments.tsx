@@ -1,18 +1,20 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   FlatList,
   ActivityIndicator,
   RefreshControl,
   Alert,
+  StatusBar,
+  Pressable,
 } from 'react-native';
-import { Dropdown } from 'react-native-element-dropdown';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MiddleManStackParamList } from '../../app/navigation/stacks/MiddleManStack';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import PALETTE from '../../theme/palette';
 import {
   fetchAssignments,
   type MiddlemanAssignment,
@@ -20,43 +22,21 @@ import {
   getStatusColor,
   getStatusText,
   formatDate,
-  formatDateTime,
 } from '../../services/middlemanDistribution';
 
 // --- Types ---
 type Nav = NativeStackNavigationProp<MiddleManStackParamList, 'MiddleManHome'>;
 
-// --- Dropdown Data ---
-const Status = [
-  { label: 'All Status', value: 'All Status' },
-  { label: 'Active', value: 'active' },
-  { label: 'Inactive', value: 'inactive' },
-  { label: 'Pending', value: 'pending' },
-];
-
-const Company = [
-  { label: 'All Companies', value: 'All Companies' },
-  { label: 'Ali & sons', value: 'Ali & sons' },
-  { label: 'Bashir co.', value: 'Bashir co.' },
-];
-
-const MiddleMen = [
-  { label: 'All Middle Men', value: 'All Middle Men' },
-  { label: 'Middle Man 1', value: 'Middle Man 1' },
-];
-
 export default function Assignments() {
   const navigation = useNavigation<Nav>();
 
   const [assignments, setAssignments] = useState<MiddlemanAssignment[]>([]);
-  const [meta, setMeta] = useState<PaginatedResponse<MiddlemanAssignment>['meta'] | null>(null);
+  const [, setMeta] = useState<PaginatedResponse<MiddlemanAssignment>['meta'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [page, setPage] = useState(1);
+  const [, setPage] = useState(1);
 
-  const [status, setStatus] = useState<string | null>(null);
-  const [company, setCompany] = useState<string | null>(null);
-  const [middleMan, setMiddleMan] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>('All Status');
 
   // --- Fetch API ---
   const loadAssignments = useCallback(async (p = 1, replace = false) => {
@@ -70,16 +50,11 @@ export default function Assignments() {
       if (status && status !== 'All Status') {
         params.status = status;
       }
-      
-      if (company && company !== 'All Companies') {
-        params.company_id = company;
-      }
-      
-      if (middleMan && middleMan !== 'All Middle Men') {
-        params.middle_man_id = middleMan;
-      }
 
+      console.log('Loading assignments with params:', params);
       const response = await fetchAssignments(params);
+      console.log('Assignments response:', response);
+      
       setMeta(response.meta);
       setPage(response.meta.current_page);
       setAssignments(prev => (replace || p === 1 ? response.items : [...prev, ...response.items]));
@@ -90,7 +65,7 @@ export default function Assignments() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [status, company, middleMan]);
+  }, [status]);
 
   useEffect(() => {
     loadAssignments(1, true);
@@ -101,191 +76,191 @@ export default function Assignments() {
     loadAssignments(1, true);
   }, [loadAssignments]);
 
-  const onEndReached = useCallback(() => {
-    if (!meta || page >= meta.last_page) return;
-    loadAssignments(page + 1);
-  }, [meta, page, loadAssignments]);
-
   // --- Render List Item ---
   const renderItem = ({ item }: { item: MiddlemanAssignment }) => {
     const statusColor = getStatusColor(item.status);
     const statusText = item.status_label || getStatusText(item.status);
 
     return (
-      <TouchableOpacity
-        onPress={() => navigation.navigate('distributionDetails')}
-        activeOpacity={0.8}
-      >
-        <View style={styles.card}>
-          {/* Header */}
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle} numberOfLines={1}>
-              Assignment #{item.id}
-            </Text>
-            <View style={[styles.badge, { backgroundColor: statusColor }]}>
-              <Text style={styles.badgeText}>{statusText}</Text>
-            </View>
-          </View>
-
-          {/* Info Rows */}
-          <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>Company:</Text>
-            <Text style={styles.cardValue}>{item.company?.name || '—'}</Text>
-          </View>
-
-          <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>Middleman:</Text>
-            <Text style={styles.cardValue} numberOfLines={2}>
-              {item.middle_man?.name || '—'}
-            </Text>
-          </View>
-
-          <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>Business Address:</Text>
-            <Text style={styles.cardValue} numberOfLines={2}>
-              {item.company?.business_address || '—'}
-            </Text>
-          </View>
-
-          <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>Business Phone:</Text>
-            <Text style={styles.cardValue}>{item.company?.business_phone || '—'}</Text>
-          </View>
-
-          <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>Business Email:</Text>
-            <Text style={styles.cardValue}>{item.company?.business_email || '—'}</Text>
-          </View>
-
-          <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>Assigned Date:</Text>
-            <Text style={styles.cardValue}>{formatDate(item.assigned_date)}</Text>
-          </View>
-
-          <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>Expiry Date:</Text>
-            <Text style={styles.cardValue}>{formatDate(item.expiry_date)}</Text>
-          </View>
-
-          {item.notes && (
-            <View style={styles.cardRow}>
-              <Text style={styles.cardLabel}>Notes:</Text>
-              <Text style={styles.cardValue} numberOfLines={3}>
-                {item.notes}
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>Status:</Text>
-            <Text style={styles.cardValue}>{statusText}</Text>
-          </View>
-        </View>
-      </TouchableOpacity>
+      <AssignmentCard
+        assignment={item}
+        onPress={() => navigation.navigate('assignmentDetails', { assignmentId: item.id })}
+        statusColor={statusColor}
+        statusText={statusText}
+      />
     );
   };
-
-  // --- Render Header (Filters) ---
-  const renderHeader = () => (
-    <View>
-      {/* Filters */}
-      <View style={styles.filterCard}>
-        <Text style={styles.filterHeader}>Filter Assignments</Text>
-
-        {/* Status */}
-        <FilterDropdown label="Status" data={Status} value={status} onChange={setStatus} />
-
-        {/* Company */}
-        <FilterDropdown label="Company" data={Company} value={company} onChange={setCompany} />
-
-        {/* Middle Man */}
-        <FilterDropdown label="Middle Man" data={MiddleMen} value={middleMan} onChange={setMiddleMan} />
-
-        {/* Buttons */}
-        <View style={styles.filterButtons}>
-          <TouchableOpacity 
-            style={styles.applyBtn}
-            onPress={() => loadAssignments(1, true)}
-          >
-            <Text style={styles.btnText}>🔍 Apply Filters</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.clearBtn}
-            onPress={() => {
-              setStatus(null);
-              setCompany(null);
-              setMiddleMan(null);
-              loadAssignments(1, true);
-            }}
-          >
-            <Text style={styles.btnText}>✖️ Clear Filters</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* List Header */}
-      <View style={styles.listCard}>
-        <Text style={styles.listHeader}>
-          All Assigned Companies ({meta?.total || 0})
-        </Text>
-      </View>
-    </View>
-  );
 
   // --- Loader ---
   if (loading) {
     return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#07890bff" />
-        <Text style={styles.loaderText}>Loading assignments...</Text>
+      <View style={styles.container}>
+        <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={PALETTE.green700} />
+          <Text style={styles.loadingText}>Loading assignments...</Text>
+        </View>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable onPress={() => navigation.goBack()} style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.8 }]}>
+          <Icon name="arrow-back" size={24} color="#fff" />
+        </Pressable>
+        <Text style={styles.headerTitle}>Assignments</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      {/* Filters */}
+      <View style={styles.filtersContainer}>
+        <Text style={styles.filtersTitle}>Filter by status</Text>
+        <View style={styles.filtersRow}>
+          {(['All Status', 'Active', 'Inactive', 'Pending'] as const).map((statusOption) => (
+            <FilterChip
+              key={statusOption}
+              label={statusOption}
+              isActive={status === statusOption}
+              onPress={() => {
+                console.log('Filter changed to:', statusOption);
+                setStatus(statusOption);
+              }}
+            />
+          ))}
+        </View>
+      </View>
+
+      {/* Assignments List */}
       <FlatList
         data={assignments}
         keyExtractor={item => item.id.toString()}
         renderItem={renderItem}
-        ListHeaderComponent={renderHeader}
-        ItemSeparatorComponent={() => <View style={{ height: 12, marginHorizontal: 12 }} />}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        onEndReached={onEndReached}
-        onEndReachedThreshold={0.2}
-        contentContainerStyle={{ paddingBottom: 24 }}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No assignments found</Text>
-            <Text style={styles.emptySubText}>Try adjusting your filters</Text>
-          </View>
-        }
+        contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={EmptyState}
       />
     </View>
   );
 }
 
-// --- Reusable Dropdown Component ---
-const FilterDropdown = ({ label, data, value, onChange }: any) => (
-  <View style={styles.dropdownRow}>
-    <Text style={styles.dropdownLabel}>{label}</Text>
-    <Dropdown
-      style={styles.dropdown}
-      placeholderStyle={styles.dropdownPlaceholder}
-      selectedTextStyle={styles.dropdownText}
-      data={data}
-      search
-      maxHeight={200}
-      labelField="label"
-      valueField="value"
-      placeholder={`Select ${label}`}
-      searchPlaceholder="Search..."
-      value={value}
-      onChange={item => onChange(item.value)}
-    />
+// --- Components ---
+
+const AssignmentCard = ({
+  assignment,
+  onPress,
+  statusColor,
+  statusText
+}: {
+  assignment: MiddlemanAssignment;
+  onPress: () => void;
+  statusColor: string;
+  statusText: string;
+}) => (
+  <Pressable
+    onPress={onPress}
+    style={({ pressed }) => [styles.card, pressed && { opacity: 0.95, transform: [{ scale: 0.98 }] }]}
+    accessibilityRole="button"
+    accessibilityLabel={`Open assignment ${assignment.id}`}
+  >
+    {/* Header with Assignment ID and Status */}
+    <View style={styles.cardHeader}>
+      <View style={styles.cardTitleContainer}>
+        <Text style={styles.cardTitle}>Assignment #{assignment.id}</Text>
+        <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+          <Text style={styles.statusText}>{statusText}</Text>
+        </View>
+      </View>
+    </View>
+
+    {/* Company and Middleman Info */}
+    <View style={styles.cardInfo}>
+      <View style={styles.infoItem}>
+        <View style={styles.infoIconContainer}>
+          <Icon name="business" size={18} color={PALETTE.blue700} />
+        </View>
+        <View style={styles.infoContent}>
+          <Text style={styles.infoLabel}>Company</Text>
+          <Text style={styles.infoValue} numberOfLines={1}>
+            {assignment.company?.name || '—'}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.infoItem}>
+        <View style={styles.infoIconContainer}>
+          <Icon name="person" size={18} color={PALETTE.green700} />
+        </View>
+        <View style={styles.infoContent}>
+          <Text style={styles.infoLabel}>Middleman</Text>
+          <Text style={styles.infoValue} numberOfLines={1}>
+            {assignment.middle_man?.name || '—'}
+          </Text>
+        </View>
+      </View>
+    </View>
+
+    {/* Date Range */}
+    <View style={styles.dateContainer}>
+      <Icon name="schedule" size={16} color={PALETTE.text500} />
+      <Text style={styles.dateText}>
+        {formatDate(assignment.assigned_date)} - {formatDate(assignment.expiry_date)}
+      </Text>
+    </View>
+
+    {/* Action Button */}
+    <View style={styles.cardFooter}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.viewButton,
+          pressed && { opacity: 0.8 }
+        ]}
+        accessibilityLabel="View Details"
+      >
+        <Icon name="arrow-forward-ios" size={16} color={PALETTE.green700} />
+        <Text style={styles.viewButtonText}>View Details</Text>
+      </Pressable>
+    </View>
+  </Pressable>
+);
+
+const FilterChip = ({
+  label,
+  isActive,
+  onPress
+}: {
+  label: string;
+  isActive: boolean;
+  onPress: () => void;
+}) => (
+  <Pressable
+    onPress={onPress}
+    style={[
+      styles.filterChip,
+      isActive && styles.filterChipActive
+    ]}
+  >
+    <Text style={[
+      styles.filterChipText,
+      isActive && styles.filterChipTextActive
+    ]}>
+      {label}
+    </Text>
+  </Pressable>
+);
+
+const EmptyState = () => (
+  <View style={styles.emptyContainer}>
+    <Icon name="assignment" size={48} color={PALETTE.text400} />
+    <Text style={styles.emptyText}>No assignments found</Text>
+    <Text style={styles.emptySubText}>Try adjusting your filters</Text>
   </View>
 );
 
@@ -293,168 +268,205 @@ const FilterDropdown = ({ label, data, value, onChange }: any) => (
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f7f8fa',
+    backgroundColor: '#f5f7fa',
   },
-  loaderContainer: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f8f9fa',
   },
-  loaderText: {
-    marginTop: 12,
+  loadingText: {
+    marginTop: 16,
     fontSize: 16,
-    color: '#666',
+    color: PALETTE.text600,
   },
-
-  // --- Filter Section ---
-  filterCard: {
-    backgroundColor: '#ffffff',
-    padding: 20,
-    margin: 12,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 5,
-    elevation: 2,
+  header: {
+    backgroundColor: PALETTE.green700,
+    paddingTop: 20,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  filterHeader: {
-    fontWeight: '700',
+  backButton: {
+    padding: 8,
+    marginRight: 12,
+  },
+  headerTitle: {
     fontSize: 20,
-    marginBottom: 16,
-    textAlign: 'center',
-    color: '#2a2a2a',
-  },
-  dropdownRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  dropdownLabel: {
-    width: '28%',
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#444',
-  },
-  dropdown: {
-    flex: 1,
-    height: 45,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    backgroundColor: '#fff',
-  },
-  dropdownPlaceholder: {
-    color: '#aaa',
-    fontSize: 14,
-  },
-  dropdownText: {
-    fontSize: 14,
-    color: '#222',
-  },
-  filterButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  applyBtn: {
-    backgroundColor: '#368a33ff',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-  },
-  clearBtn: {
-    backgroundColor: '#828282ff',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-  },
-  btnText: {
-    color: '#fff',
     fontWeight: 'bold',
+    color: '#fff',
+    flex: 1,
   },
-
-  // --- List Section ---
-  listCard: {
+  headerSpacer: {
+    width: 40,
+  },
+  filtersContainer: {
     backgroundColor: '#fff',
-    padding: 15,
-    margin: 12,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 5,
-    elevation: 2,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: PALETTE.border,
   },
-  listHeader: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 15,
-    color: '#222',
-  },
-  emptyContainer: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyText: {
+  filtersTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#666',
+    color: PALETTE.text900,
+    marginBottom: 12,
+  },
+  filtersRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 25,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    marginRight: 8,
+  },
+  filterChipActive: {
+    backgroundColor: PALETTE.green700,
+    borderColor: PALETTE.green700,
+    shadowColor: PALETTE.green700,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  filterChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: PALETTE.text600,
+  },
+  filterChipTextActive: {
+    color: '#fff',
+  },
+  listContainer: {
+    padding: 20,
+    gap: 16,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  cardHeader: {
+    marginBottom: 16,
+  },
+  cardTitleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: PALETTE.text900,
+    flex: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  cardInfo: {
+    marginBottom: 16,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  infoIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: PALETTE.text500,
+    marginBottom: 2,
+  },
+  infoValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: PALETTE.text900,
+  },
+  dateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+  },
+  dateText: {
+    fontSize: 14,
+    color: PALETTE.text600,
+    marginLeft: 8,
+    fontWeight: '500',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  viewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: PALETTE.green50,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: PALETTE.green600,
+  },
+  viewButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: PALETTE.green700,
+    marginLeft: 6,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: PALETTE.text900,
+    marginTop: 16,
     marginBottom: 8,
   },
   emptySubText: {
     fontSize: 14,
-    color: '#999',
-  },
-
-  // --- Card ---
-  card: {
-    backgroundColor: '#f4f8f4',
-    padding: 15,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    marginHorizontal: 12,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-    alignItems: 'center',
-  },
-  cardTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#333',
-    flex: 1,
-    marginRight: 10,
-  },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  badgeText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 3,
-  },
-  cardLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#555',
-    width: '35%',
-  },
-  cardValue: {
-    fontSize: 14,
-    color: '#333',
-    flex: 1,
-    textAlign: 'right',
+    color: PALETTE.text600,
   },
 });
