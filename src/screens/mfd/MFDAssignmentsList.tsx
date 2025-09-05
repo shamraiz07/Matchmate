@@ -14,14 +14,148 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import PALETTE from '../../theme/palette';
 import { 
   fetchMFDAssignments, 
+  deactivateMFDAssignment,
+  activateMFDAssignment,
   type Assignment, 
-  getStatusColor,
-  getStatusText 
+  getStatusColor
 } from '../../services/mfd';
 import { MFDStackParamList } from '../../app/navigation/stacks/MFDStack';
 import Toast from 'react-native-toast-message';
 
 type Nav = NativeStackNavigationProp<MFDStackParamList>;
+
+const AssignmentCard = ({ assignment, onPress, onEdit, onDeactivate, onActivate }: { 
+  assignment: Assignment; 
+  onPress: (assignment: Assignment) => void;
+  onEdit: (assignment: Assignment) => void;
+  onDeactivate: (assignment: Assignment) => void;
+  onActivate: (assignment: Assignment) => void;
+}) => (
+  <View style={styles.assignmentCard}>
+    {/* Header Section */}
+    <View style={styles.assignmentHeader}>
+      <View style={styles.assignmentInfo}>
+        <Text style={styles.assignmentId}>Assignment #{assignment.id}</Text>
+        <View style={styles.relationshipPill}>
+          <Text style={styles.relationshipText}>
+            {assignment.middle_man?.name || 'Unknown'} → {assignment.company?.name || 'Unknown'}
+          </Text>
+        </View>
+      </View>
+      <View style={[styles.statusPill, { backgroundColor: getStatusColor(assignment.status) + '20' }]}>
+        <Text style={[styles.statusText, { color: getStatusColor(assignment.status) }]}>
+          {assignment.status_label}
+        </Text>
+      </View>
+    </View>
+    
+    {/* Details Grid */}
+    <View style={styles.detailsGrid}>
+      <View style={styles.detailItem}>
+        <Text style={styles.detailLabel}>Middle Man</Text>
+        <Text style={styles.detailValue}>{assignment.middle_man?.name || 'Unknown'}</Text>
+      </View>
+      <View style={styles.detailItem}>
+        <Text style={styles.detailLabel}>Email</Text>
+        <Text style={styles.detailValue}>{assignment.middle_man?.email || 'N/A'}</Text>
+      </View>
+      <View style={styles.detailItem}>
+        <Text style={styles.detailLabel}>Phone</Text>
+        <Text style={styles.detailValue}>{assignment.middle_man?.phone || 'N/A'}</Text>
+      </View>
+      <View style={styles.detailItem}>
+        <Text style={styles.detailLabel}>Company</Text>
+        <Text style={styles.detailValue}>{assignment.company?.name || 'Unknown'}</Text>
+      </View>
+      <View style={styles.detailItem}>
+        <Text style={styles.detailLabel}>Registration</Text>
+        <Text style={styles.detailValue}>{assignment.company?.export_license_number || 'N/A'}</Text>
+      </View>
+      <View style={styles.detailItem}>
+        <Text style={styles.detailLabel}>Assigned Date</Text>
+        <Text style={styles.detailValue}>{new Date(assignment.assigned_date).toLocaleDateString()}</Text>
+      </View>
+      <View style={styles.detailItem}>
+        <Text style={styles.detailLabel}>Expiry Date</Text>
+        <Text style={styles.detailValue}>{new Date(assignment.expiry_date).toLocaleDateString()}</Text>
+      </View>
+    </View>
+
+    {/* Action Buttons */}
+    <View style={styles.actionButtons}>
+      <Pressable 
+        onPress={() => onPress(assignment)} 
+        style={({ pressed }) => [styles.actionButton, styles.viewButton, pressed && { opacity: 0.8 }]}
+      >
+        <Icon name="visibility" size={16} color="#1976d2" />
+        <Text style={styles.actionButtonText}>View</Text>
+      </Pressable>
+      
+      <Pressable 
+        style={({ pressed }) => [styles.actionButton, styles.editButton, pressed && { opacity: 0.8 }]}
+        onPress={() => onEdit(assignment)}
+      >
+        <Icon name="edit" size={16} color="#f57c00" />
+        <Text style={styles.actionButtonText}>Edit</Text>
+      </Pressable>
+      
+      {assignment.status === 'active' && (
+        <Pressable 
+          style={({ pressed }) => [styles.actionButton, styles.deactivateButton, pressed && { opacity: 0.8 }]}
+          onPress={() => onDeactivate(assignment)}
+        >
+          <Icon name="pause" size={16} color="#d32f2f" />
+          <Text style={styles.actionButtonText}>Deactivate</Text>
+        </Pressable>
+      )}
+      
+      {assignment.status === 'inactive' && (
+        <Pressable 
+          style={({ pressed }) => [styles.actionButton, styles.activateButton, pressed && { opacity: 0.8 }]}
+          onPress={() => onActivate(assignment)}
+        >
+          <Icon name="play-arrow" size={16} color="#4CAF50" />
+          <Text style={styles.actionButtonText}>Activate</Text>
+        </Pressable>
+      )}
+    </View>
+  </View>
+);
+
+const FilterChip = ({ label, isActive, onPress }: { 
+  label: string; 
+  isActive: boolean; 
+  onPress: () => void;
+}) => (
+  <Pressable 
+    onPress={onPress}
+    style={[styles.filterChip, isActive && styles.filterChipActive]}
+  >
+    <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+      {label}
+    </Text>
+  </Pressable>
+);
+
+const EmptyState = ({ filter, onCreateNew }: { 
+  filter: string; 
+  onCreateNew: () => void;
+}) => (
+  <View style={styles.emptyState}>
+    <Icon name="assignment" size={64} color={PALETTE.text400} />
+    <Text style={styles.emptyTitle}>No assignments found</Text>
+    <Text style={styles.emptyMessage}>
+      {filter === 'All' 
+        ? "No assignments available at the moment."
+        : `No ${filter.toLowerCase()} assignments found.`
+      }
+    </Text>
+    <Pressable onPress={onCreateNew} style={styles.createNewButton}>
+      <Icon name="add" size={20} color="#fff" />
+      <Text style={styles.createNewButtonText}>Create New Assignment</Text>
+    </Pressable>
+  </View>
+);
 
 export default function MFDAssignmentsList() {
   const navigation = useNavigation<Nav>();
@@ -67,6 +201,52 @@ export default function MFDAssignmentsList() {
     navigation.navigate('AssignmentDetails', { assignmentId: assignment.id });
   };
 
+  const handleEditAssignment = (assignment: Assignment) => {
+    navigation.navigate('AssignmentEdit', { assignmentId: assignment.id });
+  };
+
+  const handleDeactivateAssignment = async (assignment: Assignment) => {
+    try {
+      await deactivateMFDAssignment(assignment.id);
+      Toast.show({
+        type: 'success',
+        text1: 'Success',
+        text2: 'Assignment deactivated successfully',
+        position: 'top',
+      });
+      loadAssignments(); // Refresh the list
+    } catch (error: any) {
+      console.error('Error deactivating assignment:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: error.message || 'Failed to deactivate assignment',
+        position: 'top',
+      });
+    }
+  };
+
+  const handleActivateAssignment = async (assignment: Assignment) => {
+    try {
+      await activateMFDAssignment(assignment.id);
+      Toast.show({
+        type: 'success',
+        text1: 'Success',
+        text2: 'Assignment activated successfully',
+        position: 'top',
+      });
+      loadAssignments(); // Refresh the list
+    } catch (error: any) {
+      console.error('Error activating assignment:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: error.message || 'Failed to activate assignment',
+        position: 'top',
+      });
+    }
+  };
+
   const handleCreateNew = () => {
     navigation.navigate('AssignmentCreate');
   };
@@ -76,75 +256,6 @@ export default function MFDAssignmentsList() {
     return assignment.status === filter.toLowerCase();
   });
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'active': return 'Active';
-      case 'inactive': return 'Inactive';
-      case 'pending': return 'Pending';
-      default: return status;
-    }
-  };
-
-  const AssignmentCard = ({ assignment }: { assignment: Assignment }) => (
-    <Pressable 
-      onPress={() => handleAssignmentPress(assignment)} 
-      style={({ pressed }) => [styles.assignmentCard, pressed && { opacity: 0.9 }]}
-    >
-      <View style={styles.assignmentHeader}>
-        <View style={styles.assignmentInfo}>
-          <Text style={styles.assignmentId}>Assignment #{assignment.id}</Text>
-          <Text style={styles.assignmentDate}>
-            {new Date(assignment.assignment_date).toLocaleDateString()}
-          </Text>
-        </View>
-        <View style={[styles.statusPill, { backgroundColor: getStatusColor(assignment.status) + '20' }]}>
-          <Text style={[styles.statusText, { color: getStatusColor(assignment.status) }]}>
-            {getStatusLabel(assignment.status)}
-          </Text>
-        </View>
-      </View>
-      
-      <View style={styles.assignmentDetails}>
-        <View style={styles.detailRow}>
-          <Icon name="person" size={16} color={PALETTE.text600} />
-          <Text style={styles.detailText}>
-            Fisherman: {assignment.fisherman?.name || 'Unknown'}
-          </Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Icon name="directions-boat" size={16} color={PALETTE.text600} />
-          <Text style={styles.detailText}>
-            Boat: {assignment.boat?.boat_name || 'Unknown'} ({assignment.boat?.boat_registration_number || 'N/A'})
-          </Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Icon name="schedule" size={16} color={PALETTE.text600} />
-          <Text style={styles.detailText}>
-            Created: {new Date(assignment.created_at).toLocaleDateString()}
-          </Text>
-        </View>
-        {assignment.notes && (
-          <View style={styles.detailRow}>
-            <Icon name="note" size={16} color={PALETTE.text600} />
-            <Text style={styles.detailText} numberOfLines={2}>
-              Notes: {assignment.notes}
-            </Text>
-          </View>
-        )}
-      </View>
-    </Pressable>
-  );
-
-  const FilterChip = ({ label, isActive, onPress }: { label: string; isActive: boolean; onPress: () => void }) => (
-    <Pressable 
-      onPress={onPress}
-      style={[styles.filterChip, isActive && styles.filterChipActive]}
-    >
-      <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
 
   if (loading) {
     return (
@@ -187,27 +298,12 @@ export default function MFDAssignmentsList() {
       <FlatList
         data={filteredAssignments}
         keyExtractor={(item) => String(item.id)}
-        renderItem={({ item }) => <AssignmentCard assignment={item} />}
+        renderItem={({ item }) => <AssignmentCard assignment={item} onPress={handleAssignmentPress} onEdit={handleEditAssignment} onDeactivate={handleDeactivateAssignment} onActivate={handleActivateAssignment} />}
         contentContainerStyle={styles.listContainer}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        ListEmptyComponent={() => (
-          <View style={styles.emptyState}>
-            <Icon name="assignment" size={64} color={PALETTE.text400} />
-            <Text style={styles.emptyTitle}>No assignments found</Text>
-            <Text style={styles.emptyMessage}>
-              {filter === 'All' 
-                ? "No assignments available at the moment."
-                : `No ${filter.toLowerCase()} assignments found.`
-              }
-            </Text>
-            <Pressable onPress={handleCreateNew} style={styles.createNewButton}>
-              <Icon name="add" size={20} color="#fff" />
-              <Text style={styles.createNewButtonText}>Create New Assignment</Text>
-            </Pressable>
-          </View>
-        )}
+        ListEmptyComponent={<EmptyState filter={filter} onCreateNew={handleCreateNew} />}
       />
 
       <Toast />
@@ -233,7 +329,7 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: PALETTE.green700,
-    paddingTop: 50,
+    paddingTop: 20,
     paddingBottom: 16,
     paddingHorizontal: 20,
     flexDirection: 'row',
@@ -296,12 +392,12 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: 16,
-    gap: 12,
   },
   assignmentCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -312,20 +408,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   assignmentInfo: {
     flex: 1,
   },
   assignmentId: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: PALETTE.text900,
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  assignmentDate: {
-    fontSize: 14,
-    color: PALETTE.text600,
+  relationshipPill: {
+    backgroundColor: PALETTE.green700,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    alignSelf: 'flex-start',
+  },
+  relationshipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
   },
   statusPill: {
     paddingHorizontal: 12,
@@ -336,19 +440,57 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  assignmentDetails: {
-    marginBottom: 12,
-  },
-  detailRow: {
+  detailsGrid: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 6,
+    flexWrap: 'wrap',
+    marginBottom: 16,
   },
-  detailText: {
+  detailItem: {
+    width: '50%',
+    marginBottom: 12,
+    paddingRight: 8,
+  },
+  detailLabel: {
+    fontSize: 12,
+    color: PALETTE.text500,
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  detailValue: {
     fontSize: 14,
-    color: PALETTE.text600,
-    marginLeft: 8,
+    color: PALETTE.text900,
+    fontWeight: '600',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  actionButton: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    gap: 6,
+  },
+  viewButton: {
+    backgroundColor: '#e3f2fd',
+  },
+  editButton: {
+    backgroundColor: '#fff3e0',
+  },
+  deactivateButton: {
+    backgroundColor: '#ffebee',
+  },
+  activateButton: {
+    backgroundColor: '#e8f5e8',
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   emptyState: {
     flex: 1,

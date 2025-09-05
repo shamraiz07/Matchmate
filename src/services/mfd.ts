@@ -1,6 +1,6 @@
 import { api } from './https';
 import { fetchTraceabilityRecords, type TraceabilityRecord } from './traceability';
-import { fetchAssignments, type MiddlemanAssignment, type ListAssignmentsParams } from './middlemanDistribution';
+// Removed unused imports
 
 // ===== TYPES =====
 
@@ -53,7 +53,54 @@ export type FishPurchase = {
 };
 
 // Use MiddlemanAssignment for assignments
-export type Assignment = MiddlemanAssignment;
+export type MFDCompanyAssignment = {
+  id: number;
+  middle_man_id: number;
+  company_id: number;
+  status: AssignmentStatus;
+  assigned_date: string;
+  expiry_date: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  status_label: string;
+  middle_man: {
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+    user_type: string;
+    first_name: string;
+    last_name: string;
+    company_name: string | null;
+    business_address: string | null;
+    business_phone: string | null;
+    business_email: string | null;
+    is_verified: boolean;
+    verification_status: string;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+  };
+  company: {
+    id: number;
+    name: string;
+    email: string;
+    phone: string;
+    user_type: string;
+    first_name: string;
+    last_name: string;
+    export_license_number: string | null;
+    address: string | null;
+    is_verified: boolean;
+    verification_status: string;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+  };
+};
+
+export type Assignment = MFDCompanyAssignment;
 
 export type Boat = {
   id: number;
@@ -404,30 +451,46 @@ export async function fetchMFDAssignments(params: {
   per_page?: number;
   status?: AssignmentStatus;
 } = {}): Promise<PaginatedResponse<Assignment>> {
-  // Use middlemanDistribution service for assignments
-  const listParams: ListAssignmentsParams = {
-    page: params.page,
-    per_page: params.per_page,
-    status: params.status,
-  };
+  const queryParams = new URLSearchParams();
+  
+  if (params.page) queryParams.append('page', params.page.toString());
+  if (params.per_page) queryParams.append('per_page', params.per_page.toString());
+  if (params.status) queryParams.append('status', params.status);
 
-  return await fetchAssignments(listParams);
+  const json = await api(`/middle-man-company-assignments?${queryParams.toString()}`);
+  
+  return {
+    items: json?.data?.data || [],
+    meta: {
+      current_page: json?.data?.current_page || 1,
+      last_page: json?.data?.last_page || 1,
+      per_page: json?.data?.per_page || 15,
+      total: json?.data?.total || 0,
+      from: json?.data?.from || 0,
+      to: json?.data?.to || 0,
+      next_page_url: json?.data?.next_page_url || null,
+      prev_page_url: json?.data?.prev_page_url || null,
+      path: json?.data?.path || '',
+      links: json?.data?.links || [],
+      _raw: json?.data || null,
+    },
+  };
 }
 
 export async function fetchMFDAssignmentById(id: number | string): Promise<Assignment> {
-  // Use middlemanDistribution service for assignment details
-  const { fetchAssignmentById } = await import('./middlemanDistribution');
-  return await fetchAssignmentById(id);
+  const json = await api(`/middle-man-company-assignments/${id}`);
+  return json?.data ?? json;
 }
 
 export async function createMFDAssignment(data: {
-  fisherman_id: number;
-  boat_id: number;
-  assignment_date: string;
+  middle_man_id: number;
+  company_id: number;
+  assigned_date: string;
+  expiry_date?: string | null;
   status?: AssignmentStatus;
-  notes?: string;
+  notes?: string | null;
 }): Promise<Assignment> {
-  const json = await api('/assignments', {
+  const json = await api('/middle-man-company-assignments', {
     method: 'POST',
     body: data,
   });
@@ -435,13 +498,12 @@ export async function createMFDAssignment(data: {
 }
 
 export async function updateMFDAssignment(id: number | string, data: {
-  fisherman_id?: number;
-  boat_id?: number;
-  assignment_date?: string;
+  assigned_date?: string;
+  expiry_date?: string | null;
   status?: AssignmentStatus;
-  notes?: string;
+  notes?: string | null;
 }): Promise<Assignment> {
-  const json = await api(`/assignments/${id}`, {
+  const json = await api(`/middle-man-company-assignments/${id}`, {
     method: 'PUT',
     body: data,
   });
@@ -450,6 +512,58 @@ export async function updateMFDAssignment(id: number | string, data: {
 
 export async function deleteMFDAssignment(id: number | string): Promise<void> {
   await api(`/assignments/${id}`, { method: 'DELETE' });
+}
+
+export async function activateMFDAssignment(id: number | string): Promise<Assignment> {
+  const json = await api(`/middle-man-company-assignments/${id}/activate`, {
+    method: 'POST',
+  });
+  return json?.data ?? json;
+}
+
+export async function deactivateMFDAssignment(id: number | string): Promise<Assignment> {
+  const json = await api(`/middle-man-company-assignments/${id}/deactivate`, {
+    method: 'POST',
+  });
+  return json?.data ?? json;
+}
+
+// ===== COMPANY AND MIDDLE MAN SERVICES =====
+
+export type Company = {
+  id: number;
+  name: string;
+  company_name: string | null;
+};
+
+export type MiddleMan = {
+  id: number;
+  name: string;
+  email: string;
+};
+
+export async function fetchAllExporterCompanies(): Promise<Company[]> {
+  const json = await api('/all-exporter-companies');
+  return json?.data || [];
+}
+
+export async function fetchAllMiddleMen(): Promise<MiddleMan[]> {
+  const json = await api('/all-middleman-distributions');
+  // Extract unique middle men from the distribution data
+  const distributions = json?.data || [];
+  const middleMenMap = new Map();
+  
+  distributions.forEach((distribution: any) => {
+    if (distribution.middle_man) {
+      middleMenMap.set(distribution.middle_man.id, {
+        id: distribution.middle_man.id,
+        name: distribution.middle_man.name,
+        email: distribution.middle_man.email,
+      });
+    }
+  });
+  
+  return Array.from(middleMenMap.values());
 }
 
 // ===== HELPER FUNCTIONS =====

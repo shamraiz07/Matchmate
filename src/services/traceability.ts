@@ -50,6 +50,11 @@ export async function fetchTraceabilityRecords(params: ListTraceabilityParams = 
   return data as TraceabilityRecord[];
 }
 
+export async function fetchTraceabilityRecordById(id: number | string): Promise<TraceabilityRecord> {
+  const json = await api(`/traceability-records/${id}`, { method: 'GET' });
+  return json?.data ?? json;
+}
+
 export type CreateTraceabilityBody = Partial<TraceabilityRecord> & {
   selected_lots: SelectedLot[];
 };

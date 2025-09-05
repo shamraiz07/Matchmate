@@ -1,27 +1,130 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   FlatList,
   Pressable,
   ActivityIndicator,
   RefreshControl,
+  StyleSheet,
+  SafeAreaView,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import PALETTE from '../../theme/palette';
 import { 
-  fetchMFDBoats, 
+  fetchBoats, 
   type Boat, 
-  getStatusColor,
+  getStatusColor, 
   getStatusText 
-} from '../../services/mfd';
+} from '../../services/boats';
 import { MFDStackParamList } from '../../app/navigation/stacks/MFDStack';
 import Toast from 'react-native-toast-message';
 
 type Nav = NativeStackNavigationProp<MFDStackParamList>;
+
+const getTypeIcon = (type: string) => {
+  switch (type.toLowerCase()) {
+    case 'gill_netter': return 'directions_boat';
+    case 'trawler': return 'sailing';
+    default: return 'directions_boat';
+  }
+};
+
+const BoatCard = ({ boat, onBoatPress }: { 
+  boat: Boat; 
+  onBoatPress: (boat: Boat) => void;
+}) => (
+  <View style={styles.boatCard}>
+    {/* Header Section */}
+    <View style={styles.cardHeader}>
+      <View style={styles.registrationContainer}>
+        <Icon name='sailing' size={20} color={PALETTE.green700} />
+        <Text style={styles.registrationNumber}>{boat.registration_number}</Text>
+      </View>
+      <View style={[styles.statusPill, { backgroundColor: getStatusColor(boat.status) + '20' }]}>
+        <Text style={[styles.statusText, { color: getStatusColor(boat.status) }]}>
+          {getStatusText(boat.status)}
+        </Text>
+      </View>
+    </View>
+
+    {/* Boat Information */}
+    <View style={styles.boatInfo}>
+      <Text style={styles.boatName}>{boat.name}</Text>
+      <Text style={styles.ownerName}>Owner: {boat.owner.name}</Text>
+      <Text style={styles.boatType}>Type: {boat.type}</Text>
+    </View>
+
+    {/* Details Row */}
+    <View style={styles.detailsRow}>
+      <View style={styles.detailItem}>
+        <Text style={styles.detailLabel}>Length</Text>
+        <Text style={styles.detailValue}>{boat.length_m}m</Text>
+      </View>
+      <View style={styles.detailItem}>
+        <Text style={styles.detailLabel}>Width</Text>
+        <Text style={styles.detailValue}>{boat.width_m}m</Text>
+      </View>
+      <View style={styles.detailItem}>
+        <Text style={styles.detailLabel}>Crew</Text>
+        <Text style={styles.detailValue}>{boat.capacity_crew}</Text>
+      </View>
+    </View>
+
+    {/* Home Port and Created Date */}
+    <View style={styles.footerRow}>
+      <View style={styles.portContainer}>
+        <Icon name="location-on" size={14} color={PALETTE.text400} />
+        <Text style={styles.homePort}>
+          {boat.home_port || 'No port specified'}
+        </Text>
+      </View>
+      <Text style={styles.createdDate}>
+        {new Date(boat.created_at).toLocaleDateString('en-US', {
+          month: 'short',
+          day: '2-digit',
+          year: 'numeric',
+        })}
+      </Text>
+    </View>
+
+    {/* Action Button */}
+    <Pressable 
+      onPress={() => onBoatPress(boat)} 
+      style={({ pressed }) => [styles.viewButton, pressed && { opacity: 0.8 }]}
+    >
+      <Icon name="visibility" size={16} color="#fff" />
+      <Text style={styles.viewButtonText}>View</Text>
+    </Pressable>
+  </View>
+);
+
+const FilterChip = ({ label, isActive, onPress }: { 
+  label: string; 
+  isActive: boolean; 
+  onPress: () => void;
+}) => (
+  <Pressable 
+    onPress={onPress}
+    style={[styles.filterChip, isActive && styles.filterChipActive]}
+  >
+    <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+      {label}
+    </Text>
+  </Pressable>
+);
+
+const EmptyState = () => (
+  <View style={styles.emptyState}>
+    <Icon name="directions_boat" size={64} color={PALETTE.text400} />
+    <Text style={styles.emptyTitle}>No boats found</Text>
+    <Text style={styles.emptyMessage}>
+      There are no boats available at the moment.
+    </Text>
+  </View>
+);
 
 export default function MFDBoatsList() {
   const navigation = useNavigation<Nav>();
@@ -29,25 +132,31 @@ export default function MFDBoatsList() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [boats, setBoats] = useState<Boat[]>([]);
-  const [filter, setFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
+  const [filter, setFilter] = useState('All');
+  const [meta, setMeta] = useState<any>(null);
 
   const loadBoats = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await fetchMFDBoats({ page: 1, per_page: 50 });
-      setBoats(data.items || []);
+      const response = await fetchBoats({ 
+        page: 1, 
+        per_page: 20,
+        status: filter === 'All' ? undefined : filter.toLowerCase()
+      });
+      setBoats(response.data);
+      setMeta(response);
     } catch (error) {
       console.error('Error loading boats:', error);
       Toast.show({
         type: 'error',
-        text1: 'Error',
-        text2: 'Failed to load boats',
+        text1: 'Loading Failed',
+        text2: 'Failed to load boats. Please try again.',
         position: 'top',
       });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filter]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -59,95 +168,15 @@ export default function MFDBoatsList() {
     loadBoats();
   }, [loadBoats]);
 
-  const handleBack = () => {
-    navigation.goBack();
-  };
-
   const handleBoatPress = (boat: Boat) => {
     navigation.navigate('BoatDetails', { boatId: boat.id });
   };
 
-  const filteredBoats = boats.filter(boat => {
-    if (filter === 'All') return true;
-    return boat.is_active === (filter === 'Active');
-  });
+  const handleBack = () => {
+    navigation.goBack();
+  };
 
-  const BoatCard = ({ boat }: { boat: Boat }) => (
-    <Pressable 
-      onPress={() => handleBoatPress(boat)} 
-      style={({ pressed }) => [styles.boatCard, pressed && { opacity: 0.9 }]}
-    >
-      <View style={styles.boatHeader}>
-        <View style={styles.boatInfo}>
-          <Text style={styles.boatName}>{boat.boat_name}</Text>
-          <Text style={styles.boatReg}>{boat.boat_registration_number}</Text>
-        </View>
-        <View style={[styles.statusPill, { backgroundColor: (boat.is_active ? '#4caf50' : '#f44336') + '20' }]}>
-          <Text style={[styles.statusText, { color: boat.is_active ? '#4caf50' : '#f44336' }]}>
-            {boat.is_active ? 'Active' : 'Inactive'}
-          </Text>
-        </View>
-      </View>
-      
-      <View style={styles.boatDetails}>
-        <View style={styles.detailRow}>
-          <Icon name="directions-boat" size={16} color={PALETTE.text600} />
-          <Text style={styles.detailText}>
-            Type: {boat.boat_type || 'Not specified'}
-          </Text>
-        </View>
-        {boat.length_m && (
-          <View style={styles.detailRow}>
-            <Icon name="straighten" size={16} color={PALETTE.text600} />
-            <Text style={styles.detailText}>
-              Length: {boat.length_m}m
-            </Text>
-          </View>
-        )}
-        {boat.width_m && (
-          <View style={styles.detailRow}>
-            <Icon name="width-full" size={16} color={PALETTE.text600} />
-            <Text style={styles.detailText}>
-              Width: {boat.width_m}m
-            </Text>
-          </View>
-        )}
-        {boat.capacity_crew && (
-          <View style={styles.detailRow}>
-            <Icon name="group" size={16} color={PALETTE.text600} />
-            <Text style={styles.detailText}>
-              Crew Capacity: {boat.capacity_crew}
-            </Text>
-          </View>
-        )}
-        <View style={styles.detailRow}>
-          <Icon name="schedule" size={16} color={PALETTE.text600} />
-          <Text style={styles.detailText}>
-            Created: {new Date(boat.created_at).toLocaleDateString()}
-          </Text>
-        </View>
-        {boat.mfd_approved_no && (
-          <View style={styles.detailRow}>
-            <Icon name="verified" size={16} color={PALETTE.text600} />
-            <Text style={styles.detailText}>
-              MFD Approval: {boat.mfd_approved_no}
-            </Text>
-          </View>
-        )}
-      </View>
-    </Pressable>
-  );
-
-  const FilterChip = ({ label, isActive, onPress }: { label: string; isActive: boolean; onPress: () => void }) => (
-    <Pressable 
-      onPress={onPress}
-      style={[styles.filterChip, isActive && styles.filterChipActive]}
-    >
-      <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
+  const filters = ['All', 'Active', 'Inactive', 'Pending'];
 
   if (loading) {
     return (
@@ -166,19 +195,19 @@ export default function MFDBoatsList() {
           <Icon name="arrow-back" size={24} color="#fff" />
         </Pressable>
         <Text style={styles.headerTitle}>MFD Boats</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.headerSpacer} />
       </View>
 
       {/* Filters */}
       <View style={styles.filtersContainer}>
         <Text style={styles.filtersTitle}>Filter by status</Text>
         <View style={styles.filtersRow}>
-          {(['All', 'Active', 'Inactive'] as const).map((status) => (
+          {filters.map((filterName) => (
             <FilterChip
-              key={status}
-              label={status}
-              isActive={filter === status}
-              onPress={() => setFilter(status)}
+              key={filterName}
+              label={filterName}
+              isActive={filter === filterName}
+              onPress={() => setFilter(filterName)}
             />
           ))}
         </View>
@@ -186,25 +215,20 @@ export default function MFDBoatsList() {
 
       {/* Boats List */}
       <FlatList
-        data={filteredBoats}
+        data={boats}
         keyExtractor={(item) => String(item.id)}
-        renderItem={({ item }) => <BoatCard boat={item} />}
+        renderItem={({ item }) => (
+          <BoatCard 
+            boat={item} 
+            onBoatPress={handleBoatPress}
+          />
+        )}
         contentContainerStyle={styles.listContainer}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        ListEmptyComponent={() => (
-          <View style={styles.emptyState}>
-            <Icon name="directions-boat" size={64} color={PALETTE.text400} />
-            <Text style={styles.emptyTitle}>No boats found</Text>
-            <Text style={styles.emptyMessage}>
-              {filter === 'All' 
-                ? "No boats available at the moment."
-                : `No ${filter.toLowerCase()} boats found.`
-              }
-            </Text>
-          </View>
-        )}
+        ListEmptyComponent={EmptyState}
+        showsVerticalScrollIndicator={false}
       />
 
       <Toast />
@@ -230,9 +254,9 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: PALETTE.green700,
-    paddingTop: 50,
-    paddingBottom: 16,
     paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingTop: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -250,6 +274,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
   },
+  headerSpacer: {
+    width: 40,
+  },
   filtersContainer: {
     backgroundColor: '#fff',
     padding: 16,
@@ -259,21 +286,25 @@ const styles = StyleSheet.create({
   filtersTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: PALETTE.text900,
+    color: PALETTE.text700,
     marginBottom: 12,
   },
   filtersRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   filterChip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: PALETTE.border,
+    backgroundColor: PALETTE.gray100,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
   },
   filterChipActive: {
     backgroundColor: PALETTE.green700,
+    borderColor: PALETTE.green700,
   },
   filterChipText: {
     fontSize: 14,
@@ -285,58 +316,117 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: 16,
-    gap: 12,
   },
   boatCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
+    marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
-  boatHeader: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 12,
   },
-  boatInfo: {
-    flex: 1,
+  registrationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  boatName: {
+  registrationNumber: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: PALETTE.text900,
-    marginBottom: 4,
-  },
-  boatReg: {
-    fontSize: 14,
-    color: PALETTE.text600,
+    color: PALETTE.text700,
+    marginLeft: 8,
   },
   statusPill: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   statusText: {
     fontSize: 12,
     fontWeight: '600',
   },
-  boatDetails: {
+  boatInfo: {
     marginBottom: 12,
   },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
+  boatName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: PALETTE.text700,
+    marginBottom: 4,
   },
-  detailText: {
+  ownerName: {
     fontSize: 14,
     color: PALETTE.text600,
-    marginLeft: 8,
+    marginBottom: 2,
+  },
+  boatType: {
+    fontSize: 14,
+    color: PALETTE.text600,
+  },
+  detailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  detailItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  detailLabel: {
+    fontSize: 12,
+    color: PALETTE.text400,
+    marginBottom: 2,
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: PALETTE.text700,
+  },
+  footerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  portContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  homePort: {
+    fontSize: 12,
+    color: PALETTE.text500,
+    marginLeft: 4,
+  },
+  createdDate: {
+    fontSize: 12,
+    color: PALETTE.text400,
+  },
+  viewButton: {
+    backgroundColor: PALETTE.green700,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  viewButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   emptyState: {
     flex: 1,
@@ -346,14 +436,15 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: PALETTE.text700,
+    fontWeight: '600',
+    color: PALETTE.text600,
     marginTop: 16,
     marginBottom: 8,
   },
   emptyMessage: {
     fontSize: 14,
-    color: PALETTE.text500,
+    color: PALETTE.text400,
     textAlign: 'center',
+    lineHeight: 20,
   },
 });

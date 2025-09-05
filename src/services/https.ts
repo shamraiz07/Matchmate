@@ -19,6 +19,13 @@ export async function setAuthToken(token: string | null) {
   else await AsyncStorage.removeItem('auth_token');
 }
 
+export async function getAuthToken(): Promise<string | null> {
+  if (!authToken) {
+    await loadTokenFromStorage();
+  }
+  return authToken;
+}
+
 type ReqOpts = {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: any;

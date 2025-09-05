@@ -23,6 +23,8 @@ import Toast from 'react-native-toast-message';
 
 import {
   fetchMFDAssignmentById,
+  activateMFDAssignment,
+  deactivateMFDAssignment,
   type Assignment,
   getStatusColor,
   getStatusText,
@@ -84,6 +86,54 @@ export default function MFDAssignmentDetails() {
     navigation.navigate('AssignmentEdit', { assignmentId: assignment!.id });
   };
 
+  const handleActivate = async () => {
+    try {
+      setLoading(true);
+      await activateMFDAssignment(assignment!.id);
+      Toast.show({
+        type: 'success',
+        text1: 'Success',
+        text2: 'Assignment activated successfully',
+        position: 'top',
+      });
+      load(); // Refresh the assignment data
+    } catch (error: any) {
+      console.error('Error activating assignment:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: error.message || 'Failed to activate assignment',
+        position: 'top',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeactivate = async () => {
+    try {
+      setLoading(true);
+      await deactivateMFDAssignment(assignment!.id);
+      Toast.show({
+        type: 'success',
+        text1: 'Success',
+        text2: 'Assignment deactivated successfully',
+        position: 'top',
+      });
+      load(); // Refresh the assignment data
+    } catch (error: any) {
+      console.error('Error deactivating assignment:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: error.message || 'Failed to deactivate assignment',
+        position: 'top',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -120,7 +170,7 @@ export default function MFDAssignmentDetails() {
           </View>
 
           <Text style={styles.subtitle}>
-            {assignment.fisherman?.name || 'Unknown Fisherman'} • {assignment.boat?.boat_name || 'Unknown Boat'}
+            {assignment.middle_man?.name || 'Unknown Middle Man'} → {assignment.company?.name || 'Unknown Company'}
           </Text>
         </View>
 
@@ -134,14 +184,14 @@ export default function MFDAssignmentDetails() {
         <View style={styles.quickItem}>
           <MaterialIcons name="schedule" size={16} color={PALETTE.text600} />
           <Text style={styles.quickText}>
-            {new Date(assignment.assignment_date).toLocaleDateString()}
+            {new Date(assignment.assigned_date).toLocaleDateString()}
           </Text>
         </View>
         <View style={styles.quickDivider} />
         <View style={styles.quickItem}>
           <MaterialIcons name="person" size={16} color={PALETTE.text600} />
           <Text style={styles.quickText}>
-            {assignment.fisherman?.name || 'Unknown'}
+            {assignment.middle_man?.name || 'Unknown'}
           </Text>
         </View>
       </View>
@@ -149,29 +199,35 @@ export default function MFDAssignmentDetails() {
       {/* Content */}
       <ScrollView contentContainerStyle={{ padding: 14, gap: 12 }}>
         {/* Basic Assignment Information */}
-        <Section title="Basic Assignment Information" icon="assignment">
+        <Section title="Assignment Information" icon="assignment">
           <Row icon="badge" label="Assignment ID" value={`#${assignment.id}`} />
-          <Row icon="info" label="Status" value={toTitle(assignment.status)} />
-          <Row icon="schedule" label="Assignment Date" value={new Date(assignment.assignment_date).toLocaleDateString()} />
+          <Row icon="info" label="Status" value={assignment.status_label} />
+          <Row icon="schedule" label="Assigned Date" value={new Date(assignment.assigned_date).toLocaleDateString()} />
+          <Row icon="event" label="Expiry Date" value={new Date(assignment.expiry_date).toLocaleDateString()} />
           <Row icon="note" label="Notes" value={assignment.notes || 'No notes provided'} />
         </Section>
 
-        {/* Fisherman Information */}
-        {assignment.fisherman && (
-          <Section title="Fisherman Information" icon="person">
-            <Row icon="person" label="Name" value={assignment.fisherman.name} />
-            <Row icon="phone" label="Phone" value={assignment.fisherman.phone} />
-            <Row icon="place" label="Fishing Zone" value={assignment.fisherman.fishing_zone} />
+        {/* Middle Man Information */}
+        {assignment.middle_man && (
+          <Section title="Middle Man Information" icon="person">
+            <Row icon="person" label="Name" value={assignment.middle_man.name} />
+            <Row icon="email" label="Email" value={assignment.middle_man.email} />
+            <Row icon="phone" label="Phone" value={assignment.middle_man.phone} />
+            <Row icon="business" label="Company" value={assignment.middle_man.company_name || 'N/A'} />
+            <Row icon="place" label="Address" value={assignment.middle_man.business_address || 'N/A'} />
+            <Row icon="verified" label="Status" value={assignment.middle_man.is_active ? 'Active' : 'Inactive'} />
           </Section>
         )}
 
-        {/* Boat Information */}
-        {assignment.boat && (
-          <Section title="Boat Information" icon="directions-boat">
-            <Row icon="title" label="Boat Name" value={assignment.boat.boat_name} />
-            <Row icon="receipt" label="Registration Number" value={assignment.boat.boat_registration_number} />
-            <Row icon="category" label="Boat Type" value={assignment.boat.boat_type || 'Not specified'} />
-            <Row icon="verified" label="Status" value={assignment.boat.is_active ? 'Active' : 'Inactive'} />
+        {/* Company Information */}
+        {assignment.company && (
+          <Section title="Company Information" icon="business">
+            <Row icon="business" label="Company Name" value={assignment.company.name} />
+            <Row icon="email" label="Email" value={assignment.company.email} />
+            <Row icon="phone" label="Phone" value={assignment.company.phone} />
+            <Row icon="receipt" label="Export License" value={assignment.company.export_license_number || 'N/A'} />
+            <Row icon="place" label="Address" value={assignment.company.address || 'N/A'} />
+            <Row icon="verified" label="Status" value={assignment.company.is_active ? 'Active' : 'Inactive'} />
           </Section>
         )}
 
@@ -187,6 +243,47 @@ export default function MFDAssignmentDetails() {
             label="Updated At" 
             value={new Date(assignment.updated_at).toLocaleString()} 
           />
+        </Section>
+
+        {/* Actions */}
+        <Section title="Actions" icon="settings">
+          <View style={styles.actionButtons}>
+            <Pressable
+              style={[styles.actionButton, styles.editButton]}
+              onPress={handleEdit}
+            >
+              <MaterialIcons name="edit" size={20} color="#fff" />
+              <Text style={styles.actionButtonText}>Edit Assignment</Text>
+            </Pressable>
+
+            {assignment.status === 'inactive' ? (
+              <Pressable
+                style={[styles.actionButton, styles.activateButton]}
+                onPress={handleActivate}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <MaterialIcons name="play-arrow" size={20} color="#fff" />
+                )}
+                <Text style={styles.actionButtonText}>Activate Assignment</Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={[styles.actionButton, styles.deactivateButton]}
+                onPress={handleDeactivate}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <MaterialIcons name="pause" size={20} color="#fff" />
+                )}
+                <Text style={styles.actionButtonText}>Deactivate Assignment</Text>
+              </Pressable>
+            )}
+          </View>
         </Section>
       </ScrollView>
 
@@ -319,4 +416,34 @@ const styles = StyleSheet.create({
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
   label: { color: PALETTE.text600, fontSize: 12, fontWeight: '700' },
   value: { color: PALETTE.text900, fontWeight: '800' },
+
+  /* action buttons */
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 8,
+  },
+  editButton: {
+    backgroundColor: PALETTE.green700,
+  },
+  activateButton: {
+    backgroundColor: '#4CAF50',
+  },
+  deactivateButton: {
+    backgroundColor: '#F44336',
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });

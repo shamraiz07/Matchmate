@@ -20,6 +20,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MFDStaffStackParamList } from '../../app/navigation/stacks/MFDStaffStack';
 import { getTripCounts, type TripCounts } from '../../services/trips';
+import { getUser, type User } from '../../services/users';
 
 type Nav = NativeStackNavigationProp<MFDStaffStackParamList, 'MFDStaffHome'>;
 
@@ -47,6 +48,7 @@ export default function MFDStaffHome() {
 
   const [online, setOnline] = useState<boolean>(true);
   const [counts, setCounts] = useState<TripCounts | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [errText, setErrText] = useState<string | null>(null);
@@ -58,15 +60,25 @@ export default function MFDStaffHome() {
     return () => { unsub && unsub(); };
   }, []);
 
-  const loadCounts = useCallback(async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setErrText(null);
     try {
-      const { totals } = await getTripCounts();
-      setCounts(totals);
+      const [tripCountsRes, userRes] = await Promise.allSettled([
+        getTripCounts(),
+        getUser(),
+      ]);
+
+      if (tripCountsRes.status === 'fulfilled') {
+        setCounts(tripCountsRes.value.totals);
+      }
+      if (userRes.status === 'fulfilled') {
+        setUser(userRes.value);
+      }
     } catch (e: any) {
-      setErrText(e?.message || 'Failed to load trip counts');
+      setErrText(e?.message || 'Failed to load data');
       setCounts(null);
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -75,18 +87,18 @@ export default function MFDStaffHome() {
   // Reload when screen gains focus
   useFocusEffect(
     useCallback(() => {
-      loadCounts();
-    }, [loadCounts])
+      loadData();
+    }, [loadData])
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await loadCounts();
+      await loadData();
     } finally {
       setRefreshing(false);
     }
-  }, [loadCounts]);
+  }, [loadData]);
 
   const confirmLogout = useCallback(() => {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
@@ -99,6 +111,11 @@ export default function MFDStaffHome() {
     navigation.navigate('AllTrips');
   }, [navigation]);
 
+  // Computed values from user data
+  const name = React.useMemo(() => {
+    return user?.name || user?.first_name || 'MFD Staff';
+  }, [user]);
+
   // const goReports = useCallback(() => {
   //   // Replace with your actual screen name if different
   //   navigation.navigate('Reports' as any);
@@ -106,7 +123,7 @@ export default function MFDStaffHome() {
 
   return (
     <View style={{ flex: 1, backgroundColor: PALETTE.bg }}>
-      <StatusBar backgroundColor={APPBAR_BG} barStyle="light-content" />
+      <StatusBar backgroundColor={'#1B5E20'} barStyle="light-content" />
 
       {/* App Bar */}
       <View style={styles.appbar}>
@@ -166,7 +183,7 @@ export default function MFDStaffHome() {
               <Icon name="anchor" size={22} color="#fff" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.h1}>Welcome back, MFD!</Text>
+              <Text style={styles.h1}>Welcome back, {name}!</Text>
               <Text style={styles.subtle}>
                 You’re logged into the Marine Fisheries Department Portal.
               </Text>
@@ -184,21 +201,32 @@ export default function MFDStaffHome() {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Your Profile</Text>
 
-          <Row icon="person" label="Full Name" value="MFD Staff" />
-          <Row icon="mail" label="Email Address" value="mfd.staff@gmail.com" />
-          <Row icon="phone" label="Phone Number" value="03095237230" />
+          <Row icon="person" label="Full Name" value={name} />
+          <Row icon="mail" label="Email Address" value={user?.email || '—'} />
+          <Row icon="phone" label="Phone Number" value={user?.phone || '—'} />
 
           <View style={[styles.row, { marginTop: 8 }]}>
             <Icon name="verified" size={18} color={PALETTE.green700} style={{ marginRight: 10 }} />
             <Text style={styles.rowLabel}>Account Status</Text>
             <View style={{ flex: 1 }} />
-            <StatusPill text="Active" tone="ok" />
+            <StatusPill text={user?.is_active ? "Active" : "Inactive"} tone={user?.is_active ? "ok" : "error"} />
           </View>
 
           <View style={styles.divider} />
 
-          <Row icon="badge" label="Employee ID" value="ID-1515" />
-          <Row icon="apartment" label="Department/Position" value="Not specified" />
+          <Row icon="badge" label="Employee ID" value={user?.mfd_employee_id || '—'} />
+          <Row icon="apartment" label="Department/Position" value="MFD Staff" />
+          <Row icon="verified" label="Verification Status" value={user?.is_verified ? "Verified" : "Pending"} />
+          
+          {user?.address && (
+            <Row icon="home" label="Address" value={user.address} />
+          )}
+          {user?.city && (
+            <Row icon="location-city" label="City" value={user.city} />
+          )}
+          {user?.province && (
+            <Row icon="map" label="Province" value={user.province} />
+          )}
         </View>
 
         {/* Trip Overview */}
