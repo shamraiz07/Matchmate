@@ -10,7 +10,31 @@ import { getUser } from '../../services/users';
 
 type LotRow = { lot_no: string; final_product_name: string; quantity_kg: string };
 
-export default function traceabilityForm() {
+function Field({ label, value, onChangeText, keyboardType, placeholder }: {
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  keyboardType?: 'default' | 'numeric';
+  placeholder?: string;
+}) {
+  return (
+    <View style={{ marginBottom: 10 }}>
+      <Text style={styles.label}>{label}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        keyboardType={keyboardType}
+        placeholder={placeholder || label}
+        placeholderTextColor="#9CA3AF"
+        style={styles.input}
+      />
+    </View>
+  );
+}
+
+const ItemSeparator = () => <View style={{ height: 6 }} />;
+
+export default function TraceabilityForm() {
   const navigation = useNavigation();
 
   const [loading, setLoading] = useState(false);
@@ -61,7 +85,9 @@ export default function traceabilityForm() {
         const [user, list] = await Promise.all([getUser(), fetchExporterCompanies()]);
         setExporterId(user?.id ?? null);
         setExporterName(user?.company_name || user?.name || '');
-        setCompanies(list);
+        // Filter out the current user from the companies list to prevent self-selection
+        const filteredCompanies = list.filter(company => company.id !== user?.id);
+        setCompanies(filteredCompanies);
       } catch {}
       finally { setLoading(false); }
     })();
@@ -91,6 +117,12 @@ export default function traceabilityForm() {
       Alert.alert('Invalid Company', 'The selected company is not valid. Please select a different company.');
       return;
     }
+    
+    // Validate that the selected company is not the same as the exporter
+    if (selectedCompany.id === exporterId) {
+      Alert.alert('Invalid Selection', 'You cannot select yourself as the company. Please select a different company.');
+      return;
+    }
     if (!invoiceNo || !consigneeName || !consigneeCountry) {
       Alert.alert('Missing Info', 'Please fill required fields.');
       return;
@@ -103,9 +135,11 @@ export default function traceabilityForm() {
       setSubmitting(true);
       
       // Debug: Log available companies and selected company
+      console.log('Exporter ID:', exporterId);
       console.log('Available companies:', companies);
       console.log('Selected company ID:', companyId);
-      console.log('Selected company:', companies.find(c => String(c.id) === companyId));
+      console.log('Selected company:', selectedCompany);
+      console.log('Are exporter and company the same?', selectedCompany.id === exporterId);
       
       const body = {
         exporter_id: exporterId,
@@ -132,7 +166,7 @@ export default function traceabilityForm() {
     } finally {
       setSubmitting(false);
     }
-  }, [exporterId, companyId, invoiceNo, consigneeName, consigneeCountry, documentDate, shipmentDate, exportCertNo, lots, totalQuantityKg, totalValue, validatingAuthority, exporterName, plantAddress, navigation]);
+  }, [exporterId, companyId, invoiceNo, consigneeName, consigneeCountry, documentDate, shipmentDate, exportCertNo, lots, totalQuantityKg, totalValue, validatingAuthority, exporterName, plantAddress, navigation, companies]);
 
   if (loading) {
     return (
@@ -157,8 +191,24 @@ export default function traceabilityForm() {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Purchase Selection</Text>
           <Text style={styles.label}>Exporter Company</Text>
+          <Text style={styles.helpText}>Select a different company to create a traceability record for</Text>
           <Pressable onPress={() => setCompanyModal(true)} style={({ pressed }) => [styles.select, pressed && { opacity: 0.95 }]}>
-            <Text style={{ color: companyId ? PALETTE.text900 : '#9CA3AF' }}>{companyId ? (companies.find(c => String(c.id) === companyId)?.company_name || 'Company') : 'Select Exporter Company'}</Text>
+            <View style={styles.selectedCompany}>
+              {companyId ? (
+                <>
+                  <Text style={styles.selectedCompanyName}>
+                    {companies.find(c => String(c.id) === companyId)?.company_name || companies.find(c => String(c.id) === companyId)?.name || 'Company'}
+                  </Text>
+                  {companies.find(c => String(c.id) === companyId)?.contact_person && (
+                    <Text style={styles.selectedCompanyContact}>
+                      Contact: {companies.find(c => String(c.id) === companyId)?.contact_person}
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <Text style={styles.placeholderText}>Select Exporter Company</Text>
+              )}
+            </View>
             <Icon name="arrow-drop-down" size={22} color={PALETTE.text700} />
           </Pressable>
         </View>
@@ -237,11 +287,33 @@ export default function traceabilityForm() {
             keyExtractor={it => String(it.id)}
             renderItem={({ item }) => (
               <Pressable onPress={() => { setCompanyId(String(item.id)); setCompanyModal(false); }} style={({ pressed }) => [styles.modalItem, pressed && { opacity: 0.9 }]}>
-                <Text style={{ color: PALETTE.text900, fontWeight: '700' }}>{item.company_name}</Text>
-                <Text style={{ color: PALETTE.text600 }}>{item.email || item.phone || '—'}</Text>
+                <View style={styles.companyItem}>
+                  <Text style={styles.companyName}>{item.company_name || item.name}</Text>
+                  {item.contact_person && (
+                    <Text style={styles.companyContact}>Contact: {item.contact_person}</Text>
+                  )}
+                  <View style={styles.companyDetails}>
+                    {item.email && (
+                      <Text style={styles.companyDetail}>{item.email}</Text>
+                    )}
+                    {item.phone && (
+                      <Text style={styles.companyDetail}>{item.phone}</Text>
+                    )}
+                    {item.registration_no && (
+                      <Text style={styles.companyDetail}>Reg: {item.registration_no}</Text>
+                    )}
+                  </View>
+                  {item.status && (
+                    <View style={[styles.statusBadge, { backgroundColor: item.status === 'active' ? '#E8F5E8' : '#FFEBEE' }]}>
+                      <Text style={[styles.statusText, { color: item.status === 'active' ? PALETTE.green700 : '#C62828' }]}>
+                        {item.status.toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </Pressable>
             )}
-            ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
+            ItemSeparatorComponent={ItemSeparator}
           />
         </View>
       </Modal>
@@ -269,22 +341,6 @@ export default function traceabilityForm() {
   );
 }
 
-function Field({ label, value, onChangeText, keyboardType, placeholder }: any) {
-  return (
-    <View style={{ marginBottom: 10 }}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        keyboardType={keyboardType}
-        placeholder={placeholder || label}
-        placeholderTextColor="#9CA3AF"
-        style={styles.input}
-      />
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   backBtn: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#145A1F' },
@@ -292,8 +348,13 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: PALETTE.border, padding: 12, marginBottom: 12 },
   sectionTitle: { color: PALETTE.text900, fontWeight: '800', marginBottom: 8 },
   label: { color: PALETTE.text700, marginBottom: 6, fontWeight: '700' },
+  helpText: { color: PALETTE.text500, fontSize: 12, marginBottom: 8, fontStyle: 'italic' },
   input: { borderWidth: 1, borderColor: PALETTE.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: Platform.OS === 'ios' ? 10 : 8, color: PALETTE.text900, backgroundColor: '#fff' },
   select: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: PALETTE.border, backgroundColor: '#fff', borderRadius: 10, paddingHorizontal: 12, paddingVertical: Platform.OS === 'ios' ? 10 : 8 },
+  selectedCompany: { flex: 1 },
+  selectedCompanyName: { color: PALETTE.text900, fontWeight: '600', fontSize: 16 },
+  selectedCompanyContact: { color: PALETTE.text600, fontSize: 12, marginTop: 2 },
+  placeholderText: { color: '#9CA3AF', fontSize: 16 },
   addBtn: { marginTop: 4, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: PALETTE.green700, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
   addBtnText: { color: '#fff', fontWeight: '800' },
   removeBtn: { alignSelf: 'flex-start', marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#C62828', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
@@ -318,4 +379,11 @@ const styles = StyleSheet.create({
   modalSheet: { position: 'absolute', left: 20, right: 20, top: '50%', transform: [{ translateY: -220 }], borderRadius: 16, backgroundColor: '#fff', padding: 16, maxHeight: 440, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 8 },
   modalTitle: { color: PALETTE.text900, fontWeight: '800', fontSize: 16, marginBottom: 8 },
   modalItem: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: PALETTE.border },
+  companyItem: { flex: 1 },
+  companyName: { color: PALETTE.text900, fontWeight: '700', fontSize: 16, marginBottom: 4 },
+  companyContact: { color: PALETTE.text700, fontSize: 14, marginBottom: 4 },
+  companyDetails: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 4 },
+  companyDetail: { color: PALETTE.text600, fontSize: 12, marginRight: 12, marginBottom: 2 },
+  statusBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  statusText: { fontSize: 10, fontWeight: '600' },
 });

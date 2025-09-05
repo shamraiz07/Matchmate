@@ -24,7 +24,7 @@ import {
   fetchTraceabilityRecordById,
   type TraceabilityRecord,
 } from '../../services/traceability';
-import { getAuthToken } from '../../services/https';
+import { getAuthToken, BASE_URL, join } from '../../services/https';
 import RNFS from 'react-native-fs';
 import { PermissionsAndroid, Platform, Alert } from 'react-native';
 import { MFDStackParamList } from '../../app/navigation/stacks/MFDStack';
@@ -116,18 +116,36 @@ export default function MFDRecordDetails() {
         });
         return;
       }
-
-      // Call the generate document API directly with fetch to handle PDF response
-      const response = await fetch(`${process.env.API_BASE_URL || 'http://192.168.18.44:1000/api'}/traceability-records/${record.id}/generate-document`, {
+      // Call the generate document API to get download URL
+      const response = await fetch(join(BASE_URL, `traceability-records/${record.id}/generate-document`), {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${await getAuthToken()}`,
+          'Accept': 'application/json',
         },
       });
 
       if (response.ok) {
-        // Get the PDF blob
-        const pdfBlob = await response.blob();
+        const responseData = await response.json();
+        console.log('📄 PDF Response Data:', responseData);
+
+        if (responseData.success && responseData.download_url) {
+          console.log('✅ PDF Download URL received:', responseData.download_url);
+          
+          // Download PDF from the provided URL
+          const pdfResponse = await fetch(responseData.download_url, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/pdf',
+            },
+          });
+
+          if (!pdfResponse.ok) {
+            throw new Error(`Failed to download PDF: ${pdfResponse.status}`);
+          }
+
+          // Get the PDF blob
+          const pdfBlob = await pdfResponse.blob();
         
         // Convert blob to base64
         const reader = new FileReader();
@@ -189,8 +207,10 @@ export default function MFDRecordDetails() {
           });
         };
         
-        reader.readAsDataURL(pdfBlob);
-        
+          reader.readAsDataURL(pdfBlob);
+        } else {
+          throw new Error('Invalid response: missing download_url');
+        }
       } else {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

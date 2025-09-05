@@ -13,7 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import PALETTE from '../../theme/palette';
 import { type TraceabilityRecord, fetchTraceabilityRecords } from '../../services/traceability';
-import { getAuthToken } from '../../services/https';
+import { getAuthToken, BASE_URL, join } from '../../services/https';
 import RNFS from 'react-native-fs';
 import { PermissionsAndroid, Platform, Alert } from 'react-native';
 import { MFDStackParamList } from '../../app/navigation/stacks/MFDStack';
@@ -214,19 +214,38 @@ export default function MFDRecordsList() {
         return;
       }
 
-      // Call the generate document API directly with fetch to handle PDF response
-      const response = await fetch(`${process.env.API_BASE_URL || 'http://192.168.18.44:1000/api'}/traceability-records/${record.id}/generate-document`, {
+      // Call the generate document API to get download URL
+      const response = await fetch(join(BASE_URL, `traceability-records/${record.id}/generate-document`), {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${await getAuthToken()}`,
+          'Accept': 'application/json',
         },
       });
 
       if (response.ok) {
-        // Get the PDF blob
-        const pdfBlob = await response.blob();
+        const responseData = await response.json();
+        console.log('📄 PDF Response Data:', responseData);
+
+        if (responseData.success && responseData.download_url) {
+          console.log('✅ PDF Download URL received:', responseData.download_url);
+          
+          // Download PDF from the provided URL
+          const pdfResponse = await fetch(responseData.download_url, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/pdf',
+            },
+          });
+
+          if (!pdfResponse.ok) {
+            throw new Error(`Failed to download PDF: ${pdfResponse.status}`);
+          }
+
+          // Get the PDF blob
+          const pdfBlob = await pdfResponse.blob();
         
-        // Convert blob to base64
+          // Convert blob to base64
         const reader = new FileReader();
         reader.onload = async () => {
           try {
@@ -236,28 +255,66 @@ export default function MFDRecordsList() {
             // Create filename
             const fileName = `traceability-${record.document_no}.pdf`;
             
-            // Define file path
-            const downloadsPath = Platform.OS === 'android' 
-              ? RNFS.DownloadDirectoryPath 
-              : RNFS.DocumentDirectoryPath;
-            const filePath = `${downloadsPath}/${fileName}`;
-            
-            // Write file to device storage
-            await RNFS.writeFile(filePath, base64PDF, 'base64');
+            // Try multiple directories for better compatibility
+            let filePath = '';
+            let success = false;
+
+            const possiblePaths = [
+              `${RNFS.DocumentDirectoryPath}/${fileName}`, // App's document directory (most reliable)
+              `${RNFS.CachesDirectoryPath}/${fileName}`,   // App's cache directory
+              Platform.OS === 'android' ? `${RNFS.DownloadDirectoryPath}/${fileName}` : null, // Downloads (Android only)
+            ].filter(Boolean);
+
+            for (const path of possiblePaths) {
+              if (!path) continue; // Skip null paths
+              
+              try {
+                // Ensure directory exists
+                const dirPath = path.substring(0, path.lastIndexOf('/'));
+                const dirExists = await RNFS.exists(dirPath);
+                if (!dirExists) {
+                  await RNFS.mkdir(dirPath);
+                }
+                
+                await RNFS.writeFile(path, base64PDF, 'base64');
+                filePath = path;
+                success = true;
+                break;
+              } catch (error) {
+                console.warn(`Failed to write to ${path}:`, error);
+                continue;
+              }
+            }
+
+            if (!success) {
+              throw new Error('Failed to save PDF to any available directory');
+            }
             
             console.log('PDF saved to:', filePath);
             
+            // Determine user-friendly location message
+            let locationMessage = '';
+            if (filePath.includes('DocumentDirectoryPath')) {
+              locationMessage = 'App Documents folder';
+            } else if (filePath.includes('CachesDirectoryPath')) {
+              locationMessage = 'App Cache folder';
+            } else if (filePath.includes('DownloadDirectoryPath')) {
+              locationMessage = 'Downloads folder';
+            } else {
+              locationMessage = 'Device storage';
+            }
+            
             Toast.show({
               type: 'success',
-              text1: 'Document Downloaded',
-              text2: `PDF saved to ${Platform.OS === 'android' ? 'Downloads' : 'Documents'} folder`,
+              text1: 'Download Complete',
+              text2: `PDF saved to ${locationMessage}`,
               position: 'top',
             });
             
             // Show success alert with file location
             Alert.alert(
               'Download Complete',
-              `PDF document has been saved to:\n${filePath}`,
+              `PDF has been successfully saved to your ${locationMessage}.\n\nFile: ${fileName}`,
               [
                 {
                   text: 'OK',
@@ -286,8 +343,10 @@ export default function MFDRecordsList() {
           });
         };
         
-        reader.readAsDataURL(pdfBlob);
-        
+          reader.readAsDataURL(pdfBlob);
+        } else {
+          throw new Error('Invalid response: missing download_url');
+        }
       } else {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

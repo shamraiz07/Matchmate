@@ -11,6 +11,7 @@ import PurchasesList from '../../../screens/exporter/PurchasesList';
 import CreatePurchase from '../../../screens/exporter/CreatePurchase';
 import CompaniesList from '../../../screens/exporter/CompaniesList';
 import ViewRecord from '../../../screens/exporter/ViewRecord';
+import PDFViewer from '../../../screens/exporter/PDFViewer';
 import { TraceabilityRecord } from '../../../services/traceability';
 
 export type ExporterStackParamList = {
@@ -24,6 +25,7 @@ export type ExporterStackParamList = {
   viewFInalProducts: undefined;
   traceabilityForm: { recordId?: number } | undefined;
   ViewRecord: { record: TraceabilityRecord };
+  PDFViewer: { recordId: number };
 };
 
 const Stack = createNativeStackNavigator<ExporterStackParamList>();
@@ -85,6 +87,11 @@ export default function ExporterStack() {
         name="ViewRecord"
         component={ViewRecord}
         options={{ title: 'Record Details' }}
+      />
+      <Stack.Screen
+        name="PDFViewer"
+        component={PDFViewer}
+        options={{ title: 'PDF Viewer' }}
       />
     </Stack.Navigator>
   );

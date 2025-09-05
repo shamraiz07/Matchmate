@@ -1,8 +1,8 @@
 // src/services/http.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// const BASE_URL = 'https://smartaisoft.com/MFD-Trace-Fish/api';
-const BASE_URL = 'http://192.168.18.44:1000/api';
+export const BASE_URL = 'https://smartaisoft.com/MFD-Trace-Fish/api';
+// export const BASE_URL = 'http://192.168.18.44:1000/api';
 // const BASE_URL = 'http://72.167.79.161/MFD-Trace-Fish/api';
 const DEBUG = __DEV__;
 
@@ -46,7 +46,7 @@ function toQuery(q?: Record<string, any>) {
   return s ? `?${s}` : '';
 }
 
-function join(base: string, path: string) {
+export function join(base: string, path: string) {
   const b = base.replace(/\/+$/, '');
   const p = path.replace(/^\/+/, '');
   return `${b}/${p}`;

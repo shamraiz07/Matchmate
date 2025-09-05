@@ -122,7 +122,12 @@ const RecordItem = ({ item, originalRecords, navigation }: {
         <Icon name="visibility" size={16} color={PALETTE.text900} />
         <Text style={styles.outlineText}>View</Text>
       </Pressable>
-      <Pressable onPress={() => navigation.navigate('traceabilityForm')} style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.95 }]}>
+      <Pressable onPress={() => {
+        const originalRecord = originalRecords.find(r => String(r.id) === item.id);
+        if (originalRecord) {
+          navigation.navigate('PDFViewer', { recordId: originalRecord.id });
+        }
+      }} style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.95 }]}>
         <Icon name="description" size={16} color="#fff" />
         <Text style={styles.secondaryText}>Generate Document</Text>
       </Pressable>

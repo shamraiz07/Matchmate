@@ -351,12 +351,12 @@ export default function ExporterHome() {
               subtitle="Browse all records"
               onPress={goRecords}
             />
-            <ActionTile
+            {/* <ActionTile
               icon="add"
               title="New Record"
               subtitle="Create traceability record"
               onPress={goNewRecord}
-            />
+            /> */}
           </View>
         </View>
 
