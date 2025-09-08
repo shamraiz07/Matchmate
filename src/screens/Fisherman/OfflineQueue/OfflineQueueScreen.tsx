@@ -21,7 +21,6 @@ import {
   onQueueChange,
   processOne,
   processQueue,
-  removeQueued,
   removeCascade,
   type QueueJob,
 } from '../../../offline/TripQueues';
@@ -208,6 +207,27 @@ export default function OfflineQueueScreen({ navigation }: any) {
   const pendingCount = items.length;
   const oldestCreatedAt = items[0]?.createdAt;
 
+  // Count queued createActivity items linked (directly or via chain) to a trip root localId
+  const countActivitiesForTripRoot = useCallback((rootLocalId: string) => {
+    // Build quick index
+    const byId = new Map<string, QueueJob>();
+    items.forEach(it => byId.set(it.localId, it));
+
+    function isChildOfRoot(node: QueueJob): boolean {
+      let current: QueueJob | undefined = node;
+      const seen = new Set<string>();
+      while (current && current.dependsOnLocalId) {
+        if (seen.has(current.dependsOnLocalId)) break;
+        seen.add(current.dependsOnLocalId);
+        if (current.dependsOnLocalId === rootLocalId) return true;
+        current = byId.get(current.dependsOnLocalId);
+      }
+      return false;
+    }
+
+    return items.filter(it => it.type === 'createActivity' && isChildOfRoot(it)).length;
+  }, [items]);
+
   const renderItem = ({ item }: { item: QueueJob }) => {
     const b = item.body || {};
     const isTrip = item.type === 'createTrip';
@@ -241,9 +261,10 @@ export default function OfflineQueueScreen({ navigation }: any) {
       : '';
     const dueMs = (item.nextRetryAt ?? 0) - Date.now();
     const waiting = !!item.nextRetryAt && dueMs > 0;
+    const activityCount = isTrip ? countActivitiesForTripRoot(item.localId) : 0;
 
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, !isTrip && { borderStyle: 'dashed' }]}>
         {/* Header */}
         <View style={styles.cardHeader}>
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
@@ -276,6 +297,9 @@ export default function OfflineQueueScreen({ navigation }: any) {
             label={`Attempts ${item.attempts}`}
             tone={item.attempts > 0 ? 'info' : 'default'}
           />
+          {isTrip ? (
+            <Chip icon="format-list-bulleted" label={`Activities: ${activityCount}`} tone="info" />
+          ) : null}
           {waiting ? (
             <Chip
               icon="hourglass-bottom"
@@ -287,36 +311,87 @@ export default function OfflineQueueScreen({ navigation }: any) {
           )}
         </View>
 
-        {/* Actions */}
-        <View style={styles.actionsRow}>
-          <Pressable
-            onPress={() => handleSubmitNow(item.localId)}
-            android_ripple={{ color: '#ffffff30' }}
-            style={({ pressed }) => [
-              styles.btnPrimary,
-              pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] },
-              !online && { opacity: 0.6 },
-            ]}
-            disabled={!online}
-          >
-            <Icon name="cloud-upload" size={18} color="#fff" />
-            <Text style={styles.btnPrimaryText}>
-              {online ? 'Submit Now' : 'Waiting for Internet'}
-            </Text>
-          </Pressable>
+        {/* Trip-only: delete container */}
+        {isTrip ? (
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6 }}>
+            <Pressable
+              onPress={() => handleDelete(item)}
+              android_ripple={{ color: '#00000010' }}
+              style={({ pressed }) => [
+                styles.deleteContainer,
+                pressed && { opacity: 0.9 },
+              ]}
+            >
+              <Icon name="delete-outline" size={16} color={PALETTE.error} />
+              <Text style={styles.deleteText}>Delete Trip</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
-          <Pressable
-            onPress={() => handleDelete(item)}
-            android_ripple={{ color: '#ffffff30' }}
-            style={({ pressed }) => [
-              styles.btnDanger,
-              pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] },
-            ]}
-          >
-            <Icon name="delete-outline" size={18} color="#fff" />
-            <Text style={styles.btnDangerText}>Delete</Text>
-          </Pressable>
-        </View>
+        {/* Actions */}
+        {isTrip ? (
+          <>
+            <View style={styles.actionsRow}>
+              <Pressable
+                onPress={() => handleSubmitNow(item.localId)}
+                android_ripple={{ color: '#ffffff30' }}
+                style={({ pressed }) => [
+                  styles.btnPrimary,
+                  { flex: 1 },
+                  pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] },
+                  !online && { opacity: 0.6 },
+                ]}
+                disabled={!online}
+              >
+                <Icon name="cloud-upload" size={18} color="#fff" />
+                <Text style={styles.btnPrimaryText}>
+                  {online ? 'Submit Now' : 'Waiting for Internet'}
+                </Text>
+              </Pressable>
+            </View>
+            <View style={styles.actionsRow}>
+              <Pressable
+                onPress={() => {
+                  // @ts-ignore
+                  navigation.navigate('FishingActivity', {
+                    mode: 'create',
+                    tripId: String(b.trip_name || b.trip_id || item.localId),
+                    activityNo: activityCount + 1,
+                    meta: { id: item.localId, trip_id: b.trip_name || b.trip_id || item.localId },
+                  });
+                }}
+                android_ripple={{ color: '#ffffff30' }}
+                style={({ pressed }) => [
+                  styles.btnInfo,
+                  { flex: 1 },
+                  pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] },
+                ]}
+              >
+                <Icon name="add-circle-outline" size={18} color="#fff" />
+                <Text style={styles.btnPrimaryText}>Add Activity</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : (
+          <View style={styles.actionsRow}>
+            <Pressable
+              onPress={() => handleSubmitNow(item.localId)}
+              android_ripple={{ color: '#ffffff30' }}
+              style={({ pressed }) => [
+                styles.btnPrimary,
+                { flex: 1 },
+                pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] },
+                !online && { opacity: 0.6 },
+              ]}
+              disabled={!online}
+            >
+              <Icon name="cloud-upload" size={18} color="#fff" />
+              <Text style={styles.btnPrimaryText}>
+                {online ? 'Submit Now' : 'Waiting for Internet'}
+              </Text>
+            </Pressable>
+          </View>
+        )}
       </View>
     );
   };
@@ -535,7 +610,13 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     flex: 1,
   },
-  btnPrimaryText: { color: '#fff', fontWeight: '600' },
+  btnPrimaryText: { color: '#fff', fontWeight: '600',fontSize:12 },
+  btnInfo: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: PALETTE.info,
+    paddingVertical: 10, paddingHorizontal: 14,
+    borderRadius: 10,
+  },
   btnDanger: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: PALETTE.error,
@@ -543,4 +624,16 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   btnDangerText: { color: '#fff', fontWeight: '600' },
+  deleteContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#FFF5F5',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 999,
+  },
+  deleteText: { color: PALETTE.error, fontWeight: '700' },
 });

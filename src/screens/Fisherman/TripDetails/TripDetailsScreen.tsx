@@ -370,26 +370,30 @@ export default function TripDetailsScreen() {
             <Text style={styles.halfBtnText}>Cancel</Text>
           </Pressable>
 
-          {/* Add Species / Activity */}
-          {/* <Pressable
+          {/* Add Activity */}
+          <Pressable
             style={[
               styles.halfBtn,
               { backgroundColor: PALETTE.info },
               actionLoading && { opacity: 0.6 },
             ]}
-            onPress={() => {
-              Toast.show({
-                type: 'info',
-                text1: 'Add Activity',
-                text2: 'Hook this to your create activity flow.',
-                position: 'top',
-              });
+            onPress={async () => {
+              try {
+                // Navigate to create activity; the create screen already supports offline submit
+                // Pass meta with trip server/local id and pretty code
+                // @ts-ignore
+                navigation.navigate('FishingActivity', {
+                  mode: 'create',
+                  tripId: String(trip?.trip_name ?? trip?.id ?? ''),
+                  meta: { id: trip?.id, trip_id: trip?.trip_name ?? trip?.id },
+                });
+              } catch {}
             }}
             disabled={actionLoading}
           >
             <MaterialIcons name="add-circle-outline" size={18} color="#fff" />
             <Text style={styles.halfBtnText}>Add Activity</Text>
-          </Pressable> */}
+          </Pressable>
 
           {/* Complete */}
           <Pressable

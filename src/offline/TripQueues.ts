@@ -86,6 +86,19 @@ export async function getQueueLength(): Promise<number> {
   return s.items.length;
 }
 
+/** Count queued createActivity jobs for a given trip (server or local id) */
+export async function countQueuedActivitiesForTrip(opts: { tripServerId?: number; tripLocalId?: string }): Promise<number> {
+  const s = await readQueue();
+  const serverId = opts.tripServerId;
+  const localId = opts.tripLocalId;
+  return s.items.filter(it => {
+    if (it.type !== 'createActivity') return false;
+    if (serverId && (it.serverId === serverId || Number(it.body?.trip_id) === serverId)) return true;
+    if (localId && it.dependsOnLocalId === localId) return true;
+    return false;
+  }).length;
+}
+
 export async function removeQueued(localId: string): Promise<void> {
   const s = await readQueue();
   s.items = s.items.filter(it => it.localId !== localId);
