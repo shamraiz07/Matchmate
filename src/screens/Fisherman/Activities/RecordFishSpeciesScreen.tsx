@@ -29,6 +29,7 @@ type Params = {
   tripCode?: string | null; // "TRIP-..."
   activityNumber?: number | null;
   date?: string | null;
+  fallback?: any;
 };
 
 const PRIMARY = PALETTE.green700;
@@ -52,7 +53,7 @@ function Section({
 export default function RecordFishSpeciesScreen(): JSX.Element {
   const navigation = useNavigation();
   const { params } = useRoute<any>();
-  const { activityId, activityCode, tripCode, activityNumber, date }: Params =
+  const { activityId, activityCode, tripCode, activityNumber, date, fallback }: Params =
     params || {};
 
   const { width } = useWindowDimensions();
@@ -118,11 +119,33 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
           visibilityTime: 3000,
         });
 
-        // Go back to details (it will show pending list)
+        // Go back to details with merged fallback that includes new species
         // @ts-ignore
         navigation.replace('FishingActivityDetails', {
           activityId,
           tripId: tripCode,
+          fallback: {
+            ...(fallback || {}),
+            fish_species: [
+              ...((fallback?.fish_species as any[]) || []),
+              {
+                id: localSpeciesId,
+                lot_no: lotNumber,
+                fishing_activity_id: activityId,
+                trip_id: undefined,
+                fisherman_id: undefined,
+                species_name: species.trim(),
+                quantity_kg: Number(qty),
+                type: type as any,
+                type_label: type === 'catch' ? 'Catch' : 'Discard',
+                grade: grade.trim() || null,
+                grade_label: grade.trim() || null,
+                notes: notes.trim() || null,
+                created_at: null,
+                updated_at: null,
+              },
+            ],
+          },
         });
         return;
       }

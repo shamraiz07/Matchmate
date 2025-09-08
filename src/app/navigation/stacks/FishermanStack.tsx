@@ -65,6 +65,7 @@ export type FishermanStackParamList = {
     tripCode?: string | null;
     activityNumber?: number | null;
     date?: string | null;
+    fallback?: any;
   };
 
   Lots: { tripId: number | string } | { mode: 'edit'; lotId: number | string };

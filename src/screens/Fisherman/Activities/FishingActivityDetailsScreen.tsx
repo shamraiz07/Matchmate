@@ -94,6 +94,20 @@ export default function FishingActivityDetailsScreen() {
     (data?.status_label &&
       String(data.status_label).toLowerCase() === 'completed');
 
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await getFishingActivityById(activityId);
+      setData(res);
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Failed to load activity');
+      // @ts-ignore
+      navigation.goBack();
+    } finally {
+      setLoading(false);
+    }
+  }, [activityId, navigation]);
+
   const handleComplete = useCallback(async () => {
     if (!data?.id) return;
     try {
@@ -117,22 +131,8 @@ export default function FishingActivityDetailsScreen() {
     } finally {
       setCompleting(false);
     }
-  }, [data?.id, load]);
+  }, [data?.id, load, navigation]);
   const [loading, setLoading] = useState(!fallback);
-
-  const load = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await getFishingActivityById(activityId);
-      setData(res);
-    } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Failed to load activity');
-      // @ts-ignore
-      navigation.goBack();
-    } finally {
-      setLoading(false);
-    }
-  }, [activityId, navigation]);
 
   useEffect(() => {
     if (!fallback) load();
@@ -168,7 +168,7 @@ export default function FishingActivityDetailsScreen() {
               // pass numeric PK gitDetails
               // @ts-ignore
               navigation.navigate('TripDetails', {
-                id: data?.trip_pk ?? tripId,
+                id: (data?.trip_pk ?? tripId) as any,
               })
             }
             style={styles.headerBtn}
@@ -286,11 +286,12 @@ export default function FishingActivityDetailsScreen() {
                   onPress={() =>
                     // @ts-ignore
                     navigation.navigate('RecordFishSpecies', {
-                      activityId: data?.id,
+                      activityId: (data?.id as any),
                       activityCode: data?.activity_id,
                       tripCode: data?.trip_id,
                       activityNumber: data?.activity_number ?? null,
                       date: data?.activity_time ?? data?.activity_date ?? null,
+                      fallback: data,
                     })
                   }
                 >
