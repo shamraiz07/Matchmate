@@ -17,6 +17,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { listTripsPage, startTrip } from '../../../services/trips';
+import { countQueuedActivitiesForTrip } from '../../../offline/TripQueues';
 import PALETTE from '../../../theme/palette';
 
 type TripRow = {
@@ -196,14 +197,16 @@ export default function TripsScreen() {
 
           {isActive ? (
             <Pressable
-              onPress={() =>
+              onPress={async () => {
+                const queued = await countQueuedActivitiesForTrip({ tripServerId: Number(item.id) || undefined });
+                const nextNo = (item.fishing_activity_count ?? 0) + queued + 1;
                 (navigation as any).navigate('FishingActivity', {
                   tripId: String(item.trip_name),
                   meta: { id: item.id, trip_id: item.trip_name },
                   mode: 'create',
-                  activityNo: (item.fishing_activity_count ?? 0) + 1,
-                })
-              }
+                  activityNo: nextNo,
+                });
+              }}
               style={[styles.actionBtn, styles.btnInfo]}
               accessibilityLabel="Add Activity"
             >
