@@ -2,7 +2,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { createTrip, startTrip } from '../services/trips';
-import { createFishingActivity } from '../services/fishingActivity';
+import { createFishingActivity, completeFishingActivity } from '../services/fishingActivity';
 import { createFishSpecies } from '../services/fishSpecies';
 
 const STORAGE_KEY = 'trip_queue_v3';
@@ -13,7 +13,8 @@ export type JobType =
   | 'createTrip'
   | 'startTrip'
   | 'createActivity'
-  | 'createSpecies';
+  | 'createSpecies'
+  | 'completeActivity';
 
 export type QueueJob = {
   localId: string;
@@ -88,6 +89,29 @@ export async function getQueueLength(): Promise<number> {
 export async function removeQueued(localId: string): Promise<void> {
   const s = await readQueue();
   s.items = s.items.filter(it => it.localId !== localId);
+  await writeQueue(s);
+}
+
+/** Remove a parent job and all dependent children (cascade by dependsOnLocalId) */
+export async function removeCascade(rootLocalId: string): Promise<void> {
+  const s = await readQueue();
+  const toDelete = new Set<string>();
+  const queue = [rootLocalId];
+
+  // Build adjacency on dependsOnLocalId
+  while (queue.length) {
+    const current = queue.shift() as string;
+    if (toDelete.has(current)) continue;
+    toDelete.add(current);
+    // Enqueue direct children
+    s.items.forEach(it => {
+      if (it.dependsOnLocalId && it.dependsOnLocalId === current) {
+        queue.push(it.localId);
+      }
+    });
+  }
+
+  s.items = s.items.filter(it => !toDelete.has(it.localId));
   await writeQueue(s);
 }
 
@@ -214,6 +238,30 @@ export async function enqueueCreateSpecies(body: Record<string, any>, opts: {
     metadata: {
       description: `Create species: ${body.species_name} for activity: ${opts.activityServerId || opts.activityLocalId}`
     }
+  };
+  s.items.push(job);
+  s.items.sort((a, b) => a.createdAt - b.createdAt);
+  await writeQueue(s);
+  return job;
+}
+
+/** enqueue: Complete Fishing Activity — depends on activity (server id) */
+export async function enqueueCompleteActivity(opts: {
+  activityServerId?: number;
+  activityLocalId?: string;
+}) {
+  const s = await readQueue();
+  const job: QueueJob = {
+    localId: makeId('completeActivity'),
+    type: 'completeActivity',
+    serverId: opts.activityServerId ?? null,
+    dependsOnLocalId: opts.activityServerId ? undefined : opts.activityLocalId,
+    createdAt: Date.now(),
+    attempts: 0,
+    nextRetryAt: null,
+    metadata: {
+      description: `Complete activity: ${opts.activityServerId || opts.activityLocalId}`,
+    },
   };
   s.items.push(job);
   s.items.sort((a, b) => a.createdAt - b.createdAt);
@@ -435,6 +483,21 @@ export async function processOne(localId: string): Promise<boolean> {
         }
         const body = { ...(job.body || {}), activity_id: resolvedId };
         await createFishSpecies(resolvedId, body);
+        q.items.splice(idx, 1);
+        await writeQueue(q);
+        return true;
+      }
+
+      case 'completeActivity': {
+        // needs activity server id
+        if (!resolvedId) {
+          job.attempts += 1;
+          job.nextRetryAt = Date.now() + nextDelay(job.attempts);
+          q.items[idx] = job;
+          await writeQueue(q);
+          return false;
+        }
+        await completeFishingActivity(resolvedId);
         q.items.splice(idx, 1);
         await writeQueue(q);
         return true;

@@ -22,7 +22,8 @@ import {
   processOne,
   processQueue,
   removeQueued,
-  type QueuedTrip,
+  removeCascade,
+  type QueueJob,
 } from '../../../offline/TripQueues';
 
 const PALETTE = {
@@ -96,11 +97,11 @@ function Chip({
 
 /* -------------------------- main screen -------------------------- */
 export default function OfflineQueueScreen({ navigation }: any) {
-  const [items, setItems] = useState<QueuedTrip[]>([]);
+  const [items, setItems] = useState<QueueJob[]>([]);
   const [online, setOnline] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState(false);
   const [q, setQ] = useState('');
-  const listRef = useRef<FlatList<QueuedTrip>>(null);
+  const listRef = useRef<FlatList<QueueJob>>(null);
 
   // tick every second to refresh countdown labels
   useTick(1000);
@@ -148,7 +149,8 @@ export default function OfflineQueueScreen({ navigation }: any) {
   }, []);
 
   const handleBack = useCallback(() => {
-    if (navigation?.canGoBack?.()) navigation.goBack();
+    // Always land on FishermanHome when leaving Offline screen
+    navigation.reset({ index: 0, routes: [{ name: 'FishermanHome' }] });
   }, [navigation]);
 
   const handleProcessAll = useCallback(async () => {
@@ -176,11 +178,20 @@ export default function OfflineQueueScreen({ navigation }: any) {
     [online],
   );
 
-  const handleDelete = useCallback(async (localId: string) => {
-    Alert.alert('Remove form?', 'This will delete the offline form from your device.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => removeQueued(localId) },
-    ]);
+  const handleDelete = useCallback(async (item: QueueJob) => {
+    const isParent = item.type === 'createTrip';
+    if (!isParent) {
+      Alert.alert('Not allowed', 'Only parent Trip requests can be deleted. Delete the Trip to remove its dependent actions.');
+      return;
+    }
+    Alert.alert(
+      'Remove trip and its actions?',
+      'This will delete the offline trip form and all dependent actions (start, activities, species, completion).',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: async () => removeCascade(item.localId) },
+      ],
+    );
   }, []);
 
   const filtered = useMemo(() => {
@@ -197,12 +208,37 @@ export default function OfflineQueueScreen({ navigation }: any) {
   const pendingCount = items.length;
   const oldestCreatedAt = items[0]?.createdAt;
 
-  const renderItem = ({ item }: { item: QueuedTrip }) => {
+  const renderItem = ({ item }: { item: QueueJob }) => {
     const b = item.body || {};
-    const title = b.trip_name || b.trip_id || item.localId;
-    const subtitle = [b.departure_port || b.port_location, b.destination_port]
-      .filter(Boolean)
-      .join(' → ');
+    const isTrip = item.type === 'createTrip';
+    const isStart = item.type === 'startTrip';
+    const isActivity = item.type === 'createActivity';
+    const isSpecies = item.type === 'createSpecies';
+    const isComplete = item.type === 'completeActivity';
+
+    const title = isTrip
+      ? (b.trip_name || b.trip_id || 'New Trip')
+      : isStart
+      ? 'Start Trip'
+      : isActivity
+      ? `Activity #${b.activity_number ?? b.activity_id ?? ''}`
+      : isSpecies
+      ? `Species: ${b.species_name ?? ''}`
+      : isComplete
+      ? 'Complete Activity'
+      : item.localId;
+
+    const contextLine = isTrip
+      ? [b.departure_port || b.port_location, b.destination_port].filter(Boolean).join(' → ')
+      : isActivity
+      ? `Trip: ${b.trip_id ?? '—'} • Mesh: ${b.mesh_size ?? '—'} • Net: ${b.net_length ?? '—'}×${b.net_width ?? '—'}`
+      : isSpecies
+      ? `Qty: ${b.quantity_kg ?? '—'} kg • Type: ${b.type ?? '—'}`
+      : isStart
+      ? `Trip: ${b.trip_id ?? '—'}`
+      : isComplete
+      ? `Activity: ${b.activity_id ?? b.activity_number ?? '—'}`
+      : '';
     const dueMs = (item.nextRetryAt ?? 0) - Date.now();
     const waiting = !!item.nextRetryAt && dueMs > 0;
 
@@ -219,8 +255,8 @@ export default function OfflineQueueScreen({ navigation }: any) {
               <Text style={styles.title} numberOfLines={1}>
                 {title}
               </Text>
-              <Text style={styles.subtitle} numberOfLines={1}>
-                {subtitle || 'Route not specified'}
+              <Text style={styles.subtitle} numberOfLines={2}>
+                {contextLine || '—'}
               </Text>
             </View>
 
@@ -270,7 +306,7 @@ export default function OfflineQueueScreen({ navigation }: any) {
           </Pressable>
 
           <Pressable
-            onPress={() => handleDelete(item.localId)}
+            onPress={() => handleDelete(item)}
             android_ripple={{ color: '#ffffff30' }}
             style={({ pressed }) => [
               styles.btnDanger,

@@ -313,7 +313,7 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
               style={styles.input}
               value={grade}
               onChangeText={setGrade}
-              placeholder="e.g., A, B, Premium, Standard"
+              placeholder="e.g., A, B, C"
               placeholderTextColor="#9CA3AF"
             />
           </View>

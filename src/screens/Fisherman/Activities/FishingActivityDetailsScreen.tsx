@@ -14,11 +14,9 @@ import {
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import {
-  completeFishingActivity,
-  getFishingActivityById,
-  type FishingActivityDetails,
-} from '../../../services/fishingActivity';
+import { completeFishingActivity, getFishingActivityById, type FishingActivityDetails } from '../../../services/fishingActivity';
+import { enqueueCompleteActivity } from '../../../offline/TripQueues';
+import { isOnline } from '../../../offline/net';
 import PALETTE from '../../../theme/palette';
 import Toast from 'react-native-toast-message';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -112,15 +110,24 @@ export default function FishingActivityDetailsScreen() {
     if (!data?.id) return;
     try {
       setCompleting(true);
-      await completeFishingActivity(data.id);
-      Toast.show({
-        type: 'success',
-        text1: 'Completed ✅',
-        text2: 'Activity marked as completed.',
-        position: 'top',
-      });
-      await load(); // refresh UI with updated status
-      navigation.replace('AllTrip');
+      const online = await isOnline();
+      if (online) {
+        await completeFishingActivity(data.id);
+        Toast.show({ type: 'success', text1: 'Completed ✅', text2: 'Activity marked as completed.', position: 'top' });
+        await load();
+        navigation.reset({ index: 0, routes: [{ name: 'FishermanHome' }] });
+      } else {
+        // enqueue offline completion; depends on activity id mapping if local
+        const isServerId = typeof data.id === 'number';
+        await enqueueCompleteActivity({
+          activityServerId: isServerId ? (data.id as number) : undefined,
+          activityLocalId: isServerId ? undefined : String(data.id),
+        });
+        Toast.show({ type: 'success', text1: 'Queued Offline', text2: 'Activity will complete when online.', position: 'top' });
+        // Go to Offline Trips screen
+        // @ts-ignore
+        navigation.reset({ index: 0, routes: [{ name: 'FishermanHome' }] });
+      }
     } catch (e: any) {
       Toast.show({
         type: 'error',
