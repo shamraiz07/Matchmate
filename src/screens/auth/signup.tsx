@@ -8,7 +8,6 @@ import {
   ScrollView,
   Platform,
   TextInput,
-  Alert,
   TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
@@ -105,7 +104,7 @@ const SignUp = () => {
     firstName: '',
     lastName: '',
     displayName: '',
-    phoneNumber: '+92 XXX XXXXXXX',
+    phoneNumber: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -122,6 +121,17 @@ const SignUp = () => {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
+
+  // Helper function to get input style with error state
+  const getInputStyle = (fieldName: string) => [
+    styles.input,
+    errors[fieldName] && styles.inputError
+  ];
+
+  const getPasswordInputStyle = (fieldName: string) => [
+    styles.passwordInput,
+    errors[fieldName] && styles.inputError
+  ];
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -195,6 +205,8 @@ const SignUp = () => {
     if (!validateForm()) return;
     
     setLoading(true);
+    setErrors({}); // Clear any existing errors
+    
     try {
       // Prepare the user data for API
       const userData: CreateUserBody = {
@@ -263,13 +275,70 @@ const SignUp = () => {
       
     } catch (error: any) {
       console.error('Signup error:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Account Creation Failed',
-        text2: error?.message || 'Failed to create account. Please try again.',
-        visibilityTime: 4000,
-        autoHide: true
-      });
+      
+      // Handle server validation errors
+      if (error?.response?.errors) {
+        const serverErrors: Record<string, string> = {};
+        
+        // Map server field names to form field names
+        const fieldMapping: Record<string, string> = {
+          'first_name': 'firstName',
+          'last_name': 'lastName',
+          'display_name': 'displayName',
+          'phone': 'phoneNumber',
+          'email': 'email',
+          'password': 'password',
+          'password_confirmation': 'confirmPassword',
+          'user_type': 'userType',
+          'boat_registration_number': 'boatRegistrationNumber',
+          'fishing_zone': 'fishingZone',
+          'port_location': 'portLocation',
+          'fcs_name': 'fcsName',
+          'fcs_license_number': 'fcsLicenseNumber',
+          'fcs_address': 'fcsAddress',
+          'fcs_phone': 'fcsPhone',
+          'fcs_email': 'fcsEmail',
+          'company_name': 'companyName',
+          'fcs_license_number_middleman': 'fcsLicenseNumberMiddleman',
+          'business_address': 'businessAddress',
+          'business_phone': 'businessPhone',
+          'business_email': 'businessEmail',
+          'company_name_exporter': 'companyNameExporter',
+          'export_license_number': 'exportLicenseNumber',
+          'business_address_exporter': 'businessAddressExporter',
+          'business_phone_exporter': 'businessPhoneExporter',
+          'business_email_exporter': 'businessEmailExporter',
+          'mfd_employee_id': 'mfdEmployeeId',
+        };
+        
+        // Process server validation errors
+        Object.entries(error.response.errors).forEach(([serverField, messages]) => {
+          const formField = fieldMapping[serverField] || serverField;
+          const errorMessage = Array.isArray(messages) ? messages[0] : String(messages);
+          serverErrors[formField] = errorMessage;
+        });
+        
+        setErrors(serverErrors);
+        
+        // Show a toast with the first error for immediate feedback
+        const firstError = Object.values(serverErrors)[0];
+        Toast.show({
+          type: 'error',
+          text1: 'Validation Error',
+          text2: firstError || 'Please check the form for errors.',
+          visibilityTime: 3000,
+          autoHide: true
+        });
+      } else {
+        // Handle other types of errors
+        Toast.show({
+          type: 'error',
+          text1: 'Account Creation Failed',
+          text2: error?.message || 'Failed to create account. Please try again.',
+          visibilityTime: 4000,
+          autoHide: true
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -611,7 +680,7 @@ const SignUp = () => {
         <View style={styles.inputContainer}>
           <Text style={styles.inputLabel}>First Name</Text>
           <TextInput
-            style={styles.input}
+            style={getInputStyle('firstName')}
             placeholder="Enter first name"
             placeholderTextColor={PLACEHOLDER}
             value={formData.firstName}
@@ -622,7 +691,7 @@ const SignUp = () => {
         <View style={styles.inputContainer}>
           <Text style={styles.inputLabel}>Last Name</Text>
           <TextInput
-            style={styles.input}
+            style={getInputStyle('lastName')}
             placeholder="Enter last name"
             placeholderTextColor={PLACEHOLDER}
             value={formData.lastName}
@@ -635,7 +704,7 @@ const SignUp = () => {
         <View style={styles.inputContainer}>
           <Text style={styles.inputLabel}>Display Name *</Text>
           <TextInput
-            style={styles.input}
+            style={getInputStyle('displayName')}
             placeholder="Enter display name"
             placeholderTextColor={PLACEHOLDER}
             value={formData.displayName}
@@ -657,17 +726,18 @@ const SignUp = () => {
         <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Phone Number</Text>
                 <TextInput
-                  style={styles.input}
-            placeholder="+92 XXX XXXXXXX"
+                  style={getInputStyle('phoneNumber')}
+            placeholder="Enter phone number"
             placeholderTextColor={PLACEHOLDER}
             value={formData.phoneNumber}
             onChangeText={(value) => updateFormData('phoneNumber', value)}
                 />
+                {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
               </View>
         <View style={styles.inputContainer}>
           <Text style={styles.inputLabel}>Email Address *</Text>
                 <TextInput
-            style={styles.input}
+            style={getInputStyle('email')}
             placeholder="Enter email address"
             placeholderTextColor={PLACEHOLDER}
             value={formData.email}
@@ -692,7 +762,7 @@ const SignUp = () => {
           <Text style={styles.inputLabel}>Password *</Text>
           <View style={styles.passwordContainer}>
                 <TextInput
-              style={styles.passwordInput}
+              style={getPasswordInputStyle('password')}
               placeholder="Create password"
               placeholderTextColor={PLACEHOLDER}
               value={formData.password}
@@ -713,7 +783,7 @@ const SignUp = () => {
           <Text style={styles.inputLabel}>Confirm Password *</Text>
           <View style={styles.passwordContainer}>
                 <TextInput
-              style={styles.passwordInput}
+              style={getPasswordInputStyle('confirmPassword')}
               placeholder="Confirm password"
               placeholderTextColor={PLACEHOLDER}
               value={formData.confirmPassword}
@@ -787,6 +857,24 @@ const SignUp = () => {
               {renderPersonalInfoSection()}
               {renderContactSection()}
               {renderSecuritySection()}
+
+              {/* Validation Error Alert */}
+              {Object.keys(errors).length > 0 && (
+                <View style={styles.validationErrorAlert}>
+                  <View style={styles.validationErrorHeader}>
+                    <MaterialIcons name="error" size={20} color="#DC2626" />
+                    <Text style={styles.validationErrorTitle}>Account Creation Failed</Text>
+                  </View>
+                  <Text style={styles.validationErrorSubtitle}>Validation errors:</Text>
+                  <View style={styles.validationErrorList}>
+                    {Object.entries(errors).map(([field, message]) => (
+                      <Text key={field} style={styles.validationErrorItem}>
+                        • {message}
+                      </Text>
+                    ))}
+                  </View>
+                </View>
+              )}
 
               <View style={styles.buttonContainer}>
               <TouchableOpacity
@@ -1029,6 +1117,44 @@ const styles = StyleSheet.create({
     color: '#DC2626',
     fontSize: 12,
     marginTop: 4,
+  },
+  inputError: {
+    borderColor: '#DC2626',
+    borderWidth: 2,
+  },
+  validationErrorAlert: {
+    backgroundColor: '#FEF2F2',
+    borderLeftWidth: 4,
+    borderLeftColor: '#DC2626',
+    borderRadius: 8,
+    padding: 16,
+    marginVertical: 16,
+    marginHorizontal: 4,
+  },
+  validationErrorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  validationErrorTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#DC2626',
+    marginLeft: 8,
+  },
+  validationErrorSubtitle: {
+    fontSize: 14,
+    color: '#7F1D1D',
+    marginBottom: 8,
+  },
+  validationErrorList: {
+    marginLeft: 8,
+  },
+  validationErrorItem: {
+    fontSize: 13,
+    color: '#7F1D1D',
+    marginBottom: 4,
+    lineHeight: 18,
   },
   buttonContainer: {
     marginTop: 24,
