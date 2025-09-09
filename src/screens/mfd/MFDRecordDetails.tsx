@@ -23,12 +23,16 @@ import Toast from 'react-native-toast-message';
 import {
   fetchTraceabilityRecordById,
   type TraceabilityRecord,
+  approveTraceabilityRecord,
+  rejectTraceabilityRecord,
 } from '../../services/traceability';
 import { getAuthToken, BASE_URL, join } from '../../services/https';
 import RNFS from 'react-native-fs';
 import { PermissionsAndroid, Platform, Alert } from 'react-native';
 import { MFDStackParamList } from '../../app/navigation/stacks/MFDStack';
 import PALETTE from '../../theme/palette';
+import FileViewer from 'react-native-file-viewer';
+import Share from 'react-native-share';
 
 /* ---------- constants ---------- */
 const PRIMARY = PALETTE.green700;
@@ -74,35 +78,126 @@ export default function MFDRecordDetails() {
   const requestStoragePermission = async () => {
     if (Platform.OS === 'android') {
       try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-          {
-            title: 'Storage Permission',
-            message: 'This app needs access to storage to download PDF files.',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          }
-        );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
+        const androidVersion = Platform.Version;
+        console.log('Android version:', androidVersion);
+
+        if (androidVersion >= 33) {
+          // For Android 13+, we can use app's internal storage without permission
+          // Downloads folder requires special permission or we use app storage
+          return true;
+        } else {
+          // For older Android versions, request WRITE_EXTERNAL_STORAGE
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+            {
+              title: 'Storage Permission',
+              message: 'This app needs access to storage to download PDF files.',
+              buttonNeutral: 'Ask Me Later',
+              buttonNegative: 'Cancel',
+              buttonPositive: 'OK',
+            }
+          );
+          return granted === PermissionsAndroid.RESULTS.GRANTED;
+        }
       } catch (err) {
-        console.warn(err);
+        console.warn('Permission request error:', err);
         return false;
       }
     }
     return true;
   };
 
+  const handleApprove = async () => {
+    if (!record) return;
+    
+    try {
+      Alert.alert(
+        'Approve Record',
+        `Are you sure you want to approve record ${record.document_no}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Approve',
+            style: 'default',
+            onPress: async () => {
+              try {
+                await approveTraceabilityRecord(record.id);
+                Toast.show({
+                  type: 'success',
+                  text1: 'Record Approved',
+                  text2: `Record ${record.document_no} has been approved successfully`,
+                  position: 'top',
+                });
+                load(); // Refresh the record data
+              } catch (error) {
+                console.error('Error approving record:', error);
+                Toast.show({
+                  type: 'error',
+                  text1: 'Approval Failed',
+                  text2: 'Failed to approve record. Please try again.',
+                  position: 'top',
+                });
+              }
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error in approve handler:', error);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!record) return;
+    
+    try {
+      Alert.alert(
+        'Reject Record',
+        `Are you sure you want to reject record ${record.document_no}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Reject',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await rejectTraceabilityRecord(record.id);
+                Toast.show({
+                  type: 'success',
+                  text1: 'Record Rejected',
+                  text2: `Record ${record.document_no} has been rejected`,
+                  position: 'top',
+                });
+                load(); // Refresh the record data
+              } catch (error) {
+                console.error('Error rejecting record:', error);
+                Toast.show({
+                  type: 'error',
+                  text1: 'Rejection Failed',
+                  text2: 'Failed to reject record. Please try again.',
+                  position: 'top',
+                });
+              }
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error in reject handler:', error);
+    }
+  };
+
   const handleGenerateDocument = async () => {
     if (!record) return;
     
     try {
-      // Show loading toast
+      // Show loading toast with progress
       Toast.show({
         type: 'info',
         text1: 'Generating Document',
-        text2: `Please wait while we generate the document for ${record.document_no}`,
+        text2: `Creating PDF for ${record.document_no}...`,
         position: 'top',
+        visibilityTime: 3000,
       });
 
       // Request storage permission
@@ -110,13 +205,22 @@ export default function MFDRecordDetails() {
       if (!hasPermission) {
         Toast.show({
           type: 'error',
-          text1: 'Permission Denied',
-          text2: 'Storage permission is required to download PDF files.',
+          text1: 'Permission Required',
+          text2: 'Storage permission is needed to download PDF files.',
           position: 'top',
         });
         return;
       }
-      // Call the generate document API to get download URL
+
+      // Step 1: Generate document and get download URL
+      Toast.show({
+        type: 'info',
+        text1: 'Step 1/3',
+        text2: 'Requesting document generation...',
+        position: 'top',
+        visibilityTime: 2000,
+      });
+
       const response = await fetch(join(BASE_URL, `traceability-records/${record.id}/generate-document`), {
         method: 'GET',
         headers: {
@@ -125,102 +229,240 @@ export default function MFDRecordDetails() {
         },
       });
 
-      if (response.ok) {
-        const responseData = await response.json();
-        console.log('📄 PDF Response Data:', responseData);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Server error (${response.status}): ${errorText}`);
+      }
 
-        if (responseData.success && responseData.download_url) {
-          console.log('✅ PDF Download URL received:', responseData.download_url);
+      const responseData = await response.json();
+      console.log('📄 PDF Response Data:', responseData);
+
+      if (!responseData.success || !responseData.download_url) {
+        throw new Error('Invalid response: Document generation failed or no download URL provided');
+      }
+
+      console.log('✅ PDF Download URL received:', responseData.download_url);
+
+      // Step 2: Download PDF
+      Toast.show({
+        type: 'info',
+        text1: 'Step 2/3',
+        text2: 'Downloading PDF file...',
+        position: 'top',
+        visibilityTime: 2000,
+      });
+
+      const pdfResponse = await fetch(responseData.download_url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/pdf',
+          'User-Agent': 'MFD-TraceFish-Mobile/1.0',
+        },
+      });
+
+      if (!pdfResponse.ok) {
+        throw new Error(`Download failed (${pdfResponse.status}): Unable to download PDF from server`);
+      }
+
+      // Check content type
+      const contentType = pdfResponse.headers.get('content-type');
+      if (!contentType || !contentType.includes('pdf')) {
+        console.warn('⚠️ Unexpected content type:', contentType);
+      }
+
+      // Get the PDF blob
+      const pdfBlob = await pdfResponse.blob();
+      console.log('📦 PDF Blob size:', pdfBlob.size, 'bytes');
+
+      if (pdfBlob.size === 0) {
+        throw new Error('Downloaded PDF file is empty');
+      }
+
+      // Step 3: Save to device
+      Toast.show({
+        type: 'info',
+        text1: 'Step 3/3',
+        text2: 'Saving to device...',
+        position: 'top',
+        visibilityTime: 2000,
+      });
+
+      // Convert blob to base64
+      const reader = new FileReader();
+      
+      reader.onload = async () => {
+        try {
+          const base64Data = reader.result as string;
+          const base64PDF = base64Data.split(',')[1]; // Remove data:application/pdf;base64, prefix
           
-          // Download PDF from the provided URL
-          const pdfResponse = await fetch(responseData.download_url, {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/pdf',
-            },
+          // Create filename with timestamp for uniqueness
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          const fileName = `traceability-${record.document_no}-${timestamp}.pdf`;
+          
+          // Try multiple directories for better compatibility
+          // Prioritize app storage over Downloads folder to avoid permission issues
+          const possiblePaths = [
+            `${RNFS.DocumentDirectoryPath}/${fileName}`, // App's document directory (most reliable)
+            `${RNFS.CachesDirectoryPath}/${fileName}`,   // App's cache directory
+            `${RNFS.DownloadDirectoryPath}/${fileName}`, // Downloads folder (may require special permissions)
+          ].filter(Boolean);
+
+          let filePath = '';
+          let success = false;
+          let locationMessage = '';
+
+          for (const path of possiblePaths) {
+            if (!path) continue;
+            
+            try {
+              // Ensure directory exists
+              const dirPath = path.substring(0, path.lastIndexOf('/'));
+              const dirExists = await RNFS.exists(dirPath);
+              if (!dirExists) {
+                await RNFS.mkdir(dirPath);
+              }
+              
+              await RNFS.writeFile(path, base64PDF, 'base64');
+              filePath = path;
+              success = true;
+              
+              // Determine location message
+              if (path.includes('DownloadDirectoryPath')) {
+                locationMessage = 'Downloads folder';
+              } else if (path.includes('DocumentDirectoryPath')) {
+                locationMessage = 'App Documents folder';
+              } else if (path.includes('CachesDirectoryPath')) {
+                locationMessage = 'App Cache folder';
+              }
+              
+              break;
+            } catch (error) {
+              console.warn(`Failed to write to ${path}:`, error);
+              continue;
+            }
+          }
+
+          if (!success) {
+            throw new Error('Failed to save PDF to any available directory. Please check storage permissions.');
+          }
+          
+          console.log('✅ PDF saved successfully to:', filePath);
+          
+          // Success notification
+          Toast.show({
+            type: 'success',
+            text1: 'Download Complete! 🎉',
+            text2: `PDF saved to ${locationMessage}`,
+            position: 'top',
+            visibilityTime: 4000,
           });
-
-          if (!pdfResponse.ok) {
-            throw new Error(`Failed to download PDF: ${pdfResponse.status}`);
-          }
-
-          // Get the PDF blob
-          const pdfBlob = await pdfResponse.blob();
-        
-        // Convert blob to base64
-        const reader = new FileReader();
-        reader.onload = async () => {
-          try {
-            const base64Data = reader.result as string;
-            const base64PDF = base64Data.split(',')[1]; // Remove data:application/pdf;base64, prefix
-            
-            // Create filename
-            const fileName = `traceability-${record.document_no}.pdf`;
-            
-            // Define file path
-            const downloadsPath = Platform.OS === 'android' 
-              ? RNFS.DownloadDirectoryPath 
-              : RNFS.DocumentDirectoryPath;
-            const filePath = `${downloadsPath}/${fileName}`;
-            
-            // Write file to device storage
-            await RNFS.writeFile(filePath, base64PDF, 'base64');
-            
-            console.log('PDF saved to:', filePath);
-            
-            Toast.show({
-              type: 'success',
-              text1: 'Document Downloaded',
-              text2: `PDF saved to ${Platform.OS === 'android' ? 'Downloads' : 'Documents'} folder`,
-              position: 'top',
-            });
-            
-            // Show success alert with file location
-            Alert.alert(
-              'Download Complete',
-              `PDF document has been saved to:\n${filePath}`,
-              [
-                {
-                  text: 'OK',
-                  style: 'default',
+          
+          // Show detailed success alert with action options
+          Alert.alert(
+            'Download Complete',
+            `PDF document has been successfully saved!\n\n📁 Location: ${locationMessage}\n📄 File: ${fileName}\n📊 Size: ${(pdfBlob.size / 1024).toFixed(1)} KB`,
+            [
+              {
+                text: 'Open PDF',
+                onPress: async () => {
+                  try {
+                    await FileViewer.open(filePath, {
+                      showOpenWithDialog: true,
+                      showAppsSuggestions: true,
+                    });
+                  } catch (error) {
+                    console.error('Error opening PDF:', error);
+                    Toast.show({
+                      type: 'error',
+                      text1: 'Open Failed',
+                      text2: 'No app available to open PDF files',
+                      position: 'top',
+                    });
+                  }
                 },
-              ]
-            );
-            
-          } catch (writeError) {
-            console.error('Error saving PDF:', writeError);
-            Toast.show({
-              type: 'error',
-              text1: 'Save Failed',
-              text2: 'Failed to save PDF to device storage.',
-              position: 'top',
-            });
-          }
-        };
-        
-        reader.onerror = () => {
+              },
+              {
+                text: 'Share PDF',
+                onPress: async () => {
+                  try {
+                    // Convert file path to proper URI format
+                    const fileUri = Platform.OS === 'android' 
+                      ? `file://${filePath}` 
+                      : `file://${filePath}`;
+                    
+                    console.log('Sharing PDF with URI:', fileUri);
+                    
+                    const shareOptions = {
+                      title: `Traceability Record - ${record.document_no}`,
+                      message: `Traceability Record PDF: ${record.document_no}`,
+                      url: fileUri,
+                      type: 'application/pdf',
+                      subject: `Traceability Record - ${record.document_no}`,
+                    };
+                    await Share.open(shareOptions);
+                  } catch (error) {
+                    console.error('Error sharing PDF:', error);
+                    Toast.show({
+                      type: 'error',
+                      text1: 'Share Failed',
+                      text2: 'Unable to share PDF file. Please try opening the file directly.',
+                      position: 'top',
+                    });
+                  }
+                },
+              },
+              {
+                text: 'OK',
+                style: 'default',
+              },
+            ]
+          );
+          
+        } catch (writeError: any) {
+          console.error('❌ Error saving PDF:', writeError);
           Toast.show({
             type: 'error',
-            text1: 'Conversion Failed',
-            text2: 'Failed to convert PDF data.',
+            text1: 'Save Failed',
+            text2: `Failed to save PDF: ${writeError?.message || 'Unknown error'}`,
             position: 'top',
           });
-        };
-        
-          reader.readAsDataURL(pdfBlob);
-        } else {
-          throw new Error('Invalid response: missing download_url');
         }
-      } else {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      };
+      
+      reader.onerror = (error) => {
+        console.error('❌ FileReader error:', error);
+        Toast.show({
+          type: 'error',
+          text1: 'Conversion Failed',
+          text2: 'Failed to process PDF data for saving.',
+          position: 'top',
+        });
+      };
+      
+      reader.readAsDataURL(pdfBlob);
+      
     } catch (error) {
-      console.error('Error generating document:', error);
+      console.error('❌ Error generating document:', error);
+      
+      // More specific error messages
+      let errorMessage = 'Failed to generate document. Please try again.';
+      const errorMsg = (error as Error).message || '';
+      if (errorMsg.includes('Server error')) {
+        errorMessage = 'Server error occurred. Please check your connection and try again.';
+      } else if (errorMsg.includes('Download failed')) {
+        errorMessage = 'Failed to download PDF. The file may be temporarily unavailable.';
+      } else if (errorMsg.includes('empty')) {
+        errorMessage = 'The generated PDF file is empty. Please contact support.';
+      } else if (errorMsg.includes('permission')) {
+        errorMessage = 'Storage permission denied. Please enable storage access in settings.';
+      }
+      
       Toast.show({
         type: 'error',
         text1: 'Generation Failed',
-        text2: 'Failed to generate document. Please try again.',
+        text2: errorMessage,
         position: 'top',
+        visibilityTime: 5000,
       });
     }
   };
@@ -341,17 +583,38 @@ export default function MFDRecordDetails() {
               onPress={() => navigation.goBack()}
               style={styles.backToRecordsButton}
             >
-              <MaterialIcons name="arrow-back" size={20} color="#333" />
-              <Text style={styles.backToRecordsText}>Back to Records</Text>
+              <MaterialIcons name="arrow-back" size={16} color="white" />
+              <Text style={styles.backToRecordsText}>Back</Text>
             </Pressable>
             
-            <Pressable
-              onPress={handleGenerateDocument}
-              style={styles.generateButton}
-            >
-              <MaterialIcons name="picture-as-pdf" size={20} color="#fff" />
-              <Text style={styles.generateButtonText}>Generate Document</Text>
-            </Pressable>
+            {record.status?.toLowerCase().includes('pending') ? (
+              <>
+                <Pressable
+                  onPress={handleApprove}
+                  style={styles.approveButton}
+                >
+                  <MaterialIcons name="check-circle" size={16} color="#fff" />
+                  <Text style={styles.approveButtonText}>Approve</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleReject}
+                  style={styles.rejectButton}
+                >
+                  <MaterialIcons name="cancel" size={16} color="#fff" />
+                  <Text style={styles.rejectButtonText}>Reject</Text>
+                </Pressable>
+              </>
+            ) : record.status?.toLowerCase().includes('approved') ? (
+              <Pressable
+                onPress={handleGenerateDocument}
+                style={styles.generateButton}
+              >
+                <MaterialIcons name="picture-as-pdf" size={16} color="#fff" />
+                <Text style={styles.generateButtonText}>Generate</Text>
+              </Pressable>
+            ) : record.status?.toLowerCase().includes('rejected') ? (
+              <View style={styles.rejectedPlaceholder} />
+            ) : null}
           </View>
         </View>
       </ScrollView>
@@ -541,38 +804,110 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     padding: 20,
-    gap: 16,
+    gap: 8,
+    marginTop: 4,
   },
   backToRecordsButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    backgroundColor: '#6b7280',
     flex: 1,
     justifyContent: 'center',
+    shadowColor: '#6b7280',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#4b5563',
+    minHeight: 44,
   },
   backToRecordsText: {
-    marginLeft: 8,
-    fontSize: 14,
+    marginLeft: 6,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#333',
+    color: '#fff',
+    textAlign: 'center',
   },
   generateButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#2196f3',
+    borderRadius: 12,
+    backgroundColor: '#7c3aed',
     flex: 1,
     justifyContent: 'center',
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#6d28d9',
+    minHeight: 44,
   },
   generateButtonText: {
-    marginLeft: 8,
-    fontSize: 14,
+    marginLeft: 6,
+    fontSize: 13,
     fontWeight: '600',
     color: '#fff',
+    textAlign: 'center',
+  },
+  approveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: '#059669',
+    flex: 1,
+    justifyContent: 'center',
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#047857',
+    minHeight: 44,
+  },
+  approveButtonText: {
+    marginLeft: 6,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
+    textAlign: 'center',
+  },
+  rejectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: '#dc2626',
+    flex: 1,
+    justifyContent: 'center',
+    shadowColor: '#dc2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#b91c1c',
+    minHeight: 44,
+  },
+  rejectButtonText: {
+    marginLeft: 6,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
+    textAlign: 'center',
+  },
+  rejectedPlaceholder: {
+    flex: 1,
   },
 });

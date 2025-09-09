@@ -15,6 +15,8 @@ import { WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
 import Toast from 'react-native-toast-message';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import FileViewer from 'react-native-file-viewer';
+import Share from 'react-native-share';
 
 import { ExporterStackParamList } from '../../app/navigation/stacks/ExporterStack';
 import { getAuthToken, BASE_URL, join } from '../../services/https';
@@ -105,12 +107,12 @@ export default function PDFViewer({ route, navigation }: Props) {
   const requestStoragePermission = async () => {
     if (Platform.OS === 'android') {
       try {
-        // For Android 13+ (API 33+), we don't need WRITE_EXTERNAL_STORAGE permission
-        // We can use the app's internal storage or request MANAGE_EXTERNAL_STORAGE for Downloads
         const androidVersion = Platform.Version;
+        console.log('Android version:', androidVersion);
 
         if (androidVersion >= 33) {
-          // For Android 13+, try to use Downloads directory without permission
+          // For Android 13+, we can use app's internal storage without permission
+          // Downloads folder requires special permission or we use app storage
           return true;
         } else {
           // For older Android versions, request WRITE_EXTERNAL_STORAGE
@@ -118,8 +120,7 @@ export default function PDFViewer({ route, navigation }: Props) {
             PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
             {
               title: 'Storage Permission',
-              message:
-                'This app needs access to storage to download PDF files.',
+              message: 'This app needs access to storage to download PDF files.',
               buttonNeutral: 'Ask Me Later',
               buttonNegative: 'Cancel',
               buttonPositive: 'OK',
@@ -128,7 +129,7 @@ export default function PDFViewer({ route, navigation }: Props) {
           return granted === PermissionsAndroid.RESULTS.GRANTED;
         }
       } catch (err) {
-        console.warn(err);
+        console.warn('Permission request error:', err);
         return false;
       }
     }
@@ -187,6 +188,7 @@ export default function PDFViewer({ route, navigation }: Props) {
           let success = false;
 
           // Try different directories in order of preference
+          // Prioritize app storage over Downloads folder to avoid permission issues
           const possiblePaths = [
             `${RNFS.DocumentDirectoryPath}/${fileName}`, // App's document directory (most reliable)
             `${RNFS.CachesDirectoryPath}/${fileName}`, // App's cache directory
@@ -232,15 +234,70 @@ export default function PDFViewer({ route, navigation }: Props) {
 
           Toast.show({
             type: 'success',
-            text1: 'Download Complete',
+            text1: 'Download Complete! 🎉',
             text2: `PDF saved to ${locationMessage}`,
             position: 'top',
+            visibilityTime: 4000,
           });
 
           Alert.alert(
             'Download Complete',
-            `PDF has been successfully saved to your ${locationMessage}.\n\nFile: ${fileName}`,
-            [{ text: 'OK' }],
+            `PDF document has been successfully saved!\n\n📁 Location: ${locationMessage}\n📄 File: ${fileName}\n📊 Size: ${(pdfBlob.size / 1024).toFixed(1)} KB`,
+            [
+              {
+                text: 'Open PDF',
+                onPress: async () => {
+                  try {
+                    await FileViewer.open(filePath, {
+                      showOpenWithDialog: true,
+                      showAppsSuggestions: true,
+                    });
+                  } catch (error) {
+                    console.error('Error opening PDF:', error);
+                    Toast.show({
+                      type: 'error',
+                      text1: 'Open Failed',
+                      text2: 'No app available to open PDF files',
+                      position: 'top',
+                    });
+                  }
+                },
+              },
+              {
+                text: 'Share PDF',
+                onPress: async () => {
+                  try {
+                    // Convert file path to proper URI format
+                    const fileUri = Platform.OS === 'android' 
+                      ? `file://${filePath}` 
+                      : `file://${filePath}`;
+                    
+                    console.log('Sharing PDF with URI:', fileUri);
+                    
+                    const shareOptions = {
+                      title: `Traceability Record - ${recordId}`,
+                      message: `Traceability Record PDF: ${recordId}`,
+                      url: fileUri,
+                      type: 'application/pdf',
+                      subject: `Traceability Record - ${recordId}`,
+                    };
+                    await Share.open(shareOptions);
+                  } catch (error) {
+                    console.error('Error sharing PDF:', error);
+                    Toast.show({
+                      type: 'error',
+                      text1: 'Share Failed',
+                      text2: 'Unable to share PDF file. Please try opening the file directly.',
+                      position: 'top',
+                    });
+                  }
+                },
+              },
+              {
+                text: 'OK',
+                style: 'default',
+              },
+            ]
           );
         } catch (error: any) {
           console.error('Error saving PDF:', error);

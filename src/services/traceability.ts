@@ -113,4 +113,14 @@ export async function fetchPurchasePrefill(purchaseId: number | string): Promise
   return json?.data ?? json;
 }
 
+export async function approveTraceabilityRecord(recordId: number | string): Promise<TraceabilityRecord> {
+  const json = await api(`/traceability-records/${recordId}/approve`, { method: 'POST' });
+  return json?.data ?? json;
+}
+
+export async function rejectTraceabilityRecord(recordId: number | string): Promise<TraceabilityRecord> {
+  const json = await api(`/traceability-records/${recordId}/reject`, { method: 'POST' });
+  return json?.data ?? json;
+}
+
 
