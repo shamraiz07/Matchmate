@@ -178,15 +178,17 @@ export default function ViewRecord() {
         </View>
 
         {/* Action Buttons */}
-        <View style={styles.actionsContainer}>
-          <Pressable 
-            onPress={handleGenerateDocument} 
-            style={({ pressed }) => [styles.generateBtn, pressed && { opacity: 0.8 }]}
-          >
-            <Icon name="description" size={20} color="#fff" />
-            <Text style={styles.generateBtnText}>Generate Document</Text>
-          </Pressable>
-        </View>
+        {!record.status?.toLowerCase().includes('pending') && (
+          <View style={styles.actionsContainer}>
+            <Pressable 
+              onPress={handleGenerateDocument} 
+              style={({ pressed }) => [styles.generateBtn, pressed && { opacity: 0.8 }]}
+            >
+              <Icon name="description" size={20} color="#fff" />
+              <Text style={styles.generateBtnText}>Generate Document</Text>
+            </Pressable>
+          </View>
+        )}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ExporterStackParamList } from '../../app/navigation/stacks/ExporterStack';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import PALETTE from '../../theme/palette';
 import { fetchTraceabilityRecords, type TraceabilityRecord } from '../../services/traceability';
@@ -29,10 +29,11 @@ function adapt(r: TraceabilityRecord) {
   };
 }
 
-const ListHeader = ({ status, setStatus, handleBack }: { 
+const ListHeader = ({ status, setStatus, handleBack, handleNewRecord }: { 
   status: 'All' | 'Approved' | 'Pending' | 'Rejected', 
   setStatus: (s: 'All' | 'Approved' | 'Pending' | 'Rejected') => void,
-  handleBack: () => void 
+  handleBack: () => void,
+  handleNewRecord: () => void
 }) => (
   <View>
     {/* App bar */}
@@ -41,7 +42,9 @@ const ListHeader = ({ status, setStatus, handleBack }: {
         <Icon name="arrow-back" size={22} color="#FFFFFF" />
       </Pressable>
       <Text style={styles.appbarTitle}>Traceability Records</Text>
-      <View style={styles.spacer} />
+      <Pressable onPress={handleNewRecord} style={({ pressed }) => [styles.newRecordBtn, pressed && { opacity: 0.85 }]}>
+        <Icon name="add" size={22} color="#FFFFFF" />
+      </Pressable>
     </View>
 
     {/* Filters (outside header) */}
@@ -122,24 +125,27 @@ const RecordItem = ({ item, originalRecords, navigation }: {
         <Icon name="visibility" size={16} color={PALETTE.text900} />
         <Text style={styles.outlineText}>View</Text>
       </Pressable>
-      <Pressable onPress={() => {
-        const originalRecord = originalRecords.find(r => String(r.id) === item.id);
-        if (originalRecord) {
-          navigation.navigate('PDFViewer', { recordId: originalRecord.id });
-        }
-      }} style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.95 }]}>
-        <Icon name="description" size={16} color="#fff" />
-        <Text style={styles.secondaryText}>Generate Document</Text>
-      </Pressable>
+      {!item.status.toLowerCase().includes('pending') && (
+        <Pressable onPress={() => {
+          const originalRecord = originalRecords.find(r => String(r.id) === item.id);
+          if (originalRecord) {
+            navigation.navigate('PDFViewer', { recordId: originalRecord.id });
+          }
+        }} style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.95 }]}>
+          <Icon name="description" size={16} color="#fff" />
+          <Text style={styles.secondaryText}>Generate Document</Text>
+        </Pressable>
+      )}
     </View>
   </View>
 );
 
-const ListHeaderWrapper = ({ status, setStatus, handleBack }: { 
+const ListHeaderWrapper = ({ status, setStatus, handleBack, handleNewRecord }: { 
   status: 'All' | 'Approved' | 'Pending' | 'Rejected', 
   setStatus: (s: 'All' | 'Approved' | 'Pending' | 'Rejected') => void,
-  handleBack: () => void 
-}) => <ListHeader status={status} setStatus={setStatus} handleBack={handleBack} />;
+  handleBack: () => void,
+  handleNewRecord: () => void
+}) => <ListHeader status={status} setStatus={setStatus} handleBack={handleBack} handleNewRecord={handleNewRecord} />;
 
 const EmptyStateWrapper = ({ status, navigation }: { 
   status: 'All' | 'Approved' | 'Pending' | 'Rejected',
@@ -154,34 +160,43 @@ export default function ViewFinalProduct() {
     navigation.navigate('ExporterHome');
   }, [navigation]);
 
+  const handleNewRecord = useCallback(() => {
+    navigation.navigate('traceabilityForm');
+  }, [navigation]);
+
   const [status, setStatus] = useState<'All' | 'Approved' | 'Pending' | 'Rejected'>('All');
   const [rows, setRows] = useState<ReturnType<typeof adapt>[]>([]);
   const [originalRecords, setOriginalRecords] = useState<TraceabilityRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const list = await fetchTraceabilityRecords({});
-        setOriginalRecords(list);
-        setRows(list.map(adapt));
-      } catch (e) {
-        setOriginalRecords([]);
-        setRows([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const list = await fetchTraceabilityRecords({});
+      setOriginalRecords(list);
+      setRows(list.map(adapt));
+    } catch (e) {
+      setOriginalRecords([]);
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // Auto-refresh when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const filtered = useMemo(() => {
     return rows.filter(r => (status === 'All' ? true : r.status === status));
   }, [status, rows]);
 
   const renderListHeader = useCallback(() => 
-    <ListHeaderWrapper status={status} setStatus={setStatus} handleBack={handleBack} />, 
-    [status, setStatus, handleBack]
+    <ListHeaderWrapper status={status} setStatus={setStatus} handleBack={handleBack} handleNewRecord={handleNewRecord} />, 
+    [status, setStatus, handleBack, handleNewRecord]
   );
 
   const renderEmptyState = useCallback(() => 
@@ -199,16 +214,7 @@ export default function ViewFinalProduct() {
         contentContainerStyle={styles.contentPadding}
         refreshing={loading}
         ListEmptyComponent={renderEmptyState}
-        onRefresh={async () => {
-          try {
-            setLoading(true);
-            const list = await fetchTraceabilityRecords({});
-            setOriginalRecords(list);
-            setRows(list.map(adapt));
-          } finally {
-            setLoading(false);
-          }
-        }}
+        onRefresh={loadData}
       />
   );
 }
@@ -244,6 +250,7 @@ const styles = StyleSheet.create({
   fieldLabel: { color: PALETTE.text600 },
   fieldValue: { color: PALETTE.text900, fontWeight: '800' },
   spacer: { width: 44 },
+  newRecordBtn: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#145A1F' },
   headerPadding: { paddingHorizontal: 14, paddingTop: 10, paddingBottom: 4 },
   itemSeparator: { height: 12 },
   contentPadding: { paddingVertical: 10, paddingHorizontal: 14 },
