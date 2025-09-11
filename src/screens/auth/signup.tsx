@@ -8,6 +8,7 @@ import {
   ScrollView,
   Platform,
   TextInput,
+  Image,
   TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
@@ -811,23 +812,16 @@ const SignUp = () => {
         {/* Top Header */}
         <View style={styles.header}>
           <View style={styles.headerContent}>
-            <View style={styles.leftSection}>
-              <View style={styles.logo}>
-                <MaterialIcons name="waves" size={24} color={GREEN} />
-              </View>
-            </View>
-            <View style={styles.centerSection}>
-              <Text style={styles.portalTitle}>MFD Portal</Text>
-              <Text style={styles.portalSubtitle}>MARINE FISHERIES DEPARTMENT</Text>
-              <Text style={styles.portalDescription}>
-                Join the Professional Fisheries Management Community
-              </Text>
-            </View>
-            <View style={styles.rightSection}>
-              <View style={styles.poweredBy}>
-                <MaterialIcons name="flash-on" size={14} color="#fff" />
-                <Text style={styles.poweredByText}>Powered by: Government of Pakistan</Text>
-              </View>
+            <Image
+              source={require('../../assets/images/MFD.png')}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
+            <Text style={styles.portalTitle}>Marine Fisheries Department</Text>
+            <Text style={styles.portalDescription}>"Join the Professional Fisheries Management Community"</Text>
+            <View style={styles.poweredByRow}>
+              <MaterialIcons name="account-balance" size={16} color={TEXT_MUTED} />
+              <Text style={styles.poweredByText}>Powered by: Government of Pakistan</Text>
             </View>
           </View>
         </View>
@@ -914,17 +908,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   header: {
-    backgroundColor: GREEN,
+    backgroundColor: '#f8f9fa',
     paddingTop: 50,
     paddingBottom: 24,
     paddingHorizontal: 20,
   },
   headerContent: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 80,
+    justifyContent: 'center',
+    rowGap: 6,
+    minHeight: 140,
   },
+  headerLogo: { width: 120, height: 120 },
   leftSection: {
     width: 60,
     alignItems: 'center',
@@ -947,7 +943,7 @@ const styles = StyleSheet.create({
   portalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
+    color: TEXT_DARK,
     marginBottom: 4,
     textAlign: 'center',
   },
@@ -961,10 +957,20 @@ const styles = StyleSheet.create({
   },
   portalDescription: {
     fontSize: 12,
-    color: '#fff',
+    color: TEXT_MUTED,
     textAlign: 'center',
     lineHeight: 16,
-    opacity: 0.8,
+    opacity: 0.9,
+  },
+  poweredByRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: 6,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: 'transparent'
   },
   rightSection: {
     width: 60,
@@ -981,8 +987,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   poweredByText: {
-    fontSize: 9,
-    color: '#fff',
+    fontSize: 11,
+    color: TEXT_MUTED,
     marginLeft: 4,
     fontWeight: '500',
   },
