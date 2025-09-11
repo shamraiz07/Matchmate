@@ -738,43 +738,50 @@ const handleStart = useCallback(async () => {
 
       <View style={[s.page, { flex: 1 }]}>
         {/* Header */}
-        <View style={[s.hero, { backgroundColor: HEADER_BG }]}>
-          <View style={styles.topRow}>
-            <Pressable
-              onPress={handleBack}
-              style={({ pressed }) => [
-                styles.backBtn,
-                pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-            >
-              <Icon name="arrow-back" size={22} color="#FFFFFF" />
-            </Pressable>
-          </View>
-
-          <Text style={s.heroTitle}>{headerTitle}</Text>
-
-          <View style={s.chipRow}>
-            <View style={s.chip}>
-              <Text style={s.chipLabel}>Trip ID</Text>
-              <Text style={s.chipValue} numberOfLines={1}>
-                {String(chipTripId)}
-              </Text>
+        <View style={styles.header}>
+          <Pressable
+            onPress={handleBack}
+            style={({ pressed }) => [
+              styles.backBtn,
+              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Icon name="arrow-back" size={24} color="#FFFFFF" />
+          </Pressable>
+          
+          <View style={styles.headerContent}>
+            <View style={styles.titleRow}>
+              <Text style={styles.headerTitle}>{headerTitle}</Text>
+              <View style={styles.statusContainer}>
+                <View style={[styles.statusChip, !isEdit && !gps ? styles.statusWarn : styles.statusOk]}>
+                  <Icon 
+                    name={!isEdit && !gps ? "location-off" : "location-on"} 
+                    size={14} 
+                    color={!isEdit && !gps ? "#F59E0B" : "#22C55E"} 
+                  />
+                  <Text style={[styles.statusText, !isEdit && !gps ? styles.statusWarnText : styles.statusOkText]}>
+                    {isEdit
+                      ? gps
+                        ? 'GPS Ready'
+                        : 'GPS Optional'
+                      : gps
+                      ? 'GPS Ready'
+                      : 'GPS Pending'}
+                  </Text>
+                </View>
+              </View>
             </View>
-
-            {/* GPS chip: required on create, optional on edit */}
-            <View style={[s.chip, !isEdit && !gps ? s.chipWarn : s.chipOk]}>
-              <Text style={s.chipLabel}>GPS</Text>
-              <Text style={s.chipValue}>
-                {isEdit
-                  ? gps
-                    ? 'Captured'
-                    : 'Optional'
-                  : gps
-                  ? 'Captured'
-                  : 'Pending'}
-              </Text>
+            
+            <View style={styles.tripIdContainer}>
+              <View style={styles.tripIdChip}>
+                <Icon name="confirmation-number" size={16} color="rgba(255,255,255,0.9)" />
+                <Text style={styles.tripIdLabel}>Trip ID:</Text>
+                <Text style={styles.tripIdValue}>
+                  {String(chipTripId)}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
@@ -935,20 +942,91 @@ const handleStart = useCallback(async () => {
 }
 
 const styles = StyleSheet.create({
-  topRow: {
-    position: 'absolute',
-    top: 5,
-    left: 12,
-    right: 12,
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    zIndex: 10,
+    minHeight: 80,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: HEADER_BG,
   },
   backBtn: {
+    padding: 8,
+    marginRight: 8,
+  },
+  headerContent: {
+    flex: 1,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    flex: 1,
+  },
+  statusContainer: {
+    marginLeft: 12,
+  },
+  statusChip: {
+    flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 6,
-    borderRadius: 22,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  statusOk: {
+    backgroundColor: 'rgba(34, 197, 94, 0.2)',
+    borderColor: 'rgba(34, 197, 94, 0.4)',
+  },
+  statusWarn: {
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  statusOkText: {
+    color: '#22C55E',
+  },
+  statusWarnText: {
+    color: '#F59E0B',
+  },
+  tripIdContainer: {
+    marginTop: 4,
+  },
+  tripIdChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    alignSelf: 'flex-start',
+  },
+  tripIdLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+    marginLeft: 6,
+    fontWeight: '500',
+  },
+  tripIdValue: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    marginLeft: 4,
+    flexShrink: 1,
   },
 });
