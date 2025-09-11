@@ -1,6 +1,6 @@
 /* eslint-disable react-native/no-inline-styles */
 // src/screens/Fisherman/AddTrip/FishingActivity.tsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -11,6 +11,7 @@ import {
   View,
   Alert,
   StatusBar,
+  StyleSheet,
 } from 'react-native';
 import DateTimePicker, {
   DateTimePickerEvent,
@@ -36,6 +37,7 @@ import { enqueueCreateActivity } from '../../../offline/TripQueues';
 import { buildActivityId } from '../../../utils/ids';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../redux/store';
+import PALETTE from '../../../theme/palette';
 
 type Nav = NativeStackNavigationProp<
   FishermanStackParamList,
@@ -111,6 +113,8 @@ export default function FishingActivity() {
   const [submitting, setSubmitting] = useState(false);
   const [showNettingPicker, setShowNettingPicker] = useState(false);
   const [showHaulingPicker, setShowHaulingPicker] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [formLevelError, setFormLevelError] = useState<string | null>(null);
 
   // ---- Prefill for EDIT ----
   useEffect(() => {
@@ -172,6 +176,56 @@ export default function FishingActivity() {
     return date;
   }
 
+  // Validation function
+  const validateForm = useCallback(() => {
+    const values = getValues();
+    const errors: Record<string, string> = {};
+
+    // GPS validation
+    if (!gps?.lat || !gps?.lng) {
+      setFormLevelError('GPS location is required. Please wait for GPS or recapture location.');
+      return false;
+    }
+
+    // Time validation
+    if (!values.netting) {
+      errors.netting = 'Netting time is required';
+    }
+    if (!values.hauling) {
+      errors.hauling = 'Hauling time is required';
+    }
+
+    // Validate netting time is before hauling time
+    if (values.netting && values.hauling) {
+      if (values.netting >= values.hauling) {
+        errors.hauling = 'Hauling time must be after netting time';
+      }
+    }
+
+    // Net dimensions validation (optional but if provided, should be valid)
+    if (values.netLen && (isNaN(Number(values.netLen)) || Number(values.netLen) < 0)) {
+      errors.netLen = 'Net length must be a valid positive number';
+    }
+    if (values.netWid && (isNaN(Number(values.netWid)) || Number(values.netWid) < 0)) {
+      errors.netWid = 'Net width must be a valid positive number';
+    }
+
+    setFormErrors(errors);
+    setFormLevelError(null);
+    return Object.keys(errors).length === 0;
+  }, [getValues, gps]);
+
+  // Clear errors when user starts typing
+  const clearFieldError = useCallback((field: string) => {
+    if (formErrors[field]) {
+      setFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+  }, [formErrors]);
+
   // Handle time picker changes
   function handleTimeChange(
     event: DateTimePickerEvent,
@@ -191,22 +245,17 @@ export default function FishingActivity() {
   }
 
   async function onSubmit() {
-    if (!gps?.lat || !gps?.lng) {
-      Alert.alert('GPS Required', 'Please wait for GPS location or recapture.');
+    // Clear previous errors
+    setFormErrors({});
+    setFormLevelError(null);
+
+    // Validate form
+    if (!validateForm()) {
       return;
     }
 
     const values = getValues();
     const online = await isOnline();
-
-    // Validate time fields
-    if (!values.netting || !values.hauling) {
-      Alert.alert(
-        'Time Required',
-        'Please select both netting and hauling times.'
-      );
-      return;
-    }
 
     try {
       setSubmitting(true);
@@ -220,8 +269,8 @@ export default function FishingActivity() {
         mesh_size: values.mesh,
         net_length: values.netLen ? Number(values.netLen) : null,
         net_width: values.netWid ? Number(values.netWid) : null,
-        gps_latitude: gps.lat,
-        gps_longitude: gps.lng,
+        gps_latitude: gps!.lat,
+        gps_longitude: gps!.lng,
       };
 
       if (online) {
@@ -299,13 +348,29 @@ export default function FishingActivity() {
          });
       }
     } catch (e: any) {
-      Alert.alert(
-        'Failed',
-        e?.message ||
-          (mode === 'edit'
-            ? 'Unable to update activity.'
-            : 'Unable to create activity.'),
-      );
+      console.error('Fishing activity error:', e);
+      
+      // Parse server errors if available
+      let errorMessage = e?.message || 'An unexpected error occurred';
+      
+      if (e?.response?.data?.message) {
+        errorMessage = e.response.data.message;
+      } else if (e?.response?.data?.errors) {
+        // Handle validation errors from server
+        const serverErrors = e.response.data.errors;
+        const firstError = Object.values(serverErrors)[0];
+        errorMessage = Array.isArray(firstError) ? firstError[0] : firstError;
+      }
+
+      setFormLevelError(errorMessage);
+      
+      Toast.show({
+        type: 'error',
+        text1: mode === 'edit' ? 'Update Failed' : 'Creation Failed',
+        text2: errorMessage,
+        position: 'top',
+        visibilityTime: 4000,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -318,415 +383,628 @@ export default function FishingActivity() {
   const mesh = watch('mesh');
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
-      
-      {/* Header with back button */}
-      <View style={{ 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        paddingHorizontal: 16, 
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E5E7EB',
-        backgroundColor: '#1F720D'
-      }}>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          style={{
-            padding: 8,
-            marginRight: 16,
-            borderRadius: 8,
-            backgroundColor: 'rgba(255, 255, 255, 0.2)'
-          }}
+    <>
+      <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" translucent={false} />
+      <SafeAreaView edges={['top']} style={styles.safeArea}>
+        <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Pressable
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
+            <MaterialIcons name="arrow-back" size={24} color="#fff" />
+          </Pressable>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>
+              {mode === 'edit' ? 'Edit Fishing Activity' : 'Create Fishing Activity'}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              Trip: {displayTripCode} • Activity #{initialActivity}
+            </Text>
+          </View>
+        </View>
+
+        {/* Form Level Error Alert */}
+        {formLevelError && (
+          <View style={styles.errorAlert}>
+            <MaterialIcons name="error" size={20} color="#fff" />
+            <Text style={styles.errorAlertText}>{formLevelError}</Text>
+            <Pressable onPress={() => setFormLevelError(null)}>
+              <MaterialIcons name="close" size={20} color="#fff" />
+            </Pressable>
+          </View>
+        )}
+
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <MaterialIcons name="arrow-back" size={24} color="#fff" />
-        </Pressable>
-        <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#fff' }}>
-          {mode === 'edit' ? 'Edit Fishing Activity' : 'Create Fishing Activity'}
-        </Text>
-      </View>
+          {/* GPS Status Section */}
+          <SectionCard
+            title="Location Status"
+            icon="location-on"
+            status={gps ? 'ready' : 'pending'}
+          >
+            <View style={styles.gpsContainer}>
+              <View style={styles.gpsStatus}>
+                <MaterialIcons
+                  name={gps ? 'location-on' : 'location-off'}
+                  size={24}
+                  color={gps ? PALETTE.green700 : PALETTE.error}
+                />
+                <Text style={[styles.gpsStatusText, { color: gps ? PALETTE.green700 : PALETTE.error }]}>
+                  {gps ? 'GPS Ready' : 'Waiting for GPS...'}
+                </Text>
+                {gpsLoading && <ActivityIndicator size="small" color={PALETTE.text500} />}
+              </View>
+              {gps && (
+                <View style={styles.gpsCoordinates}>
+                  <Text style={styles.gpsCoordinatesText}>
+                    {gps.lat.toFixed(6)}, {gps.lng.toFixed(6)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </SectionCard>
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Trip Info Card */}
-        <View style={{
-          backgroundColor: '#fff',
-          padding: 16,
-          borderRadius: 12,
-          marginBottom: 20,
-          borderWidth: 1,
-          borderColor: '#E5E7EB',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.05,
-          shadowRadius: 2,
-          elevation: 2
-        }}>
-          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1F2937', marginBottom: 8 }}>
-            Trip Information
-          </Text>
-          <Text style={{ fontSize: 16, color: '#6B7280' }}>
-            Trip: {displayTripCode} • Activity #{initialActivity}
-          </Text>
-        </View>
-
-        {/* GPS Status Card */}
-        <View style={{
-          backgroundColor: '#fff',
-          padding: 16,
-          borderRadius: 12,
-          marginBottom: 20,
-          borderWidth: 1,
-          borderColor: '#E5E7EB',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.05,
-          shadowRadius: 2,
-          elevation: 2
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <MaterialIcons
-              name={gps ? 'location-on' : 'location-off'}
-              size={20}
-              color={gps ? '#10B981' : '#EF4444'}
-            />
-            <Text style={{ 
-              color: gps ? '#10B981' : '#EF4444',
-              fontWeight: '600',
-              fontSize: 16
-            }}>
-              {gps ? 'GPS Ready' : 'Waiting for GPS...'}
-            </Text>
-            {gpsLoading && <ActivityIndicator size="small" color="#6B7280" />}
-          </View>
-          {gps && (
-            <Text style={{ 
-              fontSize: 14, 
-              color: '#6B7280', 
-              backgroundColor: '#F3F4F6',
-              padding: 8,
-              borderRadius: 6,
-              textAlign: 'center'
-            }}>
-              {gps.lat.toFixed(6)}, {gps.lng.toFixed(6)}
-            </Text>
-          )}
-        </View>
-
-        {/* Form Fields */}
-        <View style={{ gap: 20 }}>
-          {/* Activity Number */}
-          <View style={{
-            backgroundColor: '#fff',
-            padding: 16,
-            borderRadius: 12,
-            borderWidth: 1,
-            borderColor: '#E5E7EB',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: 0.05,
-            shadowRadius: 2,
-            elevation: 2
-          }}>
-            <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 12, color: '#1F2937' }}>
-              Activity Number
-            </Text>
-            <TextInput
-              style={{
-                borderWidth: 1,
-                borderColor: '#D1D5DB',
-                borderRadius: 8,
-                padding: 12,
-                fontSize: 16,
-                backgroundColor: '#F9FAFB',
-                color: '#1F2937'
-              }}
-              value={String(watch('activityNo'))}
-              onChangeText={(text) => setValue('activityNo', Number(text) || 1)}
-              keyboardType="numeric"
-              placeholder="1"
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
+          {/* Activity Information */}
+          <SectionCard
+            title="Activity Information"
+            icon="assignment"
+          >
+            <View style={styles.fieldContainer}>
+              <Text style={styles.fieldLabel}>Activity Number *</Text>
+              <TextInput
+                style={[styles.input, formErrors.activityNo && styles.inputError]}
+                value={String(watch('activityNo'))}
+                onChangeText={(text) => {
+                  setValue('activityNo', Number(text) || 1);
+                  clearFieldError('activityNo');
+                }}
+                keyboardType="numeric"
+                placeholder="1"
+                placeholderTextColor={PALETTE.text400}
+              />
+              {formErrors.activityNo && (
+                <Text style={styles.errorText}>{formErrors.activityNo}</Text>
+              )}
+            </View>
+          </SectionCard>
 
           {/* Mesh Size */}
-          <View style={{
-            backgroundColor: '#fff',
-            padding: 16,
-            borderRadius: 12,
-            borderWidth: 1,
-            borderColor: '#E5E7EB',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: 0.05,
-            shadowRadius: 2,
-            elevation: 2
-          }}>
-            <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 12, color: '#1F2937' }}>
-              Mesh Size
-            </Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {([1, 2, 3, 4, 5, 6, 7, 8] as const).map((size) => (
-                <Pressable
-                  key={size}
-                  onPress={() => setValue('mesh', size)}
-                  style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 10,
-                    borderRadius: 20,
-                    backgroundColor: mesh === size ? '#1F720D' : '#F3F4F6',
-                    borderWidth: 1,
-                    borderColor: mesh === size ? '#1F720D' : '#D1D5DB',
-                    minWidth: 40,
-                    alignItems: 'center'
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: mesh === size ? '#fff' : '#374151',
-                      fontWeight: mesh === size ? '600' : '500',
-                      fontSize: 16
-                    }}
+          <SectionCard
+            title="Mesh Size"
+            icon="grid-on"
+          >
+            <View style={styles.fieldContainer}>
+              <Text style={styles.fieldLabel}>Select Mesh Size</Text>
+              <View style={styles.meshGrid}>
+                {([1, 2, 3, 4, 5, 6, 7, 8] as const).map((size) => (
+                  <Pressable
+                    key={size}
+                    onPress={() => setValue('mesh', size)}
+                    style={[
+                      styles.meshButton,
+                      mesh === size && styles.meshButtonSelected
+                    ]}
                   >
-                    {size}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text style={[
+                      styles.meshButtonText,
+                      mesh === size && styles.meshButtonTextSelected
+                    ]}>
+                      {size}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
-          </View>
+          </SectionCard>
 
           {/* Net Dimensions */}
-          <View style={{
-            backgroundColor: '#fff',
-            padding: 16,
-            borderRadius: 12,
-            borderWidth: 1,
-            borderColor: '#E5E7EB',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: 0.05,
-            shadowRadius: 2,
-            elevation: 2
-          }}>
-            <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 12, color: '#1F2937' }}>
-              Net Dimensions
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 8, color: '#374151' }}>
-                  Net Length (m)
-                </Text>
-                <TextInput
-                  style={{
-                    borderWidth: 1,
-                    borderColor: '#D1D5DB',
-                    borderRadius: 8,
-                    padding: 12,
-                    fontSize: 16,
-                    backgroundColor: '#F9FAFB',
-                    color: '#1F2937'
-                  }}
-                  value={watch('netLen')}
-                  onChangeText={(text) => setValue('netLen', text)}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 8, color: '#374151' }}>
-                  Net Width (m)
-                </Text>
-                <TextInput
-                  style={{
-                    borderWidth: 1,
-                    borderColor: '#D1D5DB',
-                    borderRadius: 8,
-                    padding: 12,
-                    fontSize: 16,
-                    backgroundColor: '#F9FAFB',
-                    color: '#1F2937'
-                  }}
-                  value={watch('netWid')}
-                  onChangeText={(text) => setValue('netWid', text)}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  placeholderTextColor="#9CA3AF"
-                />
+          <SectionCard
+            title="Net Dimensions"
+            icon="straighten"
+          >
+            <View style={styles.fieldContainer}>
+              <Text style={styles.fieldLabel}>Net Measurements (Optional)</Text>
+              <View style={styles.dimensionsRow}>
+                <View style={styles.dimensionField}>
+                  <Text style={styles.dimensionLabel}>Length (m)</Text>
+                  <TextInput
+                    style={[styles.input, formErrors.netLen && styles.inputError]}
+                    value={watch('netLen')}
+                    onChangeText={(text) => {
+                      setValue('netLen', text);
+                      clearFieldError('netLen');
+                    }}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor={PALETTE.text400}
+                  />
+                  {formErrors.netLen && (
+                    <Text style={styles.errorText}>{formErrors.netLen}</Text>
+                  )}
+                </View>
+                <View style={styles.dimensionField}>
+                  <Text style={styles.dimensionLabel}>Width (m)</Text>
+                  <TextInput
+                    style={[styles.input, formErrors.netWid && styles.inputError]}
+                    value={watch('netWid')}
+                    onChangeText={(text) => {
+                      setValue('netWid', text);
+                      clearFieldError('netWid');
+                    }}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor={PALETTE.text400}
+                  />
+                  {formErrors.netWid && (
+                    <Text style={styles.errorText}>{formErrors.netWid}</Text>
+                  )}
+                </View>
               </View>
             </View>
-          </View>
+          </SectionCard>
 
           {/* Time Fields */}
-          <View style={{
-            backgroundColor: '#fff',
-            padding: 16,
-            borderRadius: 12,
-            borderWidth: 1,
-            borderColor: '#E5E7EB',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: 0.05,
-            shadowRadius: 2,
-            elevation: 2
-          }}>
-            <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 8, color: '#1F2937' }}>
-              Fishing Times
-            </Text>
-            <Text style={{ fontSize: 14, color: '#6B7280', marginBottom: 16 }}>
-              Select the start and end times for your fishing activity
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 8, color: '#374151' }}>
-                  Netting Time *
-                </Text>
-                <Pressable
-                  onPress={() => setShowNettingPicker(true)}
-                  style={{
-                    borderWidth: 1,
-                    borderColor: netting ? '#1F720D' : '#D1D5DB',
-                    borderRadius: 8,
-                    padding: 12,
-                    backgroundColor: '#F9FAFB',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <Text style={{ 
-                    fontSize: 16, 
-                    color: netting ? '#1F2937' : '#9CA3AF',
-                    fontWeight: netting ? '500' : '400'
-                  }}>
-                    {formatTimeForDisplay(netting)}
-                  </Text>
-                  <MaterialIcons 
-                    name="access-time" 
-                    size={20} 
-                    color={netting ? '#1F720D' : '#9CA3AF'} 
-                  />
-                </Pressable>
-                {showNettingPicker && (
-                  <DateTimePicker
-                    value={netting || new Date()}
-                    mode="time"
-                    is24Hour={true}
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={(event, date) => handleTimeChange(event, date, 'netting')}
-                  />
-                )}
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 8, color: '#374151' }}>
-                  Hauling Time *
-                </Text>
-                <Pressable
-                  onPress={() => setShowHaulingPicker(true)}
-                  style={{
-                    borderWidth: 1,
-                    borderColor: hauling ? '#1F720D' : '#D1D5DB',
-                    borderRadius: 8,
-                    padding: 12,
-                    backgroundColor: '#F9FAFB',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <Text style={{ 
-                    fontSize: 16, 
-                    color: hauling ? '#1F2937' : '#9CA3AF',
-                    fontWeight: hauling ? '500' : '400'
-                  }}>
-                    {formatTimeForDisplay(hauling)}
-                  </Text>
-                  <MaterialIcons 
-                    name="access-time" 
-                    size={20} 
-                    color={hauling ? '#1F720D' : '#9CA3AF'} 
-                  />
-                </Pressable>
-                {showHaulingPicker && (
-                  <DateTimePicker
-                    value={hauling || new Date()}
-                    mode="time"
-                    is24Hour={true}
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={(event, date) => handleTimeChange(event, date, 'hauling')}
-                  />
-                )}
+          <SectionCard
+            title="Fishing Times"
+            icon="schedule"
+          >
+            <View style={styles.fieldContainer}>
+              <Text style={styles.fieldLabel}>Select Start and End Times *</Text>
+              <Text style={styles.fieldDescription}>
+                Choose when you started and finished fishing
+              </Text>
+              <View style={styles.timeRow}>
+                <View style={styles.timeField}>
+                  <Text style={styles.timeLabel}>Netting Time *</Text>
+                  <Pressable
+                    onPress={() => setShowNettingPicker(true)}
+                    style={[
+                      styles.timeButton,
+                      netting && styles.timeButtonSelected,
+                      formErrors.netting && styles.timeButtonError
+                    ]}
+                  >
+                    <Text style={[
+                      styles.timeButtonText,
+                      netting && styles.timeButtonTextSelected
+                    ]}>
+                      {formatTimeForDisplay(netting)}
+                    </Text>
+                    <MaterialIcons 
+                      name="access-time" 
+                      size={20} 
+                      color={netting ? PALETTE.green700 : PALETTE.text400} 
+                    />
+                  </Pressable>
+                  {formErrors.netting && (
+                    <Text style={styles.errorText}>{formErrors.netting}</Text>
+                  )}
+                  {showNettingPicker && (
+                    <DateTimePicker
+                      value={netting || new Date()}
+                      mode="time"
+                      is24Hour={true}
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={(event, date) => handleTimeChange(event, date, 'netting')}
+                    />
+                  )}
+                </View>
+                <View style={styles.timeField}>
+                  <Text style={styles.timeLabel}>Hauling Time *</Text>
+                  <Pressable
+                    onPress={() => setShowHaulingPicker(true)}
+                    style={[
+                      styles.timeButton,
+                      hauling && styles.timeButtonSelected,
+                      formErrors.hauling && styles.timeButtonError
+                    ]}
+                  >
+                    <Text style={[
+                      styles.timeButtonText,
+                      hauling && styles.timeButtonTextSelected
+                    ]}>
+                      {formatTimeForDisplay(hauling)}
+                    </Text>
+                    <MaterialIcons 
+                      name="access-time" 
+                      size={20} 
+                      color={hauling ? PALETTE.green700 : PALETTE.text400} 
+                    />
+                  </Pressable>
+                  {formErrors.hauling && (
+                    <Text style={styles.errorText}>{formErrors.hauling}</Text>
+                  )}
+                  {showHaulingPicker && (
+                    <DateTimePicker
+                      value={hauling || new Date()}
+                      mode="time"
+                      is24Hour={true}
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={(event, date) => handleTimeChange(event, date, 'hauling')}
+                    />
+                  )}
+                </View>
               </View>
             </View>
-          </View>
-        </View>
-      </ScrollView>
+          </SectionCard>
+        </ScrollView>
 
-      {/* Fixed Submit Button */}
-      <View style={{
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: '#fff',
-        borderTopWidth: 1,
-        borderTopColor: '#E5E7EB',
-        padding: 16,
-        paddingBottom: 32,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 8
-      }}>
-        <Pressable
-          disabled={submitting || gpsLoading}
-          onPress={onSubmit}
-          style={[
-            {
-              backgroundColor: '#1F720D',
-              paddingVertical: 16,
-              borderRadius: 12,
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexDirection: 'row',
-              gap: 8
-            },
-            (submitting || gpsLoading) && { opacity: 0.7 }
-          ]}
-        >
-          {submitting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <MaterialIcons
-                name={mode === 'edit' ? 'save' : 'add-circle'}
-                size={20}
-                color="#fff"
-              />
-              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>
-                {mode === 'edit'
-                  ? 'Update Fishing Activity'
-                  : 'Create Fishing Activity'}
-              </Text>
-            </>
-          )}
-        </Pressable>
-      </View>
-    </SafeAreaView>
+        {/* Submit Button */}
+        <View style={styles.submitContainer}>
+          <Pressable
+            disabled={submitting || gpsLoading}
+            onPress={onSubmit}
+            style={[
+              styles.submitButton,
+              (submitting || gpsLoading) && styles.submitButtonDisabled
+            ]}
+          >
+            {submitting ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <MaterialIcons
+                  name={mode === 'edit' ? 'save' : 'add-circle'}
+                  size={20}
+                  color="#fff"
+                />
+                <Text style={styles.submitButtonText}>
+                  {mode === 'edit'
+                    ? 'Update Fishing Activity'
+                    : 'Create Fishing Activity'}
+                </Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+        </View>
+      </SafeAreaView>
+    </>
   );
 }
-/* ---- small atoms ---- */
-function KV({ label, value }: { label: string; value: string }) {
+/* ---- Components ---- */
+function SectionCard({ 
+  title, 
+  icon, 
+  status, 
+  children 
+}: { 
+  title: string; 
+  icon: string; 
+  status?: 'ready' | 'pending' | 'error';
+  children: React.ReactNode;
+}) {
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-      <Text style={{ color: '#6b7280' }}>{label}</Text>
-      <Text style={{ fontWeight: '500' }}>{value}</Text>
+    <View style={styles.sectionCard}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionTitleContainer}>
+          <MaterialIcons 
+            name={icon as any} 
+            size={20} 
+            color={PALETTE.green700} 
+          />
+          <Text style={styles.sectionTitle}>{title}</Text>
+        </View>
+        {status && (
+          <View style={[
+            styles.statusIndicator,
+            status === 'ready' && styles.statusReady,
+            status === 'pending' && styles.statusPending,
+            status === 'error' && styles.statusError,
+          ]}>
+            <MaterialIcons 
+              name={status === 'ready' ? 'check' : status === 'error' ? 'error' : 'schedule'} 
+              size={16} 
+              color="#fff" 
+            />
+          </View>
+        )}
+      </View>
+      <View style={styles.sectionContent}>
+        {children}
+      </View>
     </View>
   );
 }
+
+/* ---- Styles ---- */
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: PALETTE.green700,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: PALETTE.green700,
+    borderBottomWidth: 1,
+    borderBottomColor: PALETTE.green800,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 16,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  headerContent: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 2,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '500',
+  },
+  errorAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PALETTE.error,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+    gap: 8,
+  },
+  errorAlertText: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  sectionCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: PALETTE.border,
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: PALETTE.text900,
+  },
+  statusIndicator: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusReady: {
+    backgroundColor: PALETTE.green700,
+  },
+  statusPending: {
+    backgroundColor: PALETTE.warn,
+  },
+  statusError: {
+    backgroundColor: PALETTE.error,
+  },
+  sectionContent: {
+    padding: 20,
+  },
+  fieldContainer: {
+    marginBottom: 8,
+  },
+  fieldLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: PALETTE.text900,
+    marginBottom: 8,
+  },
+  fieldDescription: {
+    fontSize: 14,
+    color: PALETTE.text500,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    backgroundColor: PALETTE.surface,
+    color: PALETTE.text900,
+    fontWeight: '500',
+  },
+  inputError: {
+    borderColor: PALETTE.error,
+    backgroundColor: '#FEF2F2',
+  },
+  errorText: {
+    color: PALETTE.error,
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  gpsContainer: {
+    gap: 12,
+  },
+  gpsStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  gpsStatusText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  gpsCoordinates: {
+    backgroundColor: PALETTE.surface,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  gpsCoordinatesText: {
+    fontSize: 14,
+    color: PALETTE.text600,
+    fontFamily: 'monospace',
+    fontWeight: '500',
+  },
+  meshGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  meshButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
+    backgroundColor: PALETTE.surface,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    minWidth: 48,
+    alignItems: 'center',
+  },
+  meshButtonSelected: {
+    backgroundColor: PALETTE.green700,
+    borderColor: PALETTE.green700,
+  },
+  meshButtonText: {
+    color: PALETTE.text700,
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  meshButtonTextSelected: {
+    color: '#fff',
+  },
+  dimensionsRow: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  dimensionField: {
+    flex: 1,
+  },
+  dimensionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: PALETTE.text700,
+    marginBottom: 8,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  timeField: {
+    flex: 1,
+  },
+  timeLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: PALETTE.text700,
+    marginBottom: 8,
+  },
+  timeButton: {
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: PALETTE.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  timeButtonSelected: {
+    borderColor: PALETTE.green700,
+    backgroundColor: '#F0FDF4',
+  },
+  timeButtonError: {
+    borderColor: PALETTE.error,
+    backgroundColor: '#FEF2F2',
+  },
+  timeButtonText: {
+    fontSize: 16,
+    color: PALETTE.text400,
+    fontWeight: '500',
+  },
+  timeButtonTextSelected: {
+    color: PALETTE.text900,
+  },
+  submitContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: PALETTE.border,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  submitButton: {
+    backgroundColor: PALETTE.green700,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    shadowColor: PALETTE.green700,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+});
 
