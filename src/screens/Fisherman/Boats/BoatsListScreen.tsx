@@ -4,7 +4,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   FlatList,
   Pressable,
   TextInput,
@@ -12,6 +11,7 @@ import {
   StatusBar,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Toast from 'react-native-toast-message';
@@ -204,8 +204,8 @@ export default function BoatsListScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: PALETTE.surface }}>
-      <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" />
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: PALETTE.green700 }}>
+      <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" translucent={false} />
 
       <View style={styles.screen}>
         {/* Header */}

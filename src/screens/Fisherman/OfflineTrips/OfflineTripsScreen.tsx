@@ -4,7 +4,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   FlatList,
   Pressable,
   ActivityIndicator,
@@ -12,6 +11,7 @@ import {
   RefreshControl,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
@@ -299,8 +299,8 @@ export default function OfflineTripsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#F7F7F7" />
+      <SafeAreaView edges={['top']} style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#F7F7F7" translucent={false} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={PALETTE.green700} />
           <Text style={styles.loadingText}>Loading offline data...</Text>
@@ -310,8 +310,8 @@ export default function OfflineTripsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F7F7F7" />
+    <SafeAreaView edges={['top']} style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F7F7F7" translucent={false} />
       
       {/* Header */}
       <View style={styles.header}>

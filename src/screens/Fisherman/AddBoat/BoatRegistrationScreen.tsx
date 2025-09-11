@@ -12,6 +12,7 @@ import {
   Image,
   TouchableOpacity,
   Dimensions,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -525,13 +526,15 @@ const onSave = methods.handleSubmit(async data => {
   const formErrors = methods.formState.errors;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <>
+      <StatusBar backgroundColor={PALETTE.green700 || '#1B5E20'} barStyle="light-content" translucent={false} />
+      <SafeAreaView edges={['top']} style={styles.container}>
+        <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation?.goBack?.()}
         >
-          <Icon name="arrow-back" size={24} color={PALETTE.text900} />
+          <Icon name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Register New Boat</Text>
@@ -878,7 +881,8 @@ const onSave = methods.handleSubmit(async data => {
           </View>
         </FormProvider>
       </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </>
   );
 }
 
@@ -913,10 +917,10 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 8,
-    paddingBottom: 4,
-    paddingHorizontal: 16,
-    backgroundColor: '#fff',
+    justifyContent: 'flex-start',
+    height: 56,
+    paddingHorizontal: 12,
+    backgroundColor: PALETTE.green700 || '#1B5E20',
   },
   backButton: {
     padding: 8,
@@ -927,13 +931,13 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: PALETTE.text900 || '#111827',
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   headerSubtitle: {
     marginTop: 2,
     fontSize: 13,
-    color: PALETTE.text500 || '#6B7280',
+    color: 'rgba(255,255,255,0.85)',
   },
   scrollView: {
     flex: 1,

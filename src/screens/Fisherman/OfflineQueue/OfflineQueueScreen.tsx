@@ -14,6 +14,7 @@ import {
   AppState,
   AppStateStatus,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {
@@ -397,8 +398,10 @@ export default function OfflineQueueScreen({ navigation }: any) {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: PALETTE.bg }}>
-      <StatusBar backgroundColor={APPBAR_BG} barStyle="light-content" />
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: APPBAR_BG }}>
+      <StatusBar backgroundColor={APPBAR_BG} barStyle="light-content" translucent={false} />
+
+      <View style={{ flex: 1, backgroundColor: PALETTE.bg }}>
 
       {/* App Bar */}
       <View style={styles.appbar}>
@@ -518,6 +521,7 @@ export default function OfflineQueueScreen({ navigation }: any) {
         }
       />
     </View>
+    </SafeAreaView>
   );
 }
 
@@ -525,8 +529,8 @@ export default function OfflineQueueScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   appbar: {
     backgroundColor: APPBAR_BG,
-    paddingTop: Platform.OS === 'android' ? 0 : 10,
-    height: 56 + (Platform.OS === 'ios' ? 10 : 0),
+    paddingTop: 0,
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,

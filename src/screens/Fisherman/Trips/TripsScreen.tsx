@@ -4,7 +4,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   FlatList,
   Pressable,
   TextInput,
@@ -12,6 +11,7 @@ import {
   StatusBar,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import NetInfo from '@react-native-community/netinfo';
 import { useNavigation } from '@react-navigation/native';
@@ -19,6 +19,8 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { listTripsPage, startTrip } from '../../../services/trips';
 import { countQueuedActivitiesForTrip } from '../../../offline/TripQueues';
 import PALETTE from '../../../theme/palette';
+
+const APPBAR_BG = '#1f720d';
 
 type TripRow = {
   id: string | number;
@@ -279,32 +281,25 @@ export default function TripsScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: PALETTE.surface }}>
-      <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" />
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: APPBAR_BG }}>
+      <StatusBar backgroundColor={APPBAR_BG} barStyle="light-content" translucent={false} />
 
       <View style={styles.screen}>
-        {/* Header / search row */}
-        <View style={styles.hero}>
+        {/* App Bar */}
+        <View style={styles.appbar}>
           <Pressable
             onPress={handleBack}
-            style={({ pressed }) => [
-              styles.backBtn,
-              pressed && { opacity: 0.85 },
-            ]}
+            style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.85 }]}
             accessibilityRole="button"
             accessibilityLabel="Go back"
           >
-            <Icon name="arrow-back" size={24} color="#FFFFFF" />
+            <Icon name="arrow-back" size={22} color="#fff" />
           </Pressable>
-
-          <View style={styles.heroBody}>
-            <Text style={styles.heroTitle}>All Trips</Text>
-            <Text style={styles.heroSub}>
-              {loading ? 'Loading…' : `Total: ${filtered.length}`}
-            </Text>
-          </View>
+          <Text style={styles.appbarTitle}>All Trips</Text>
+          <View style={styles.iconBtn} />
         </View>
 
+        <View style={styles.contentWrap}>
         <View style={styles.searchRow}>
           <TextInput
             value={search}
@@ -375,6 +370,7 @@ export default function TripsScreen() {
           onRefresh={loadTrips}
           contentContainerStyle={{ paddingVertical: 12 }}
         />
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -384,29 +380,22 @@ export default function TripsScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 38,
+    // paddingTop: 12,
     paddingBottom: 12,
     backgroundColor: PALETTE.surface,
   },
-
-  hero: {
-    backgroundColor: PALETTE.green700,
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+  contentWrap: { paddingHorizontal: 16 },
+  appbar: {
+    backgroundColor: APPBAR_BG,
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    ...shadow(0.08, 8, 3),
+    justifyContent: 'space-between',
+    paddingHorizontal: 0,
+    borderRadius: 0,
   },
-  backBtn: {
-    padding: 6,
-    borderRadius: 999,
-    marginRight: 8,
-  },
-  heroBody: { flex: 1 },
-  heroTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
-  heroSub: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 },
+  appbarTitle: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  iconBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
 
   searchRow: { marginTop: 10 },
   searchInput: {

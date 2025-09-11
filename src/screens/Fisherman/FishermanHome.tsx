@@ -17,6 +17,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import NetInfo from '@react-native-community/netinfo';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../redux/actions/authActions';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { FishermanStackParamList } from '../../app/navigation/stacks/FishermanStack';
@@ -175,8 +176,10 @@ export default function FishermanHome() {
   }, [user]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: PALETTE.green50 }}>
-      <StatusBar backgroundColor={APPBAR_BG} barStyle="light-content" />
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: APPBAR_BG }}>
+      <StatusBar backgroundColor={APPBAR_BG} barStyle="light-content" translucent={false} />
+
+      <View style={{ flex: 1, backgroundColor: PALETTE.green50 }}>
 
       {/* App Bar */}
       <View style={styles.appbar}>
@@ -396,6 +399,7 @@ export default function FishermanHome() {
         <View style={{ height: 16 }} />
       </ScrollView>
           </View>
+    </SafeAreaView>
   );
 }
 
@@ -522,8 +526,8 @@ function ActionTile({
 const styles = StyleSheet.create({
   appbar: {
     backgroundColor: APPBAR_BG,
-    paddingTop: Platform.OS === 'ios' ? 10 : 0,
-    height: 56 + (Platform.OS === 'ios' ? 10 : 0),
+    paddingTop: 0,
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
