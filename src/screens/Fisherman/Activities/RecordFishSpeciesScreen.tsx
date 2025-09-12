@@ -3,7 +3,6 @@ import React, { JSX, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -12,13 +11,16 @@ import {
   useWindowDimensions,
   View,
   Alert,
+  Image,
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { launchImageLibrary, Asset } from 'react-native-image-picker';
 
 import PALETTE from '../../../theme/palette';
-import { createFishSpecies } from '../../../services/fishSpecies';
+import { createFishSpecies, createFishSpeciesWithPhotos } from '../../../services/fishSpecies';
 import { isOnline } from '../../../offline/net';
 import { enqueueCreateSpecies } from '../../../offline/TripQueues';
 import { buildLotNo, generateLocalId } from '../../../utils/ids';
@@ -65,6 +67,7 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
   const [grade, setGrade] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [photos, setPhotos] = useState<Asset[]>([]);
 
   const isValid = useMemo(() => {
     const q = Number(qty);
@@ -151,7 +154,7 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
       }
 
       // Online mode
-      await createFishSpecies(activityId, {
+      const body = {
         activity_code: activityCode ?? undefined,
         trip_code: tripCode ?? undefined,
         species_name: species.trim(),
@@ -159,7 +162,37 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
         type: type as 'catch' | 'discard',
         grade: grade.trim() ? grade.trim() : null,
         notes: notes.trim() ? notes.trim() : null,
-      });
+      } as const;
+
+      // Debug logs for photos
+      try {
+        console.log('[SpeciesSubmit] photos.length =', photos.length);
+        console.log('[SpeciesSubmit] photo uris =', photos.map(p => p.uri));
+        console.log('[SpeciesSubmit] payload =', {
+          species_name: body.species_name,
+          quantity_kg: body.quantity_kg,
+          type: body.type,
+          grade: body.grade,
+          notes: body.notes,
+          activity_code: body.activity_code,
+          trip_code: body.trip_code,
+        });
+      } catch (e) {
+        // ignore logging errors
+      }
+
+      await createFishSpeciesWithPhotos(
+        activityId,
+        body as any,
+        photos
+          .filter(p => !!p.uri)
+          .map(p => ({ uri: p.uri!, name: p.fileName, type: p.type })),
+      );
+
+      console.log('[SpeciesSubmit] multipart request completed successfully');
+
+      // NOTE: Photo upload can be integrated here if the API supports it.
+      // We are capturing selected photos in state; they can be posted after species creation.
 
       Toast.show({
         type: 'success',
@@ -188,9 +221,41 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
     }
   }
 
+  function handlePickPhotos() {
+    launchImageLibrary(
+      {
+        mediaType: 'photo',
+        selectionLimit: 0, // 0 = unlimited (multiple)
+        includeBase64: false,
+      },
+      (response) => {
+        if (response.didCancel) return;
+        if (response.errorCode) {
+          Toast.show({ type: 'error', text1: 'Photos', text2: response.errorMessage || 'Could not open gallery' });
+          return;
+        }
+        const assets = response.assets || [];
+        setPhotos((prev) => {
+          const existingUris = new Set(prev.map(p => p.uri));
+          const merged = [...prev];
+          for (const a of assets) {
+            if (a.uri && !existingUris.has(a.uri)) merged.push(a);
+          }
+          return merged;
+        });
+      }
+    );
+  }
+
+  function handleRemovePhoto(idx: number) {
+    setPhotos(prev => prev.filter((_, i) => i !== idx));
+  }
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F7F7F7' }}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F7F7F7" />
+    <>
+      <StatusBar backgroundColor={PRIMARY} barStyle="light-content" translucent={false} />
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: PRIMARY }}>
+        <View style={{ flex: 1, backgroundColor: '#F7F7F7' }}>
       
       {/* Header */}
       <View style={styles.header}>
@@ -333,6 +398,36 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
           </View>
         </Section>
 
+        {/* Photos */}
+        <Section title="Photos" icon="image">
+          <View style={{ gap: 12 }}>
+            <Pressable onPress={handlePickPhotos} style={styles.addPhotosButton}>
+              <MaterialIcons name="upload-file" size={18} color={PRIMARY} />
+              <Text style={styles.addPhotosText}>Upload Photos</Text>
+              <Text style={styles.addPhotosHint}>(You can select multiple)</Text>
+            </Pressable>
+
+            {photos.length > 0 && (
+              <View style={styles.photoGrid}>
+                {photos.map((p, idx) => (
+                  <View key={p.uri || String(idx)} style={styles.photoItem}>
+                    {p.uri ? (
+                      <Image source={{ uri: p.uri }} style={styles.photoImage} resizeMode="cover" />
+                    ) : (
+                      <View style={[styles.photoImage, { alignItems: 'center', justifyContent: 'center' }]}> 
+                        <MaterialIcons name="image" size={24} color={PALETTE.text400} />
+                      </View>
+                    )}
+                    <Pressable onPress={() => handleRemovePhoto(idx)} style={styles.photoRemove}>
+                      <MaterialIcons name="close" size={16} color="#fff" />
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        </Section>
+
         {/* Submit Button */}
         <View style={styles.submitContainer}>
           {/* Debug Validation Status */}
@@ -368,7 +463,9 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
           </Pressable>
         </View>
       </ScrollView>
-    </SafeAreaView>
+        </View>
+      </SafeAreaView>
+    </>
   );
 }
 
@@ -518,5 +615,51 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  addPhotosButton: {
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    backgroundColor: '#FAFAFA',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  addPhotosText: {
+    color: PRIMARY,
+    fontWeight: '700',
+  },
+  addPhotosHint: {
+    marginLeft: 'auto',
+    color: PALETTE.text500,
+    fontSize: 12,
+  },
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  photoItem: {
+    width: '31%',
+    aspectRatio: 1,
+    borderRadius: 10,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#EEE',
+  },
+  photoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  photoRemove: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 999,
+    padding: 4,
   },
 });

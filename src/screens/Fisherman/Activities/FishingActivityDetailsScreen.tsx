@@ -2,7 +2,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   Text,
@@ -12,6 +11,7 @@ import {
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { completeFishingActivity, getFishingActivityById, type FishingActivityDetails } from '../../../services/fishingActivity';
@@ -72,7 +72,7 @@ function n(v?: any) {
 export default function FishingActivityDetailsScreen() {
   const navigation = useNavigation<Nav>();
   const { params } = useRoute<any>();
-  const { activityId, fallback, tripId }: Params = params || {};
+  const { activityId, fallback }: Params = params || {} as any;
   const [completing, setCompleting] = useState(false);
    const auth = useSelector((s: RootState) => (s as any).auth);
   const authUser = auth?.user;
@@ -146,8 +146,10 @@ export default function FishingActivityDetailsScreen() {
   }, [fallback, load]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F7F7F7' }}>
-      <StatusBar backgroundColor={PRIMARY} barStyle="light-content" />
+    <>
+      <StatusBar backgroundColor={PRIMARY} barStyle="light-content" translucent={false} />
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: PRIMARY }}>
+        <View style={{ flex: 1, backgroundColor: '#F7F7F7' }}>
 
       {/* Header */}
       <View style={[styles.header, { backgroundColor: PRIMARY }]}>
@@ -169,21 +171,7 @@ export default function FishingActivityDetailsScreen() {
           </View>
         </View>
 
-        {(data?.trip_pk ?? tripId) && (
-          <Pressable
-            onPress={() =>
-              // pass numeric PK gitDetails
-              // @ts-ignore
-              navigation.navigate('TripDetails', {
-                id: (data?.trip_pk ?? tripId) as any,
-              })
-            }
-            style={styles.headerBtn}
-          >
-            <MaterialIcons name="directions-boat" size={16} color={PRIMARY} />
-            <Text style={styles.headerBtnText}>Back to Trip</Text>
-          </Pressable>
-        )}
+        {/* Back-to-Trip removed as requested */}
       </View>
 
       {loading ? (
@@ -340,18 +328,12 @@ export default function FishingActivityDetailsScreen() {
                 )}
               </>
             )}
-
-            {/* Back to List - Last Row (always visible) */}
-            <Pressable
-              style={[styles.hollowBtn, styles.actionBtn]}
-              onPress={() => navigation.goBack()}
-            >
-              <Text style={styles.hollowBtnText}>Back to List</Text>
-            </Pressable>
           </View>
         </ScrollView>
       )}
-    </SafeAreaView>
+        </View>
+      </SafeAreaView>
+    </>
   );
 }
 
