@@ -135,6 +135,10 @@ export default function MiddleManHome() {
     navigation.navigate('Purchases' as any);
   }, [navigation]);
 
+  const goCreatePurchase = useCallback(() => {
+    navigation.navigate('CreatePurchase' as any);
+  }, [navigation]);
+
   // Computed values from user data
   const name = useMemo(() => {
     return user?.name || user?.first_name || 'Middleman';
@@ -261,6 +265,12 @@ export default function MiddleManHome() {
               title="All Purchases"
               subtitle="Manage purchases"
               onPress={goPurchases}
+            />
+            <ActionTile
+              icon="add-shopping-cart"
+              title="Create Purchase"
+              subtitle="Start a new purchase"
+              onPress={goCreatePurchase}
             />
           </View>
         </View>

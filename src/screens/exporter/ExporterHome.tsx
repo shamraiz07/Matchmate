@@ -339,12 +339,12 @@ export default function ExporterHome() {
               subtitle="View purchase history"
               onPress={goPurchases}
             />
-            <ActionTile
+            {/* <ActionTile
               icon="add-shopping-cart"
               title="Create Purchase"
               subtitle="Add new purchase"
               onPress={goCreatePurchase}
-            />
+            /> */}
             <ActionTile
               icon="description"
               title="View Records"

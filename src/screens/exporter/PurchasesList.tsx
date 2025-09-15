@@ -250,10 +250,13 @@ export default function PurchasesList() {
             <Text style={styles.heroTitle}>All Purchases</Text>
             <Text style={styles.heroSub}>{loading ? 'Loading…' : `Total: ${total}`}</Text>
           </View>
+          {/* Create Purchase moved to Middleman. Button hidden for Exporter. */}
+          {false && (
           <Pressable onPress={() => (navigation as any).navigate('CreatePurchase')} style={({ pressed }) => [styles.cta, pressed && { opacity: 0.95 }]}>
             <Icon name="add-shopping-cart" size={18} color="#fff" />
             <Text style={styles.ctaText}>New</Text>
           </Pressable>
+          )}
         </View>
 
         {/* Filters */}

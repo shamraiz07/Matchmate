@@ -4,8 +4,8 @@ import { View, Text, StyleSheet, SafeAreaView, Pressable, TextInput, ScrollView,
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation } from '@react-navigation/native';
 import PALETTE from '../../theme/palette';
-import { createExporterPurchase, fetchAllDistributions } from '../../services/middlemanDistribution';
-import { fetchExporterCompanies, type ExporterCompany } from '../../services/traceability';
+import { createExporterPurchase, fetchDistributions, fetchAssignments } from '../../services/middlemanDistribution';
+import { type ExporterCompany } from '../../services/traceability';
 import { loadTokenFromStorage } from '../../services/https';
 
 type LotRow = { lot_no: string; max?: number | null; quantity_kg: string; selected?: boolean };
@@ -36,8 +36,8 @@ export default function CreatePurchase() {
   useEffect(() => {
     (async () => {
       try {
-        const dRes = await fetchAllDistributions();
-        setDistOptions(dRes.map(d => {
+        const dRes = await fetchDistributions({ page: 1, per_page: 50 });
+        setDistOptions(dRes.items.map(d => {
           const tripId = d.trip?.id || d.trip_id;
           const middlemanName = d.middle_man?.name || 'Unknown';
           const totalKg = d.total_quantity_kg;
@@ -53,7 +53,22 @@ export default function CreatePurchase() {
         // Don't show error to user on load, just log it
       }
       try {
-        const companiesRes = await fetchExporterCompanies();
+        // Use middleman assignments as the source of allowed companies
+        const assignments = await fetchAssignments({ page: 1, per_page: 100 });
+        const unique: Record<string, ExporterCompany> = {} as any;
+        assignments.items.forEach(a => {
+          const c = a.company as any;
+          if (c?.id && !unique[c.id]) {
+            unique[c.id] = {
+              id: c.id,
+              name: c.name || c.company_name || '',
+              company_name: c.company_name || c.name || '',
+              phone: c.phone || c.business_phone || undefined,
+              email: c.email || c.business_email || undefined,
+            } as ExporterCompany;
+          }
+        });
+        const companiesRes = Object.values(unique);
         setCompanies(companiesRes);
       } catch (error: any) {
         console.log('Error fetching companies:', error?.message);
@@ -79,8 +94,8 @@ export default function CreatePurchase() {
       // Ensure token is loaded
       await loadTokenFromStorage();
       
-      const dRes = await fetchAllDistributions();
-      setDistOptions(dRes.map(d => {
+      const dRes = await fetchDistributions({ page: 1, per_page: 50 });
+      setDistOptions(dRes.items.map(d => {
         const tripId = d.trip?.id || d.trip_id;
         const middlemanName = d.middle_man?.name || 'Unknown';
         const totalKg = d.total_quantity_kg;
@@ -164,8 +179,15 @@ export default function CreatePurchase() {
       });
       showToast('Purchase created successfully!', 'success');
       setTimeout(() => {
-        // @ts-ignore
-        navigation.navigate('PurchasesList');
+        // Redirect to Middleman purchases list now
+        try {
+          // @ts-ignore
+          navigation.navigate('Purchases');
+        } catch (e) {
+          // Fallback: go back
+          // @ts-ignore
+          navigation.goBack();
+        }
       }, 1500);
     } catch (e: any) {
       showToast(e?.message || 'Failed to create purchase', 'error');

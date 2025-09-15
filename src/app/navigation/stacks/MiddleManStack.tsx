@@ -9,6 +9,7 @@ import Assignments from '../../../screens/middleman/Assignments';
 import AssignmentDetails from '../../../screens/middleman/AssignmentDetails';
 import Purchases from '../../../screens/middleman/Purchases';
 import PurchaseDetails from '../../../screens/middleman/PurchaseDetails';
+import CreatePurchase from '../../../screens/exporter/CreatePurchase';
 import AddDistribution from '../../../screens/middleman/AddDistribution';
 
 export type MiddleManStackParamList = {
@@ -20,6 +21,7 @@ export type MiddleManStackParamList = {
   assignmentDetails: { assignmentId: number };
   Purchases: undefined;
   purchaseDetails: { purchaseId: number };
+  CreatePurchase: undefined;
   AddDistribution: undefined;
 };
 
@@ -57,6 +59,11 @@ export default function MiddleManStack() {
       <Stack.Screen 
         name="Purchases"
         component={Purchases}
+        options={{headerShown: false}}
+      />
+      <Stack.Screen 
+        name="CreatePurchase"
+        component={CreatePurchase}
         options={{headerShown: false}}
       />
       <Stack.Screen 
