@@ -10,11 +10,13 @@ import {
   Alert,
   StyleSheet,
   useWindowDimensions,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { completeFishingActivity, getFishingActivityById, type FishingActivityDetails } from '../../../services/fishingActivity';
+import { BASE_URL } from '../../../services/https';
 import { enqueueCompleteActivity } from '../../../offline/TripQueues';
 import { isOnline } from '../../../offline/net';
 import PALETTE from '../../../theme/palette';
@@ -145,6 +147,13 @@ export default function FishingActivityDetailsScreen() {
     if (!fallback) load();
   }, [fallback, load]);
 
+  // Build absolute storage URL from API base (removes /api)
+  const getStorageUrl = useCallback((p?: string) => {
+    if (!p) return undefined as any;
+    const origin = BASE_URL.replace(/\/?api\/?$/i, '');
+    return `${origin}/storage/${p.replace(/^\/?storage\/?/i, '')}`;
+  }, []);
+
   return (
     <>
       <StatusBar backgroundColor={PRIMARY} barStyle="light-content" translucent={false} />
@@ -232,32 +241,37 @@ export default function FishingActivityDetailsScreen() {
           >
             {data?.fish_species?.length ? (
               <View style={styles.speciesWrap}>
-                {data.fish_species.map(s => (
+                {data.fish_species.map(s => {
+                  const photos = (s as any).photos as any[] | undefined;
+                  const thumbUri = photos && photos.length > 0 ? getStorageUrl(photos[0]?.path) : undefined;
+                  return (
                   <View key={String(s.id)} style={styles.speciesRow}>
-                    <MaterialIcons
-                      name="directions-boat"
-                      size={18}
-                      color={PALETTE.text700}
-                    />
+                    {thumbUri ? (
+                      <Image source={{ uri: thumbUri }} style={styles.speciesThumb} resizeMode="cover" />
+                    ) : (
+                      <MaterialIcons name="cruelty-free" size={22} color={PALETTE.text700} />
+                    )}
                     <View style={{ flex: 1, gap: 2 }}>
-                      <Text style={[styles.value]}>
-                        {/* LOT-... */}
-                        {s.lot_no || `Lot #${s.id}`}
+                      <Text style={[styles.value]}>{s.lot_no || `Lot #${s.id}`}</Text>
+                      <Text style={{ color: PALETTE.text700, fontWeight: '700' }}>
+                        {s.species_name ?? '—'} · {s.type_label || (s.type ? s.type.charAt(0).toUpperCase() + s.type.slice(1) : '—')} · {s.quantity_kg != null ? `${s.quantity_kg} kg` : '—'}
                       </Text>
-                      <Text
-                        style={{ color: PALETTE.text700, fontWeight: '700' }}
-                      >
-                        {/* Species — Type — Qty */}
-                        {s.species_name ?? '—'} ·{' '}
-                        {s.type_label ||
-                          (s.type
-                            ? s.type.charAt(0).toUpperCase() + s.type.slice(1)
-                            : '—')}{' '}
-                        · {s.quantity_kg != null ? `${s.quantity_kg} kg` : '—'}
-                      </Text>
+                      {/* Photo gallery */}
+                      {Array.isArray((s as any).photos) && (s as any).photos.length > 0 && (
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }} contentContainerStyle={{ gap: 8 }}>
+                          {(s as any).photos.map((p: any, idx: number) => {
+                            const uri = getStorageUrl(p.path);
+                            return (
+                              <View key={idx} style={styles.photoItem}>
+                                <Image source={{ uri }} style={styles.photoImg} resizeMode="cover" />
+                              </View>
+                            );
+                          })}
+                        </ScrollView>
+                      )}
                     </View>
                   </View>
-                ))}
+                );})}
               </View>
             ) : (
               <Text style={{ color: PALETTE.text600, textAlign: 'center' }}>
@@ -413,6 +427,26 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 10,
     width: '100%',
+  },
+  speciesThumb: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    marginRight: 8,
+    backgroundColor: '#EEE',
+  },
+  photoItem: {
+    width: 100,
+    height: 80,
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F3F4F6',
+  },
+  photoImg: {
+    width: '100%',
+    height: '100%',
   },
 
   /* actions */
