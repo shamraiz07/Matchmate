@@ -17,6 +17,9 @@ import { RootStackParamList } from '../../../types';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { registerUser, type CreateUserBody } from '../../services/users';
 import Toast from 'react-native-toast-message';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../../components/LanguageSwitcher';
+import { isRTL, getTextAlign } from '../../utils/rtl';
 
 /* ===== Theme ===== */
 const GREEN = '#1f720d';
@@ -77,6 +80,7 @@ interface FormData {
 }
 
 const SignUp = () => {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   
   const [formData, setFormData] = useState<FormData>({
@@ -805,6 +809,7 @@ const SignUp = () => {
 
     return (
     <View style={styles.container}>
+        <LanguageSwitcher />
         <View style={styles.container}>
         {/* Top Header */}
         <View style={styles.header}>
@@ -814,11 +819,11 @@ const SignUp = () => {
               style={styles.headerLogo}
               resizeMode="contain"
             />
-            <Text style={styles.portalTitle}>Marine Fisheries Department</Text>
-            <Text style={styles.portalDescription}>"Join the Professional Fisheries Management Community"</Text>
-            <View style={styles.poweredByRow}>
+            <Text style={[styles.portalTitle, { textAlign: getTextAlign() }]}>{t('auth.portalTitle')}</Text>
+            <Text style={[styles.portalDescription, { textAlign: getTextAlign() }]}>"{t('auth.signUpSubtitle')}"</Text>
+            <View style={[styles.poweredByRow, isRTL() && { flexDirection: 'row-reverse' }]}>
               <MaterialIcons name="account-balance" size={16} color={TEXT_MUTED} />
-              <Text style={styles.poweredByText}>Powered by: Government of Pakistan</Text>
+              <Text style={[styles.poweredByText, { textAlign: getTextAlign() }]}>{t('auth.poweredBy')}</Text>
             </View>
           </View>
         </View>
@@ -850,8 +855,8 @@ const SignUp = () => {
                 </View>
               )}
               <View style={styles.formHeader}>
-                <Text style={styles.title}>Create Professional Account</Text>
-                <Text style={styles.subtitle}>Join the Marine Fisheries Department portal</Text>
+                <Text style={[styles.title, { textAlign: getTextAlign() }]}>{t('auth.signUpTitle')}</Text>
+                <Text style={[styles.subtitle, { textAlign: getTextAlign() }]}>{t('auth.signUpSubtitle')}</Text>
               </View>
 
               {renderUserTypeSection()}

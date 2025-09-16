@@ -25,12 +25,16 @@ import { fetchPurchases, type FishPurchase } from '../../services/middlemanDistr
 import { getUser, type User } from '../../services/users';
 import { fetchTraceabilityRecords } from '../../services/traceability';
 import PALETTE from '../../theme/palette';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../../components/LanguageSwitcher';
+import { isRTL, getTextAlign } from '../../utils/rtl';
 
 type Nav = NativeStackNavigationProp<ExporterStackParamList, 'ExporterHome'>;
 
 const APPBAR_BG = '#1f720d';
 
 export default function ExporterHome() {
+  const { t } = useTranslation();
   const dispatch = useDispatch();
   const navigation = useNavigation<Nav>();
   // const auth = useSelector((s: any) => s.auth);
@@ -169,11 +173,12 @@ export default function ExporterHome() {
   return (
     <View style={{ flex: 1, backgroundColor: PALETTE.green50 }}>
       <StatusBar backgroundColor={APPBAR_BG} barStyle="light-content" />
+      <LanguageSwitcher />
 
       {/* App Bar */}
       <View style={styles.appbar}>
         <View style={styles.appbarSide} />
-        <Text style={styles.appbarTitle}>Exporter Dashboard</Text>
+        <Text style={[styles.appbarTitle, { textAlign: getTextAlign() }]}>{t('exporter.title')}</Text>
         <Pressable
           onPress={confirmLogout}
           style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.85 }]}
@@ -204,16 +209,17 @@ export default function ExporterHome() {
             marginLeft: 8,
             color: online ? PALETTE.green700 : PALETTE.warn,
             flex: 1,
+            textAlign: getTextAlign(),
           }}
         >
-          {online ? 'Online — live data enabled' : 'Offline — showing cached/limited data'}
+          {online ? t('exporter.onlineStatus') : t('exporter.offlineStatus')}
         </Text>
         <Pressable
           onPress={onRefresh}
           style={({ pressed }) => [styles.refreshChip, pressed && { opacity: 0.85 }]}
         >
           <Icon name="refresh" size={16} color={PALETTE.text700} />
-          <Text style={{ color: PALETTE.text700, marginLeft: 6 }}>Refresh</Text>
+          <Text style={{ color: PALETTE.text700, marginLeft: 6 }}>{t('common.refresh')}</Text>
         </Pressable>
       </View>
 
@@ -228,9 +234,9 @@ export default function ExporterHome() {
               <Icon name="business" size={22} color="#fff" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.h1}>Welcome back, {name}!</Text>
-              <Text style={styles.subtle}>
-                You're logged into the Marine Fisheries Department Portal as an Exporter.
+              <Text style={[styles.h1, { textAlign: getTextAlign() }]}>{t('exporter.welcome')}, {name}!</Text>
+              <Text style={[styles.subtle, { textAlign: getTextAlign() }]}>
+                {t('exporter.portalDescription')}
               </Text>
             </View>
           </View>

@@ -25,12 +25,16 @@ import { getTripCounts, type TripCounts } from '../../services/trips';
 import { fetchFishLots, type FishLot } from '../../services/lots';
 import { getUser, type User } from '../../services/users';
 import PALETTE from '../../theme/palette';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../../components/LanguageSwitcher';
+import { isRTL, getTextAlign } from '../../utils/rtl';
 
 type Nav = NativeStackNavigationProp<FishermanStackParamList, 'FishermanHome'>;
 
 const APPBAR_BG = '#1f720d';
 
 export default function FishermanHome() {
+  const { t } = useTranslation();
   const dispatch = useDispatch();
   const navigation = useNavigation<Nav>();
 
@@ -178,13 +182,13 @@ export default function FishermanHome() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: APPBAR_BG }}>
       <StatusBar backgroundColor={APPBAR_BG} barStyle="light-content" translucent={false} />
-
+      <LanguageSwitcher />
       <View style={{ flex: 1, backgroundColor: PALETTE.green50 }}>
 
       {/* App Bar */}
       <View style={styles.appbar}>
         <View style={styles.appbarSide} />
-        <Text style={styles.appbarTitle}>Fisherman Dashboard</Text>
+        <Text style={styles.appbarTitle}>{t('fisherman.title')}</Text>
         <Pressable
           onPress={confirmLogout}
           style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.85 }]}
@@ -217,14 +221,14 @@ export default function FishermanHome() {
             flex: 1,
           }}
         >
-          {online ? 'Online — live data enabled' : 'Offline — showing cached/limited data'}
+          {online ? t('fisherman.onlineStatus') : t('fisherman.offlineStatus')}
               </Text>
                 <Pressable
           onPress={onRefresh}
           style={({ pressed }) => [styles.refreshChip, pressed && { opacity: 0.85 }]}
         >
           <Icon name="refresh" size={16} color={PALETTE.text700} />
-          <Text style={{ color: PALETTE.text700, marginLeft: 6 }}>Refresh</Text>
+          <Text style={{ color: PALETTE.text700, marginLeft: 6 }}>{t('common.refresh')}</Text>
                 </Pressable>
               </View>
 
@@ -239,9 +243,9 @@ export default function FishermanHome() {
               <Icon name="sailing" size={22} color="#fff" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.h1}>Welcome back, {name}!</Text>
+              <Text style={styles.h1}>{t('fisherman.welcome')}, {name}!</Text>
               <Text style={styles.subtle}>
-                You're logged into the Marine Fisheries Department Portal as a Fisherman.
+                {t('fisherman.portalDescription')}
               </Text>
             </View>
           </View>
@@ -255,40 +259,40 @@ export default function FishermanHome() {
 
         {/* Profile Card */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Your Profile</Text>
+          <Text style={styles.sectionTitle}>{t('fisherman.yourProfile')}</Text>
 
-          <Row icon="person" label="Full Name" value={name} />
-          <Row icon="mail" label="Email Address" value={user?.email || '—'} />
-          <Row icon="phone" label="Phone Number" value={user?.phone || '—'} />
+          <Row icon="person" label={t('fisherman.fullName')} value={name} />
+          <Row icon="mail" label={t('fisherman.emailAddress')} value={user?.email || '—'} />
+          <Row icon="phone" label={t('fisherman.phoneNumber')} value={user?.phone || '—'} />
 
           <View style={[styles.row, { marginTop: 8 }]}>
             <Icon name="verified" size={18} color={PALETTE.green700} style={{ marginRight: 10 }} />
-            <Text style={styles.rowLabel}>Account Status</Text>
+            <Text style={styles.rowLabel}>{t('fisherman.accountStatus')}</Text>
             <View style={{ flex: 1 }} />
-            <StatusPill text="Active" tone="ok" />
+            <StatusPill text={t('fisherman.active')} tone="ok" />
           </View>
 
           <View style={styles.divider} />
 
-          <Row icon="waves" label="Fishing Zone" value={user?.fishing_zone || 'Not specified'} />
-          <Row icon="location-on" label="Port Location" value={user?.port_location || 'Not specified'} />
-          <Row icon="directions-boat" label="Boat Registration" value={user?.boat_registration_number || 'Not registered'} />
+          <Row icon="waves" label={t('fisherman.fishingZone')} value={user?.fishing_zone || t('fisherman.notSpecified')} />
+          <Row icon="location-on" label={t('fisherman.portLocation')} value={user?.port_location || t('fisherman.notSpecified')} />
+          <Row icon="directions-boat" label={t('fisherman.boatRegistration')} value={user?.boat_registration_number || t('fisherman.notRegistered')} />
         </View>
 
         {/* Trips Overview */}
         <View style={styles.card}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Trips Overview</Text>
+            <Text style={styles.sectionTitle}>{t('fisherman.tripsOverview')}</Text>
             <Pressable onPress={goAllTrips} style={({ pressed }) => [styles.linkBtn, pressed && { opacity: 0.85 }]}>
               <Icon name="list" size={18} color={PALETTE.info} />
-              <Text style={{ color: PALETTE.info, marginLeft: 6, fontWeight: '600' }}>View all</Text>
+              <Text style={{ color: PALETTE.info, marginLeft: 6, fontWeight: '600' }}>{t('common.view')} {t('common.all')}</Text>
             </Pressable>
           </View>
 
             {loading ? (
             <View style={{ paddingVertical: 16, alignItems: 'center' }}>
               <ActivityIndicator size="small" color={PALETTE.green700} />
-              <Text style={{ color: PALETTE.text600, marginTop: 8 }}>Loading stats…</Text>
+              <Text style={{ color: PALETTE.text600, marginTop: 8 }}>{t('fisherman.loadingStats')}</Text>
             </View>
           ) : errText ? (
             <View style={{ paddingVertical: 8 }}>
@@ -296,9 +300,9 @@ export default function FishermanHome() {
             </View>
           ) : (
             <View style={styles.statGrid}>
-              <StatCard icon="inbox" label="All Trips" value={totalTrips} onPress={goAllTrips} />
-              <StatCard icon="navigation" label="Active Trips" value={activeTrips} onPress={goAllTrips} tone="info" />
-              <StatCard icon="add-location-alt" label="New Trip" value="+" onPress={goNewTrip} tone="ok" />
+              <StatCard icon="inbox" label={t('fisherman.allTrips')} value={totalTrips} onPress={goAllTrips} />
+              <StatCard icon="navigation" label={t('fisherman.activeTrips')} value={activeTrips} onPress={goAllTrips} tone="info" />
+              <StatCard icon="add-location-alt" label={t('fisherman.newTrip')} value="+" onPress={goNewTrip} tone="ok" />
                     </View>
           )}
         </View>
@@ -306,34 +310,34 @@ export default function FishermanHome() {
         {/* Species Overview */}
         <View style={styles.card}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Species</Text>
+            <Text style={styles.sectionTitle}>{t('fisherman.species')}</Text>
             <Pressable onPress={goLotsList} style={({ pressed }) => [styles.linkBtn, pressed && { opacity: 0.85 }]}>
               <Icon name="list" size={18} color={PALETTE.info} />
-              <Text style={{ color: PALETTE.info, marginLeft: 6, fontWeight: '600' }}>View all</Text>
+              <Text style={{ color: PALETTE.info, marginLeft: 6, fontWeight: '600' }}>{t('common.view')} {t('common.all')}</Text>
             </Pressable>
           </View>
 
           <View style={styles.statGrid}>
-            <StatCard icon="set-meal" label="All Species" value={totalLots} onPress={goLotsList} />
+            <StatCard icon="set-meal" label={t('fisherman.allSpecies')} value={totalLots} onPress={goLotsList} />
           </View>
         </View>
 
         {/* Boats Section */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Boats</Text>
-          <Text style={styles.subtle}>Manage your fishing vessels and registrations</Text>
+          <Text style={styles.sectionTitle}>{t('fisherman.boats')}</Text>
+          <Text style={styles.subtle}>{t('fisherman.boatsDescription')}</Text>
 
           <View style={styles.actionGrid}>
             <ActionTile
               icon="directions-boat"
-              title="All Boats"
-              subtitle="View your registered boats"
+              title={t('fisherman.allBoats')}
+              subtitle={t('fisherman.viewRegisteredBoats')}
               onPress={goBoatsList}
             />
             <ActionTile
               icon="add-circle"
-              title="Register Boat"
-              subtitle="Add new fishing vessel"
+              title={t('fisherman.registerBoat')}
+              subtitle={t('fisherman.addNewVessel')}
               onPress={goBoatRegister}
             />
                   </View>
@@ -341,14 +345,14 @@ export default function FishermanHome() {
 
         {/* Activities Section */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Fishing Activities</Text>
-          <Text style={styles.subtle}>Track your fishing activities and species</Text>
+          <Text style={styles.sectionTitle}>{t('fisherman.fishingActivities')}</Text>
+          <Text style={styles.subtle}>{t('fisherman.activitiesDescription')}</Text>
 
           <View style={styles.actionGrid}>
             <ActionTile
               icon="surfing"
-              title="All Activities"
-              subtitle="View fishing activities"
+              title={t('fisherman.allActivities')}
+              subtitle={t('fisherman.viewFishingActivities')}
               onPress={goFishingActivities}
             />
           </View>
@@ -356,31 +360,31 @@ export default function FishermanHome() {
 
         {/* Quick Actions */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <Text style={styles.sectionTitle}>{t('fisherman.quickActions')}</Text>
 
           <View style={styles.actionGrid}>
             <ActionTile
               icon="cloud-off"
-              title="Offline Trips"
-              subtitle="View offline trip data"
+              title={t('fisherman.offlineTrips')}
+              subtitle={t('fisherman.viewOfflineData')}
               onPress={goOfflineTrips}
             />
             <ActionTile
               icon="room-service"
-              title="All Trips"
-              subtitle="Browse all your trips"
+              title={t('fisherman.allTrips')}
+              subtitle={t('fisherman.browseAllTrips')}
               onPress={goAllTrips}
             />
             <ActionTile
               icon="add-location-alt"
-              title="New Trip"
-              subtitle="Start a new fishing trip"
+              title={t('fisherman.newTrip')}
+              subtitle={t('fisherman.startNewTrip')}
               onPress={goNewTrip}
             />
             <ActionTile
               icon="edit"
-              title="Edit Profile"
-              subtitle="Update your information"
+              title={t('fisherman.editProfile')}
+              subtitle={t('fisherman.updateInformation')}
               onPress={goProfile}
             />
           </View>
@@ -505,19 +509,20 @@ function ActionTile({
   subtitle: string;
   onPress?: () => void;
 }) {
+  const rtl = isRTL();
   return (
             <Pressable
       onPress={onPress}
       style={({ pressed }) => [styles.tile, pressed && { opacity: 0.95, transform: [{ scale: 0.99 }] }]}
     >
-      <View style={styles.tileIcon}>
+      <View style={[styles.tileIcon, rtl && { marginLeft: 12, marginRight: 0 }]}>
         <Icon name={icon} size={20} color="#fff" />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ color: PALETTE.text900, fontWeight: '700' }}>{title}</Text>
-        <Text style={{ color: PALETTE.text600, marginTop: 2 }}>{subtitle}</Text>
+        <Text style={{ color: PALETTE.text900, fontWeight: '700', textAlign: getTextAlign() }}>{title}</Text>
+        <Text style={{ color: PALETTE.text600, marginTop: 2, textAlign: getTextAlign() }}>{subtitle}</Text>
       </View>
-      <Icon name="chevron-right" size={22} color={PALETTE.text600} />
+      <Icon name={rtl ? "chevron-left" : "chevron-right"} size={22} color={PALETTE.text600} />
             </Pressable>
   );
 }

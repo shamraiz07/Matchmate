@@ -17,6 +17,7 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { completeFishingActivity, getFishingActivityById, type FishingActivityDetails } from '../../../services/fishingActivity';
 import { BASE_URL } from '../../../services/https';
+import { useTranslation } from 'react-i18next';
 import { enqueueCompleteActivity } from '../../../offline/TripQueues';
 import { isOnline } from '../../../offline/net';
 import PALETTE from '../../../theme/palette';
@@ -72,6 +73,7 @@ function n(v?: any) {
 }
 
 export default function FishingActivityDetailsScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const { params } = useRoute<any>();
   const { activityId, fallback }: Params = params || {} as any;
@@ -190,28 +192,28 @@ export default function FishingActivityDetailsScreen() {
       ) : (
         <ScrollView contentContainerStyle={{ padding: 14, gap: 12 }}>
           {/* Activity Information */}
-          <Section title="Activity Information" icon="info">
-            <Row label="Activity Number" value={n(data?.activity_number)} />
-            <Row label="Date" value={n(data?.activity_date)} />
-            <Row label="Netting Time" value={n(data?.time_of_netting)} />
-            <Row label="Hauling Time" value={n(data?.time_of_hauling)} />
-            <Row label="Activity Time" value={n(data?.activity_time)} />
+          <Section title={t('fisherman.activityInformation')} icon="info">
+            <Row label={t('fisherman.activityNumber')} value={n(data?.activity_number)} />
+            <Row label={t('fisherman.activityDate')} value={n(data?.activity_date)} />
+            <Row label={t('fisherman.timeOfNetting')} value={n(data?.time_of_netting)} />
+            <Row label={t('fisherman.timeOfHauling')} value={n(data?.time_of_hauling)} />
+            <Row label={t('fisherman.activityTime')} value={n(data?.activity_time)} />
           </Section>
 
           {/* Equipment Details */}
-          <Section title="Equipment Details" icon="construction">
+          <Section title={t('fisherman.equipmentDetails')} icon="construction">
             {/* <Row
               label="Gear Type"
               value={n(data?.gear_type_label || data?.gear_type)}
             /> */}
             <Row
-              label="Mesh Size"
+              label={t('fisherman.meshSize')}
               value={n(data?.mesh_size_label || data?.mesh_size)}
             />
-            <Row label="Net Length" value={n(data?.net_length)} />
-            <Row label="Net Width" value={n(data?.net_width)} />
+            <Row label={t('fisherman.netLength')} value={n(data?.net_length)} />
+            <Row label={t('fisherman.netWidth')} value={n(data?.net_width)} />
             <Row
-              label="Location"
+              label={t('fisherman.location')}
               value={
                 data?.location_formatted ||
                 `${n(data?.gps_latitude)}, ${n(data?.gps_longitude)}`
@@ -220,9 +222,9 @@ export default function FishingActivityDetailsScreen() {
           </Section>
 
           {/* Trip Information */}
-          <Section title="Trip Information" icon="directions-boat">
+          <Section title={t('fisherman.tripInformation')} icon="directions-boat">
             {/* Pretty code from nested trip */}
-            <Row label="Trip ID" value={n(data?.trip_id)} />
+            <Row label={t('fisherman.tripId')} value={n(data?.trip_id)} />
             {/* <Row label="Boat Name" value={n(data?.boat_name)} />
             <Row
               label="Boat Registration"
@@ -230,13 +232,13 @@ export default function FishingActivityDetailsScreen() {
             /> */}
 
             <Row
-              label="Fisherman ID"
+              label={t('fisherman.fishermanId')}
               value={n(data?.trip_fisherman_id ?? data?.fisherman_id ?? profile.fisherman_id)}
             />
           </Section>
 
           <Section
-            title={`Fish Species (${data?.fish_species?.length || 0})`}
+            title={`${t('fisherman.fishSpecies')} (${data?.fish_species?.length || 0})`}
             icon="cruelty-free"
           >
             {data?.fish_species?.length ? (
@@ -252,7 +254,7 @@ export default function FishingActivityDetailsScreen() {
                       <MaterialIcons name="cruelty-free" size={22} color={PALETTE.text700} />
                     )}
                     <View style={{ flex: 1, gap: 2 }}>
-                      <Text style={[styles.value]}>{s.lot_no || `Lot #${s.id}`}</Text>
+                      <Text style={[styles.value]}>{s.lot_no || `${t('fisherman.lotNumber')} #${s.id}`}</Text>
                       <Text style={{ color: PALETTE.text700, fontWeight: '700' }}>
                         {s.species_name ?? '—'} · {s.type_label || (s.type ? s.type.charAt(0).toUpperCase() + s.type.slice(1) : '—')} · {s.quantity_kg != null ? `${s.quantity_kg} kg` : '—'}
                       </Text>
@@ -275,7 +277,7 @@ export default function FishingActivityDetailsScreen() {
               </View>
             ) : (
               <Text style={{ color: PALETTE.text600, textAlign: 'center' }}>
-                No fish species recorded for this activity yet.
+                {t('fisherman.noFishSpeciesRecorded')}
               </Text>
             )}
           </Section>
@@ -309,7 +311,7 @@ export default function FishingActivityDetailsScreen() {
                     size={18}
                     color="#fff"
                   />
-                  <Text style={styles.primaryBtnText}>Add Fish Species</Text>
+                  <Text style={styles.primaryBtnText}>{t('fisherman.addFishSpecies')}</Text>
                 </Pressable>
 
                 {/* Complete Activity - Second Row (only when fish species exist) */}
@@ -334,7 +336,7 @@ export default function FishingActivityDetailsScreen() {
                           color="#fff"
                         />
                         <Text style={styles.primaryBtnText}>
-                          Complete Activity
+                          {t('fisherman.completeActivity')}
                         </Text>
                       </>
                     )}

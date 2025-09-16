@@ -7,6 +7,8 @@ import RootNavigator from './src/app/navigation/RootNavigator';
 import AuthBootstrap from './src/provider/AuthBootstrap';
 import QueueProvider from './src/offline/QueueProvider';
 import Toast from 'react-native-toast-message';
+// Initialize i18n
+import './src/i18n';
 
 export default function App() {
   return (

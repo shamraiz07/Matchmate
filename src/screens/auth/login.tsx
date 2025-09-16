@@ -26,6 +26,9 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../app/navigation/stacks/AuthStack';
 import Toast from 'react-native-toast-message';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../../components/LanguageSwitcher';
+import { isRTL, getTextAlign } from '../../utils/rtl';
 
 const GREEN = '#1f720d';
 const TEXT_DARK = '#0B1220';
@@ -37,6 +40,7 @@ const BG = '#F5F7FA';
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
 const Login = () => {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
 
@@ -84,6 +88,7 @@ const Login = () => {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <LanguageSwitcher />
         <View style={styles.bgDecorTop} />
         <View style={styles.bgDecorBottom} />
 
@@ -99,20 +104,20 @@ const Login = () => {
                 style={styles.logo}
                 resizeMode="contain"
               />
-              <Text style={styles.title}>Marine Fisheries Portal</Text>
-              <Text style={styles.subtitle} numberOfLines={2}>
-                Sign in to manage trips, activities, and lots — fast and secure.
+              <Text style={[styles.title, { textAlign: getTextAlign() }]}>{t('auth.portalTitle')}</Text>
+              <Text style={[styles.subtitle, { textAlign: getTextAlign() }]} numberOfLines={2}>
+                {t('auth.loginSubtitle')}
               </Text>
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.inputLabel}>Email</Text>
-              <View style={styles.inputWrap}>
-                <MaterialIcons name="mail-outline" size={18} color={TEXT_MUTED} style={styles.inputIcon} />
+              <Text style={[styles.inputLabel, { textAlign: getTextAlign() }]}>{t('auth.email')}</Text>
+              <View style={[styles.inputWrap, isRTL() && { flexDirection: 'row-reverse' }]}>
+                <MaterialIcons name="mail-outline" size={18} color={TEXT_MUTED} style={[styles.inputIcon, isRTL() && { marginLeft: 8, marginRight: 0 }]} />
                 <TextInput
-                  placeholder="you@example.com"
+                  placeholder={t('auth.emailPlaceholder')}
                   placeholderTextColor="#9CA3AF"
-                  style={styles.input}
+                  style={[styles.input, { textAlign: getTextAlign() }]}
                   value={email}
                   onChangeText={t => {
                     setEmail(t);
@@ -123,16 +128,16 @@ const Login = () => {
                   returnKeyType="next"
                 />
               </View>
-              {!!emailError && <Text style={styles.errorText}>{emailError}</Text>}
+              {!!emailError && <Text style={[styles.errorText, { textAlign: getTextAlign() }]}>{emailError}</Text>}
 
               {/* Password */}
-              <Text style={[styles.inputLabel, { marginTop: 10 }]}>Password</Text>
-              <View style={styles.inputWrap}>
-                <MaterialIcons name="lock-outline" size={18} color={TEXT_MUTED} style={styles.inputIcon} />
+              <Text style={[styles.inputLabel, { marginTop: 10, textAlign: getTextAlign() }]}>{t('auth.password')}</Text>
+              <View style={[styles.inputWrap, isRTL() && { flexDirection: 'row-reverse' }]}>
+                <MaterialIcons name="lock-outline" size={18} color={TEXT_MUTED} style={[styles.inputIcon, isRTL() && { marginLeft: 8, marginRight: 0 }]} />
                 <TextInput
-                  placeholder="••••••••"
+                  placeholder={t('auth.passwordPlaceholder')}
                   placeholderTextColor="#9CA3AF"
-                  style={styles.input}
+                  style={[styles.input, { textAlign: getTextAlign() }]}
                   value={password}
                   onChangeText={t => {
                     setPassword(t);
@@ -142,56 +147,56 @@ const Login = () => {
                   returnKeyType="done"
                   onSubmitEditing={handleLogin}
                 />
-                <TouchableOpacity style={styles.eye} onPress={() => setShowPassword(s => !s)}>
+                <TouchableOpacity style={[styles.eye, isRTL() && { left: 8, right: 'auto' }]} onPress={() => setShowPassword(s => !s)}>
                   <MaterialIcons name={showPassword ? 'visibility-off' : 'visibility'} size={20} color={TEXT_MUTED} />
                 </TouchableOpacity>
               </View>
-              {!!passwordError && <Text style={styles.errorText}>{passwordError}</Text>}
+              {!!passwordError && <Text style={[styles.errorText, { textAlign: getTextAlign() }]}>{passwordError}</Text>}
 
               {/* Options row (compact) */}
-              <View style={styles.optionsRow}>
+              <View style={[styles.optionsRow, isRTL() && { flexDirection: 'row-reverse' }]}>
                 <TouchableOpacity
-                  style={styles.checkboxRow}
+                  style={[styles.checkboxRow, isRTL() && { flexDirection: 'row-reverse' }]}
                   onPress={() => setRememberMe(!rememberMe)}
                   activeOpacity={0.8}
                 >
                   <View style={[styles.checkbox, rememberMe && { backgroundColor: GREEN, borderColor: GREEN }]}>
                     {rememberMe && <Text style={styles.checkmark}>✓</Text>}
                   </View>
-                  <Text style={styles.checkboxText}>Keep me logged in</Text>
+                  <Text style={[styles.checkboxText, { textAlign: getTextAlign() }]}>{t('auth.keepMeLoggedIn')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={() => {}}>
-                  <Text style={styles.link}>Forgot Password?</Text>
+                  <Text style={[styles.link, { textAlign: getTextAlign() }]}>{t('auth.forgotPassword')}</Text>
                 </TouchableOpacity>
               </View>
 
-              {!!error && <Text style={styles.authError}>{error}</Text>}
+              {!!error && <Text style={[styles.authError, { textAlign: getTextAlign() }]}>{error}</Text>}
 
               {/* Primary */}
               <TouchableOpacity
                 onPress={handleLogin}
                 disabled={loading}
-                style={[styles.primaryBtn, loading && { opacity: 0.8 }]}
+                style={[styles.primaryBtn, loading && { opacity: 0.8 }, isRTL() && { flexDirection: 'row-reverse' }]}
                 activeOpacity={0.9}
               >
-                <MaterialIcons name="login" size={18} color="#fff" style={{ marginRight: 8 }} />
-                <Text style={styles.primaryBtnText}>{loading ? 'Signing in…' : 'Sign In'}</Text>
+                <MaterialIcons name="login" size={18} color="#fff" style={[isRTL() ? { marginLeft: 8, marginRight: 0 } : { marginRight: 8 }]} />
+                <Text style={styles.primaryBtnText}>{loading ? t('auth.signingIn') : t('auth.signIn')}</Text>
               </TouchableOpacity>
 
               {/* Secondary: Create Account */}
               <TouchableOpacity
                 onPress={() => navigation.navigate('SignUp')}
-                style={styles.secondaryBtn}
+                style={[styles.secondaryBtn, isRTL() && { flexDirection: 'row-reverse' }]}
                 activeOpacity={0.9}
               >
-                <MaterialIcons name="person-add-alt" size={18} color={GREEN} style={{ marginRight: 8 }} />
-                <Text style={styles.secondaryBtnText}>Create Account</Text>
+                <MaterialIcons name="person-add-alt" size={18} color={GREEN} style={[isRTL() ? { marginLeft: 8, marginRight: 0 } : { marginRight: 8 }]} />
+                <Text style={styles.secondaryBtnText}>{t('auth.createAccount')}</Text>
               </TouchableOpacity>
 
               {/* Microcopy */}
-              <Text style={styles.microcopy} numberOfLines={2}>
-                By signing in, you agree to keep your credentials secure and follow local policies.
+              <Text style={[styles.microcopy, { textAlign: getTextAlign() }]} numberOfLines={2}>
+                {t('auth.termsAndConditions')}
               </Text>
             </View>
 
