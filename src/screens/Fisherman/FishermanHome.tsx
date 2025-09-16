@@ -27,6 +27,7 @@ import { getUser, type User } from '../../services/users';
 import PALETTE from '../../theme/palette';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '../../components/LanguageSwitcher';
+import BiText from '../../components/BiText';
 import { isRTL, getTextAlign } from '../../utils/rtl';
 
 type Nav = NativeStackNavigationProp<FishermanStackParamList, 'FishermanHome'>;
@@ -188,7 +189,7 @@ export default function FishermanHome() {
       {/* App Bar */}
       <View style={styles.appbar}>
         <View style={styles.appbarSide} />
-        <Text style={styles.appbarTitle}>{t('fisherman.title')}</Text>
+        <BiText en={t('fisherman.title')} ur="ماہی گیر ڈیش بورڈ" style={styles.appbarTitle} />
         <Pressable
           onPress={confirmLogout}
           style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.85 }]}

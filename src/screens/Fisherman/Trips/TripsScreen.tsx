@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import BiText from '../../../components/BiText';
 import Toast from 'react-native-toast-message';
 import NetInfo from '@react-native-community/netinfo';
 import { useNavigation } from '@react-navigation/native';
@@ -295,7 +296,7 @@ export default function TripsScreen() {
           >
             <Icon name="arrow-back" size={22} color="#fff" />
           </Pressable>
-          <Text style={styles.appbarTitle}>All Trips</Text>
+          <BiText en="All Trips" ur="تمام سفر" style={styles.appbarTitle} />
           <View style={styles.iconBtn} />
         </View>
 

@@ -1,22 +1,30 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { changeLanguage, getCurrentLanguage, isCurrentLanguageRTL } from '../i18n';
+import { changeLanguage, isCurrentLanguageRTL } from '../i18n';
 import PALETTE from '../theme/palette';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function LanguageSwitcher() {
-  const { t } = useTranslation();
-  const currentLanguage = getCurrentLanguage();
+  const { i18n } = useTranslation();
+  const currentLanguage = (i18n.language || 'en').startsWith('ur') ? 'ur' : 'en';
   const isRTL = isCurrentLanguageRTL();
+  const insets = useSafeAreaInsets();
 
   const switchLanguage = () => {
     const newLanguage = currentLanguage === 'ur' ? 'en' : 'ur';
     changeLanguage(newLanguage);
   };
+  
+  const containerStyle = {
+    position: 'absolute' as const,
+    bottom: Math.max(insets.bottom, 0) + 16,
+    right: 16,
+  };
 
   return (
-    <View style={[styles.container, isRTL && styles.rtlContainer]}>
+    <View style={[styles.container, containerStyle]}>
       <Pressable
         onPress={switchLanguage}
         style={({ pressed }) => [
@@ -31,25 +39,14 @@ export default function LanguageSwitcher() {
           color="#fff" 
           style={[styles.icon, isRTL && styles.rtlIcon]} 
         />
-        <Text style={[styles.buttonText, isRTL && styles.rtlText]}>
-          {currentLanguage === 'ur' ? 'English' : 'اردو'}
-        </Text>
+        <Text style={[styles.buttonText, isRTL && styles.rtlText]}>{currentLanguage === 'ur' ? 'English' : 'اردو'}</Text>
       </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    top: StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 50,
-    right: 16,
-    zIndex: 1000,
-  },
-  rtlContainer: {
-    right: undefined,
-    left: 16,
-  },
+  container: { position: 'absolute', zIndex: 1000 },
   button: {
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     paddingHorizontal: 16,

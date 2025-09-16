@@ -38,6 +38,7 @@ import { buildActivityId } from '../../../utils/ids';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../redux/store';
 import PALETTE from '../../../theme/palette';
+// import BiText from '../../../components/BiText';
 
 type Nav = NativeStackNavigationProp<
   FishermanStackParamList,
@@ -397,7 +398,7 @@ export default function FishingActivity() {
           </Pressable>
           <View style={styles.headerContent}>
             <Text style={styles.headerTitle}>
-              {mode === 'edit' ? 'Edit Fishing Activity' : 'Create Fishing Activity'}
+              {mode === 'edit' ? 'Edit Fishing Activity / ماہی گیری کی سرگرمی ترمیم' : 'Create Fishing Activity / ماہی گیری کی سرگرمی بنائیں'}
             </Text>
             <Text style={styles.headerSubtitle}>
               Trip: {displayTripCode} • Activity #{initialActivity}
@@ -423,7 +424,7 @@ export default function FishingActivity() {
         >
           {/* GPS Status Section */}
           <SectionCard
-            title="Location Status"
+            title="Location Status / مقام کی حالت"
             icon="location-on"
             status={gps ? 'ready' : 'pending'}
           >
@@ -434,8 +435,8 @@ export default function FishingActivity() {
                   size={24}
                   color={gps ? PALETTE.green700 : PALETTE.error}
                 />
-                <Text style={[styles.gpsStatusText, { color: gps ? PALETTE.green700 : PALETTE.error }]}>
-                  {gps ? 'GPS Ready' : 'Waiting for GPS...'}
+                <Text style={[styles.gpsStatusText, { color: gps ? PALETTE.green700 : PALETTE.error }]}> 
+                  {gps ? 'GPS Ready / جی پی ایس تیار' : 'Waiting for GPS... / جی پی ایس کا انتظار'}
                 </Text>
                 {gpsLoading && <ActivityIndicator size="small" color={PALETTE.text500} />}
               </View>
@@ -451,11 +452,11 @@ export default function FishingActivity() {
 
           {/* Activity Information */}
           <SectionCard
-            title="Activity Information"
+            title="Activity Information / سرگرمی کی معلومات"
             icon="assignment"
           >
             <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>Activity Number *</Text>
+              <Text style={styles.fieldLabel}>Activity Number * / سرگرمی نمبر *</Text>
               <TextInput
                 style={[styles.input, formErrors.activityNo && styles.inputError]}
                 value={String(watch('activityNo'))}
@@ -464,7 +465,7 @@ export default function FishingActivity() {
                   clearFieldError('activityNo');
                 }}
                 keyboardType="numeric"
-                placeholder="1"
+                placeholder="1 / ۱"
                 placeholderTextColor={PALETTE.text400}
               />
               {formErrors.activityNo && (
@@ -475,11 +476,11 @@ export default function FishingActivity() {
 
           {/* Mesh Size */}
           <SectionCard
-            title="Mesh Size"
+            title="Mesh Size / جالی کا سائز"
             icon="grid-on"
           >
             <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>Select Mesh Size</Text>
+              <Text style={styles.fieldLabel}>Select Mesh Size / جالی کا سائز منتخب کریں</Text>
               <View style={styles.meshGrid}>
                 {([1, 2, 3, 4, 5, 6, 7, 8] as const).map((size) => (
                   <Pressable
@@ -504,14 +505,14 @@ export default function FishingActivity() {
 
           {/* Net Dimensions */}
           <SectionCard
-            title="Net Dimensions"
+            title="Net Dimensions / جال کے ابعاد"
             icon="straighten"
           >
             <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>Net Measurements (Optional)</Text>
+              <Text style={styles.fieldLabel}>Net Measurements (Optional) / جال کی پیمائش (اختیاری)</Text>
               <View style={styles.dimensionsRow}>
                 <View style={styles.dimensionField}>
-                  <Text style={styles.dimensionLabel}>Length (m)</Text>
+                  <Text style={styles.dimensionLabel}>Length (m) / لمبائی (m)</Text>
                   <TextInput
                     style={[styles.input, formErrors.netLen && styles.inputError]}
                     value={watch('netLen')}
@@ -520,7 +521,7 @@ export default function FishingActivity() {
                       clearFieldError('netLen');
                     }}
                     keyboardType="numeric"
-                    placeholder="0"
+                    placeholder="0 / ۰"
                     placeholderTextColor={PALETTE.text400}
                   />
                   {formErrors.netLen && (
@@ -528,7 +529,7 @@ export default function FishingActivity() {
                   )}
                 </View>
                 <View style={styles.dimensionField}>
-                  <Text style={styles.dimensionLabel}>Width (m)</Text>
+                  <Text style={styles.dimensionLabel}>Width (m) / چوڑائی (m)</Text>
                   <TextInput
                     style={[styles.input, formErrors.netWid && styles.inputError]}
                     value={watch('netWid')}
@@ -537,7 +538,7 @@ export default function FishingActivity() {
                       clearFieldError('netWid');
                     }}
                     keyboardType="numeric"
-                    placeholder="0"
+                    placeholder="0 / ۰"
                     placeholderTextColor={PALETTE.text400}
                   />
                   {formErrors.netWid && (
@@ -550,17 +551,17 @@ export default function FishingActivity() {
 
           {/* Time Fields */}
           <SectionCard
-            title="Fishing Times"
+            title="Fishing Times / ماہی گیری کے اوقات"
             icon="schedule"
           >
             <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>Select Start and End Times *</Text>
+              <Text style={styles.fieldLabel}>Select Start and End Times * / آغاز اور اختتامی اوقات منتخب کریں *</Text>
               <Text style={styles.fieldDescription}>
-                Choose when you started and finished fishing
+                Choose when you started and finished fishing / وہ وقت منتخب کریں جب ماہی گیری شروع اور ختم کی
               </Text>
               <View style={styles.timeRow}>
                 <View style={styles.timeField}>
-                  <Text style={styles.timeLabel}>Netting Time *</Text>
+                  <Text style={styles.timeLabel}>Netting Time * / جال ڈالنے کا وقت *</Text>
                   <Pressable
                     onPress={() => setShowNettingPicker(true)}
                     style={[
@@ -595,7 +596,7 @@ export default function FishingActivity() {
                   )}
                 </View>
                 <View style={styles.timeField}>
-                  <Text style={styles.timeLabel}>Hauling Time *</Text>
+                  <Text style={styles.timeLabel}>Hauling Time * / جال کھینچنے کا وقت *</Text>
                   <Pressable
                     onPress={() => setShowHaulingPicker(true)}
                     style={[
@@ -653,10 +654,10 @@ export default function FishingActivity() {
                   size={20}
                   color="#fff"
                 />
-                <Text style={styles.submitButtonText}>
+                <Text style={styles.submitButtonText} numberOfLines={1} ellipsizeMode="tail">
                   {mode === 'edit'
-                    ? 'Update Fishing Activity'
-                    : 'Create Fishing Activity'}
+                    ? 'Update Activity / سرگرمی اپڈیٹ'
+                    : 'Create Activity / سرگرمی بنائیں'}
                 </Text>
               </>
             )}

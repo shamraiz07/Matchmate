@@ -656,7 +656,7 @@ export default function AddTripScreen() {
   };
 
   /** ---- header ---- */
-  const headerTitle = isEdit ? 'Edit Trip' : 'Add Trip';
+  const headerTitle = isEdit ? 'Edit Trip / ٹرپ ترمیم' : 'Add Trip / ٹرپ بنائیں';
   const chipTripId = isEdit
     ? serverTrip?.trip_name ?? serverTrip?.id ?? ''
     : tripId;
@@ -834,11 +834,11 @@ const handleStart = useCallback(async () => {
                 style={{ opacity: isLocked ? 0.6 : 1 }}
               >
                 <SectionCard
-                  title="Starting Location"
+                  title="Starting Location / ابتدائی مقام"
                   subtitle={
                     isEdit
-                      ? 'Optional for edits'
-                      : 'Capture your current coordinates'
+                      ? 'Optional for edits / ترمیم کے لیے اختیاری'
+                      : 'Capture your current coordinates / اپنی موجودہ لوکیشن کیپچر کریں'
                   }
                 >
                   <LocationCard
@@ -849,44 +849,44 @@ const handleStart = useCallback(async () => {
                 </SectionCard>
 
                 <SectionCard
-                  title="Basic Info"
-                  subtitle="Captain & vessel details"
+                  title="Basic Info / بنیادی معلومات"
+                  subtitle="Captain & vessel details / کپتان اور جہاز کی تفصیلات"
                 >
                   <BasicInfoSection />
                 </SectionCard>
 
                 <SectionCard
-                  title="Captain & Crew Info"
-                  subtitle="Captain & vessel details"
+                  title="Captain & Crew Info / کپتان اور عملہ کی معلومات"
+                  subtitle="Captain & vessel details / کپتان اور جہاز کی تفصیلات"
                 >
                   <CaptainInfo />
                 </SectionCard>
 
-                <SectionCard title="Fuel & Ice Info">
+                <SectionCard title="Fuel & Ice Info / فیول اور آئس معلومات">
                   <FuelIceInformation />
                 </SectionCard>
 
-                <SectionCard title="Location Information">
+                <SectionCard title="Location Information / مقام کی معلومات">
                   <LocationInformation />
                 </SectionCard>
 
                 <SectionCard
-                  title="Departure Information"
-                  subtitle="Port and sea conditions"
+                  title="Departure Information / روانگی کی معلومات"
+                  subtitle="Port and sea conditions / بندرگاہ اور سمندر کی صورتحال"
                 >
                   <DropdownsSection />
                 </SectionCard>
 
                 <SectionCard
-                  title="Safety & Crew Information"
-                  subtitle="Emergency contact and species"
+                  title="Safety & Crew Information / محفوظی اور عملہ کی معلومات"
+                  subtitle="Emergency contact and species / ہنگامی رابطہ اور انواع"
                 >
                   <ContactSpeciesCostSection />
                 </SectionCard>
 
                 <SectionCard
-                  title=" Fishing Information"
-                  subtitle="Target species"
+                  title=" Fishing Information / ماہی گیری کی معلومات"
+                  subtitle="Target species / ہدف انواع"
                 >
                   <FishingInformation />
                 </SectionCard>

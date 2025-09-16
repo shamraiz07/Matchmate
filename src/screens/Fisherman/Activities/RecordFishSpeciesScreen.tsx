@@ -10,17 +10,17 @@ import {
   TextInput,
   useWindowDimensions,
   View,
-  Alert,
   Image,
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { SafeAreaView } from 'react-native-safe-area-context';
+// BiText not needed here currently
 import { launchImageLibrary, Asset } from 'react-native-image-picker';
 
 import PALETTE from '../../../theme/palette';
-import { createFishSpecies, createFishSpeciesWithPhotos } from '../../../services/fishSpecies';
+import { createFishSpeciesWithPhotos } from '../../../services/fishSpecies';
 import { isOnline } from '../../../offline/net';
 import { enqueueCreateSpecies } from '../../../offline/TripQueues';
 import { buildLotNo, generateLocalId } from '../../../utils/ids';
@@ -58,8 +58,7 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
   const { activityId, activityCode, tripCode, activityNumber, date, fallback }: Params =
     params || {};
 
-  const { width } = useWindowDimensions();
-  const twoCol = width >= 720;
+  useWindowDimensions();
 
   const [species, setSpecies] = useState('');
   const [qty, setQty] = useState('');
@@ -68,6 +67,7 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [photos, setPhotos] = useState<Asset[]>([]);
+  const [pickingPhotos, setPickingPhotos] = useState(false);
 
   const isValid = useMemo(() => {
     const q = Number(qty);
@@ -222,6 +222,8 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
   }
 
   function handlePickPhotos() {
+    if (pickingPhotos) return;
+    setPickingPhotos(true);
     launchImageLibrary(
       {
         mediaType: 'photo',
@@ -229,9 +231,10 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
         includeBase64: false,
       },
       (response) => {
-        if (response.didCancel) return;
+        if (response.didCancel) { setPickingPhotos(false); return; }
         if (response.errorCode) {
           Toast.show({ type: 'error', text1: 'Photos', text2: response.errorMessage || 'Could not open gallery' });
+          setPickingPhotos(false);
           return;
         }
         const assets = response.assets || [];
@@ -243,6 +246,7 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
           }
           return merged;
         });
+        setPickingPhotos(false);
       }
     );
   }
@@ -266,7 +270,7 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
         >
           <MaterialIcons name="arrow-back" size={24} color="#fff" />
         </Pressable>
-        <Text style={styles.headerTitle}>Record Fish Species</Text>
+        <Text style={styles.headerTitle}>Record Fish Species / مچھلی کی قسم ریکارڈ کریں</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -277,52 +281,52 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
       >
         {/* Context Info */}
         <View style={styles.contextCard}>
-          <Text style={styles.contextTitle}>Activity Context</Text>
+          <Text style={styles.contextTitle}>Activity Context / سرگرمی کا سیاق و سباق</Text>
           <View style={styles.contextRow}>
-            <Text style={styles.contextLabel}>Trip:</Text>
+            <Text style={styles.contextLabel}>Trip / سفر:</Text>
             <Text style={styles.contextValue}>{tripCode || 'N/A'}</Text>
           </View>
           <View style={styles.contextRow}>
-            <Text style={styles.contextLabel}>Activity:</Text>
+            <Text style={styles.contextLabel}>Activity / سرگرمی:</Text>
             <Text style={styles.contextValue}>
               {activityCode || `#${activityNumber || 'N/A'}`}
             </Text>
           </View>
           {date && (
             <View style={styles.contextRow}>
-              <Text style={styles.contextLabel}>Date:</Text>
+              <Text style={styles.contextLabel}>Date / تاریخ:</Text>
               <Text style={styles.contextValue}>{date}</Text>
             </View>
           )}
         </View>
 
         {/* Species Information */}
-        <Section title="Species Details" icon="set-meal">
+        <Section title="Species Details / انواع کی تفصیلات" icon="set-meal">
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Species Name *</Text>
+            <Text style={styles.label}>Species Name * / قسم کا نام *</Text>
             <TextInput
               style={styles.input}
               value={species}
               onChangeText={setSpecies}
-              placeholder="e.g., Tuna, Mackerel, Snapper"
+              placeholder="e.g., Tuna, Mackerel, Snapper / مثال: ٹونا، میکریل، سنپر"
               placeholderTextColor="#9CA3AF"
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Quantity (kg) *</Text>
+            <Text style={styles.label}>Quantity (kg) * / مقدار (کلوگرام) *</Text>
             <TextInput
               style={styles.input}
               value={qty}
               onChangeText={setQty}
-              placeholder="0.0"
+              placeholder="0.0 / ۰٫۰"
               placeholderTextColor="#9CA3AF"
               keyboardType="numeric"
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Type *</Text>
+            <Text style={styles.label}>Type * / قسم *</Text>
             <View style={styles.typeButtons}>
               <Pressable
                 onPress={() => setType('catch')}
@@ -342,7 +346,7 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
                     type === 'catch' && styles.typeButtonTextActive,
                   ]}
                 >
-                  Catch
+                  Catch / پکڑ
                 </Text>
               </Pressable>
               <Pressable
@@ -363,7 +367,7 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
                     type === 'discard' && styles.typeButtonTextActive,
                   ]}
                 >
-                  Discard
+                  Discard / ضائع کریں
                 </Text>
               </Pressable>
             </View>
@@ -371,25 +375,25 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
         </Section>
 
         {/* Quality & Notes */}
-        <Section title="Quality & Notes" icon="grade">
+        <Section title="Quality & Notes / معیار اور نوٹس" icon="grade">
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Grade (Optional)</Text>
+            <Text style={styles.label}>Grade (Optional) / گریڈ (اختیاری)</Text>
             <TextInput
               style={styles.input}
               value={grade}
               onChangeText={setGrade}
-              placeholder="e.g., A, B, C"
+              placeholder="e.g., A, B, C / مثال: A, B, C"
               placeholderTextColor="#9CA3AF"
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Notes (Optional)</Text>
+            <Text style={styles.label}>Notes (Optional) / نوٹس (اختیاری)</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
               value={notes}
               onChangeText={setNotes}
-              placeholder="Additional notes about this species..."
+              placeholder="Additional notes about this species... / اس قسم کے بارے میں اضافی نوٹس..."
               placeholderTextColor="#9CA3AF"
               multiline
               numberOfLines={3}
@@ -399,12 +403,16 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
         </Section>
 
         {/* Photos */}
-        <Section title="Photos" icon="image">
+        <Section title="Photos / تصاویر" icon="image">
           <View style={{ gap: 12 }}>
-            <Pressable onPress={handlePickPhotos} style={styles.addPhotosButton}>
-              <MaterialIcons name="upload-file" size={18} color={PRIMARY} />
-              <Text style={styles.addPhotosText}>Upload Photos</Text>
-              <Text style={styles.addPhotosHint}>(You can select multiple)</Text>
+            <Pressable onPress={handlePickPhotos} disabled={pickingPhotos} style={[styles.addPhotosButton, pickingPhotos && { opacity: 0.7 }] }>
+              {pickingPhotos ? (
+                <ActivityIndicator size="small" color={PRIMARY} />
+              ) : (
+                <MaterialIcons name="upload-file" size={18} color={PRIMARY} />
+              )}
+              <Text style={styles.addPhotosText}>{pickingPhotos ? 'Loading…' : 'Upload / اپ لوڈ'}</Text>
+              <Text style={styles.addPhotosHint}>(Multiple ok / متعدد)</Text>
             </Pressable>
 
             {photos.length > 0 && (
@@ -457,7 +465,7 @@ export default function RecordFishSpeciesScreen(): JSX.Element {
             ) : (
               <>
                 <MaterialIcons name="save" size={20} color="#fff" />
-                <Text style={styles.submitButtonText}>Record Fish Species</Text>
+                <Text style={styles.submitButtonText} numberOfLines={1} ellipsizeMode="tail">Record Species / قسم ریکارڈ کریں</Text>
               </>
             )}
           </Pressable>

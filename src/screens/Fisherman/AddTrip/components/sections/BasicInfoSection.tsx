@@ -1,6 +1,7 @@
 /* eslint-disable react-native/no-inline-styles */
 import React, { useEffect, useMemo } from 'react';
 import { View, Text } from 'react-native';
+import BiText from '../../../../../components/BiText';
 import TextField from '../fields/TextField';
 import { useFormContext } from 'react-hook-form';
 import PALETTE from '../../../../../theme/palette';
@@ -75,9 +76,7 @@ export default function BasicInfoSection() {
     <>
       {/* Fisherman (read-only chips) */}
       <View style={{ marginBottom: 12 }}>
-        <Text style={{ fontWeight: '700', marginBottom: 6, color: PALETTE.text900 }}>
-          Fisherman
-        </Text>
+        <BiText en="Fisherman" ur="ماہی گیر" style={{ fontWeight: '700', marginBottom: 6, color: PALETTE.text900 }} />
         <View
           style={{
             paddingHorizontal: 12,
@@ -95,9 +94,7 @@ export default function BasicInfoSection() {
       </View>
 
       <View style={{ marginBottom: 12 }}>
-        <Text style={{ fontWeight: '700', marginBottom: 6, color: PALETTE.text900 }}>
-          Fisherman ID
-        </Text>
+        <BiText en="Fisherman ID" ur="ماہی گیر آئی ڈی" style={{ fontWeight: '700', marginBottom: 6, color: PALETTE.text900 }} />
         <View
           style={{
             paddingHorizontal: 12,
@@ -117,16 +114,16 @@ export default function BasicInfoSection() {
       {/* Boat Registration No (kept editable, but prefilled) */}
       <TextField
         name="boatNameId"
-        label="Boat Registration No"
-        placeholder="e.g., KHY-44"
+        label="Boat Registration No / کشتی رجسٹریشن نمبر"
+        placeholder="e.g., KHY-44 / مثال: KHY-44"
         rules={{ required: 'Boat registration number is required' }}
       />
 
       {/* Trip Type (keep as you like; Dropdown recommended elsewhere) */}
       <TextField
         name="tripType"
-        label="Trip Type"
-        placeholder="Select Trip Type"
+        label="Trip Type / سفر کی قسم"
+        placeholder="Select Trip Type / سفر کی قسم منتخب کریں"
         rules={{ required: 'Trip type is required' }}
       />
     </>

@@ -8,13 +8,13 @@ export default function LocationInformation() {
     <>
       <DropdownField
         name="departure_site"
-        label="Port Location"
+        label="Port Location / بندرگاہ کا مقام"
         options={PORTS}
         rules={{ required: 'Departure site is required' }}
       />
       <DropdownField
         name="seaType"
-        label="Type of Sea Going"
+        label="Type of Sea Going / سمندر کی قسم"
         options={SEA_TYPES}
       />
     </>
