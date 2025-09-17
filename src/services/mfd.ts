@@ -543,26 +543,33 @@ export type MiddleMan = {
 };
 
 export async function fetchAllExporterCompanies(): Promise<Company[]> {
-  const json = await api('/all-exporter-companies');
+  const json = await api('/exporter-purchases/companies/all');
   return json?.data || [];
 }
 
 export async function fetchAllMiddleMen(): Promise<MiddleMan[]> {
-  const json = await api('/all-middleman-distributions');
-  // Extract unique middle men from the distribution data
-  const distributions = json?.data || [];
-  const middleMenMap = new Map();
-  
+  const json = await api('/exporter-purchases/distributions/all');
+  // Response is an array in data: [...]; we collect unique middle_man entries
+  const payload = json?.data ?? json;
+  const distributions = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.data)
+      ? payload.data
+      : [];
+
+  const middleMenMap = new Map<number, MiddleMan>();
+
   distributions.forEach((distribution: any) => {
-    if (distribution.middle_man) {
-      middleMenMap.set(distribution.middle_man.id, {
-        id: distribution.middle_man.id,
-        name: distribution.middle_man.name,
-        email: distribution.middle_man.email,
+    const mm = distribution?.middle_man;
+    if (mm && typeof mm.id === 'number') {
+      middleMenMap.set(mm.id, {
+        id: mm.id,
+        name: mm.name,
+        email: mm.email,
       });
     }
   });
-  
+
   return Array.from(middleMenMap.values());
 }
 
