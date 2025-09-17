@@ -300,4 +300,32 @@
     "selectDistribution": "تقسیم منتخب کریں",
     "selectCompany": "کمپنی منتخب کریں"
   }
+  ,
+  "fcs": {
+    "loadingDashboard": "ایف سی ایس ڈیش بورڈ لوڈ ہو رہا ہے...",
+    "headerWelcome": "ایف سی ایس پورٹل میں خوش آمدید",
+    "headerSubtitle": "فشریز کنٹرول سسٹم",
+    "portalDescription": "آپ ایف سی ایس کے طور پر بحری ماہی گیری ڈپارٹمنٹ پورٹل میں لاگ ان ہیں۔",
+    "tripStatistics": "سفر کے اعداد و شمار",
+    "distributionStatistics": "تقسیم کے اعداد و شمار",
+    "totalTrips": "کل سفر",
+    "activeTrips": "فعال سفر",
+    "completed": "مکمل",
+    "pendingApproval": "منظوری زیر التواء",
+    "totalDistributions": "کل تقسیم",
+    "verified": "تصدیق شدہ",
+    "pendingReview": "جائزہ زیر التواء",
+    "quickActions": "فوری اعمال",
+    "allTrips": "تمام سفر",
+    "pendingTrips": "زیر التواء سفر",
+    "allDistributions": "تمام تقسیم",
+    "pendingDistributions": "زیر التواء تقسیم",
+    "logout": "لاگ آؤٹ",
+    "logoutTitle": "لاگ آؤٹ",
+    "logoutConfirm": "کیا آپ واقعی لاگ آؤٹ کرنا چاہتے ہیں؟",
+    "viewManageTrips": "تمام ماہی گیری سفر دیکھیں اور منظم کریں",
+    "reviewPendingTrips": "منظوری کے منتظر سفر کا جائزہ لیں",
+    "viewManageDistributions": "تمام تقسیم دیکھیں اور منظم کریں",
+    "reviewPendingDistributions": "تصدیق کے منتظر تقسیم کا جائزہ لیں"
+  }
 }

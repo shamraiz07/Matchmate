@@ -139,7 +139,7 @@ export default function FCSDistributionsList() {
   };
 
   const handleDistributionPress = (distribution: FishLotDistribution) => {
-    navigation.navigate('DistributionDetails', { distributionId: distribution.id });
+    navigation.navigate('DistributionDetails', { distributionId: String(distribution.id) as any });
   };
 
   const filteredDistributions = distributions.filter(distribution => {
@@ -157,14 +157,19 @@ export default function FCSDistributionsList() {
   };
 
   const DistributionCard = ({ distribution }: { distribution: FishLotDistribution }) => (
-    <Pressable 
-      onPress={() => handleDistributionPress(distribution)} 
-      style={({ pressed }) => [styles.distributionCard, pressed && { opacity: 0.9 }]}
+    <Pressable
+      onPress={() => handleDistributionPress(distribution)}
+      style={({ pressed }) => [styles.distributionCard, pressed && { opacity: 0.95, transform: [{ scale: 0.998 }] }]}
     >
-      <View style={styles.distributionHeader}>
-        <View style={styles.distributionInfo}>
-          <Text style={styles.distributionId}>Distribution #{distribution.id}</Text>
-          <Text style={styles.tripInfo}>Trip: {distribution.trip?.trip_id || 'Unknown'}</Text>
+      <View style={[styles.statusBarTop, { backgroundColor: getStatusColor(distribution.verification_status) }]} />
+
+      <View style={styles.cardHeaderRow}>
+        <View style={styles.avatarCircle}>
+          <Icon name="inventory" size={18} color="#fff" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.distributionId}>#{distribution.id} • {distribution.trip?.trip_id || 'Trip'}</Text>
+          <Text style={styles.subtleText}>{new Date(distribution.created_at).toLocaleDateString()}</Text>
         </View>
         <View style={[styles.statusPill, { backgroundColor: getStatusColor(distribution.verification_status) + '20' }]}>
           <Text style={[styles.statusText, { color: getStatusColor(distribution.verification_status) }]}>
@@ -172,43 +177,35 @@ export default function FCSDistributionsList() {
           </Text>
         </View>
       </View>
-      
-      <View style={styles.distributionDetails}>
-        <View style={styles.detailRow}>
-          <Icon name="person" size={16} color={PALETTE.text600} />
-          <Text style={styles.detailText}>
-            Fisherman: {distribution.trip?.captain_name || 'Unknown'}
-          </Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Icon name="scale" size={16} color={PALETTE.text600} />
-          <Text style={styles.detailText}>
-            Total Weight: {distribution.total_quantity_kg} kg
-          </Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Icon name="schedule" size={16} color={PALETTE.text600} />
-          <Text style={styles.detailText}>
-            Created: {new Date(distribution.created_at).toLocaleDateString()}
-          </Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Icon name="inventory" size={16} color={PALETTE.text600} />
-          <Text style={styles.detailText}>
-            Lots: {distribution.distributed_lots.length} lot(s)
-          </Text>
-        </View>
+
+      <View style={styles.metaRow}>
+        <Icon name="person" size={16} color={PALETTE.text600} />
+        <Text style={styles.metaText}>{distribution.trip?.captain_name || 'Unknown Fisherman'}</Text>
+      </View>
+      <View style={styles.metaRow}>
+        <Icon name="scale" size={16} color={PALETTE.text600} />
+        <Text style={styles.metaText}>{distribution.total_quantity_kg} kg • {distribution.distributed_lots.length} lots</Text>
+      </View>
+
+      {/* Lot chips (first two) */}
+      <View style={styles.chipsRow}>
+        {distribution.distributed_lots.slice(0, 2).map((lot, idx) => (
+          <View key={idx} style={styles.chip}>
+            <Text style={styles.chipText}>{lot.species_name || 'Lot'} • {lot.quantity_kg}kg</Text>
+          </View>
+        ))}
+        {distribution.distributed_lots.length > 2 && (
+          <View style={[styles.chip, { backgroundColor: '#EEF2FF' }]}>
+            <Text style={[styles.chipText, { color: PALETTE.text700 }]}>+{distribution.distributed_lots.length - 2} more</Text>
+          </View>
+        )}
       </View>
 
       {distribution.verification_status === 'pending' && (
         <View style={styles.actionButtons}>
-          <Pressable 
+          <Pressable
             onPress={() => handleVerify(distribution)}
-            style={[
-              styles.actionButton, 
-              styles.verifyButton,
-              verifyLoading === distribution.id.toString() && { opacity: 0.6 }
-            ]}
+            style={[styles.actionButton, styles.verifyButton, verifyLoading === distribution.id.toString() && { opacity: 0.6 }]}
             disabled={verifyLoading === distribution.id.toString() || rejectLoading === distribution.id.toString()}
           >
             {verifyLoading === distribution.id.toString() ? (
@@ -220,13 +217,9 @@ export default function FCSDistributionsList() {
               </>
             )}
           </Pressable>
-          <Pressable 
+          <Pressable
             onPress={() => handleReject(distribution)}
-            style={[
-              styles.actionButton, 
-              styles.rejectButton,
-              rejectLoading === distribution.id.toString() && { opacity: 0.6 }
-            ]}
+            style={[styles.actionButton, styles.rejectButton, rejectLoading === distribution.id.toString() && { opacity: 0.6 }]}
             disabled={verifyLoading === distribution.id.toString() || rejectLoading === distribution.id.toString()}
           >
             {rejectLoading === distribution.id.toString() ? (
@@ -332,7 +325,7 @@ export default function FCSDistributionsList() {
               Please provide a reason for rejecting this distribution:
             </Text>
             
-            <Text style={styles.distributionInfo}>
+            <Text style={styles.modalDistributionInfo}>
               Distribution #{selectedDistribution?.id}
             </Text>
             
@@ -397,7 +390,7 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: PALETTE.green700,
-    paddingTop: 50,
+    paddingTop: 10,
     paddingBottom: 16,
     paddingHorizontal: 20,
     flexDirection: 'row',
@@ -452,17 +445,41 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: 16,
-    gap: 12,
+    gap: 14,
   },
   distributionCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: PALETTE.border,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  statusBarTop: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 3,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  avatarCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: PALETTE.green700,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
   },
   distributionHeader: {
     flexDirection: 'row',
@@ -473,16 +490,8 @@ const styles = StyleSheet.create({
   distributionInfo: {
     flex: 1,
   },
-  distributionId: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: PALETTE.text900,
-    marginBottom: 4,
-  },
-  tripInfo: {
-    fontSize: 14,
-    color: PALETTE.text600,
-  },
+  distributionId: { fontSize: 15, fontWeight: '700', color: PALETTE.text900 },
+  subtleText: { fontSize: 12, color: PALETTE.text500, marginTop: 2 },
   statusPill: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -492,9 +501,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  distributionDetails: {
-    marginBottom: 12,
-  },
+  distributionDetails: { marginBottom: 12 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  metaText: { fontSize: 14, color: PALETTE.text700, marginLeft: 8 },
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6, marginBottom: 6 },
+  chip: { backgroundColor: '#E8F5E9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  chipText: { fontSize: 12, color: PALETTE.green700, fontWeight: '600' },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -579,7 +591,7 @@ const styles = StyleSheet.create({
     color: PALETTE.text600,
     marginBottom: 12,
   },
-  distributionInfo: {
+  modalDistributionInfo: {
     fontSize: 14,
     fontWeight: '600',
     color: PALETTE.text900,

@@ -400,17 +400,19 @@ export function CompleteTripModal({
             <View style={styles.headerIconWrap}>
               <MaterialIcons name="checklist" size={18} color="#fff" />
             </View>
-            <Text
-              style={[styles.title, styles.textWrap]}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {tripCode ? `#${tripCode}` : 'Complete Trip'}
-            </Text>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[styles.title, styles.textWrap]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {tripCode ? `#${tripCode}` : 'Complete Trip'}
+              </Text>
+              <Text style={[styles.sub, styles.textWrap]}>
+                Distribute fish lots to middle men and confirm the landing site.
+              </Text>
+            </View>
           </View>
-          <Text style={[styles.sub, styles.textWrap]}>
-            Distribute fish lots to middle men and confirm the landing site.
-          </Text>
 
           {/* Summary bar */}
           <View
@@ -434,18 +436,21 @@ export function CompleteTripModal({
                 { color: overAssign || anyLotOverAssigned || !allLotsFullyDistributed ? DANGER : INFO },
               ]}
             >
-              Assigned:{' '}
-              <Text style={styles.bold}>{assignedKg.toFixed(2)} KG</Text>
-              {totalAvailableKg > 0
-                ? `  •  Available: ${totalAvailableKg.toFixed(2)} KG`
-                : ''}
-              {overAssign
-                ? '  — Reduce total assigned KG to proceed'
-                : anyLotOverAssigned
-                ? '  — A lot exceeds its available KG'
-                : !allLotsFullyDistributed
-                ? '  — Distribute all lots fully to proceed'
-                : ''}
+              <Text style={styles.summaryStrong}>Assigned:</Text> <Text style={styles.bold}>{assignedKg.toFixed(2)} KG</Text>
+              {totalAvailableKg > 0 && (
+                <Text>
+                  {'  '}•{'  '}<Text style={styles.summaryStrong}>Available:</Text> {totalAvailableKg.toFixed(2)} KG
+                </Text>
+              )}
+              {!!overAssign && (
+                <Text>  — Reduce total assigned KG to proceed</Text>
+              )}
+              {!!anyLotOverAssigned && !overAssign && (
+                <Text>  — A lot exceeds its available KG</Text>
+              )}
+              {!!(!allLotsFullyDistributed && !overAssign && !anyLotOverAssigned) && (
+                <Text>  — Distribute all lots fully to proceed</Text>
+              )}
             </Text>
           </View>
 
@@ -464,7 +469,7 @@ export function CompleteTripModal({
                 <View key={i} style={styles.rowCard}>
                   <View style={[styles.grid, wide && { columnGap: 12 }]}>
                     {/* Lot Number (Dropdown) */}
-                    <FormField label="Lot Number *" flex>
+              <FormField label="Lot Number" required flex>
                       <Dropdown
                         data={lotOptions}
                         labelField="label"
@@ -486,7 +491,7 @@ export function CompleteTripModal({
                     </FormField>
 
                     {/* Middle Man (Dropdown) */}
-                    <FormField label="Middle Man *" flex>
+              <FormField label="Middle Man" required flex>
                       <Dropdown
                         data={middleOptions}
                         labelField="label"
@@ -508,7 +513,7 @@ export function CompleteTripModal({
                     </FormField>
 
                     {/* Quantity */}
-                    <FormField label="Quantity (KG) *" flex>
+              <FormField label="Quantity (KG)" required flex>
                       <TextInput
                         placeholder="e.g., 365"
                         keyboardType="decimal-pad"
@@ -548,7 +553,7 @@ export function CompleteTripModal({
 
             {/* Landing site (Dropdown) + notes */}
             <View style={[styles.grid, wide && { columnGap: 12 }]}>
-              <FormField label="Landing Site *" flex>
+              <FormField label="Landing Site" required flex>
                 <Dropdown
                   data={landingOptions}
                   labelField="label"
@@ -629,38 +634,47 @@ export function CompleteTripModal({
 
             {/* Add distribution */}
             <View style={{ marginTop: 4 }}>
-              <Text style={{ color: INFO, fontWeight: '800', marginBottom: 8 }}>
-                Lot Distribution
-              </Text>
+              <Text style={{ color: INFO, fontWeight: '800', marginBottom: 8 }}>Lot Distribution</Text>
               <Pressable onPress={addRow} style={styles.addBtn}>
                 <MaterialIcons name="add" size={18} color={PRIMARY} />
-                <Text style={{ color: 'black' }}>Add Distribution</Text>
+                <Text style={{ color: TEXT, fontWeight: '700' }}>Add Distribution</Text>
               </Pressable>
             </View>
           </ScrollView>
 
           <View style={styles.row}>
             {/* Cancel Button */}
-            <TouchableOpacity
-              style={[styles.button, styles.cancelBtn]}
-              onPress={onClose}
-            >
-              <MaterialIcons name="cancel" size={20} color="#DC2626" />
-              <Text style={[styles.btnText, { color: '#DC2626' }]}>Cancel</Text>
+            <TouchableOpacity style={[styles.button, styles.cancelBtn]} onPress={onClose}>
+              <MaterialIcons name="cancel" size={20} color={TEXT} />
+              <Text style={[styles.btnText, { color: TEXT }]}>Cancel</Text>
             </TouchableOpacity>
 
             {/* Complete Button */}
             <TouchableOpacity
-              style={[styles.button, styles.completeBtn, (loading || !canSubmit) && { opacity: 0.7 }]}
+              style={[
+                styles.button,
+                (loading || !canSubmit) ? styles.completeBtnDisabled : styles.completeBtn,
+              ]}
               onPress={handleSubmit}
               disabled={!canSubmit || loading}
             >
               {loading ? (
-                <ActivityIndicator color="#059669" />
+                <ActivityIndicator color="#fff" />
               ) : (
                 <>
-                  <MaterialIcons name="check-circle" size={20} color="#059669" />
-                  <Text style={[styles.btnText, { color: '#059669' }]}>Complete Trip</Text>
+                  <MaterialIcons
+                    name="check-circle"
+                    size={20}
+                    color={(loading || !canSubmit) ? '#9CA3AF' : '#fff'}
+                  />
+                  <Text
+                    style={[
+                      styles.btnText,
+                      { color: (loading || !canSubmit) ? '#9CA3AF' : '#fff' },
+                    ]}
+                  >
+                    Complete Trip
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -736,8 +750,12 @@ const styles = StyleSheet.create({
     borderColor: '#DC2626',
   },
   completeBtn: {
-    borderWidth: 1,
-    borderColor: '#059669',
+    backgroundColor: '#059669',
+    borderWidth: 0,
+  },
+  completeBtnDisabled: {
+    backgroundColor: '#E5E7EB',
+    borderWidth: 0,
   },
   btnText: {
     marginLeft: 6,
@@ -847,7 +865,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
   },
-  summaryText: { fontWeight: '700', minWidth: 0 },
+  summaryText: { fontWeight: '700', minWidth: 0, flexShrink: 1, flex: 1 },
+  summaryStrong: { fontWeight: '900' },
   bold: { fontWeight: '900' },
 
   /* add row */

@@ -63,70 +63,45 @@ const TripCard = ({
   return (
     <Pressable 
       onPress={() => onPress(trip)} 
-      style={({ pressed }) => [styles.card, pressed && { opacity: 0.93 }]}
+      style={({ pressed }) => [styles.card, pressed && { opacity: 0.95, transform: [{ scale: 0.998 }] }]}
       accessibilityRole="button"
       accessibilityLabel={`Open trip ${trip.trip_name}`}
     >
-      {/* Top row: Trip ID + status pill */}
-      <View style={styles.cardTop}>
-        <Text style={styles.cardTitle} numberOfLines={1}>
-          {trip.trip_name}
-        </Text>
+      <View style={[styles.statusBarTop, { backgroundColor: color }]} />
 
-        <View
-          style={[
-            styles.badge,
-            { borderColor: color },
-          ]}
-        >
+      <View style={styles.cardHeaderRow}>
+        <View style={styles.avatarCircle}>
+          <Icon name="sailing" size={18} color="#fff" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.cardTitle} numberOfLines={1}>{trip.trip_name}</Text>
+          <Text style={styles.subtleText}>{trip.trip_type_label || '—'}</Text>
+        </View>
+        <View style={[styles.badge, { borderColor: color }]}>
           <View style={[styles.badgeDot, { backgroundColor: color }]} />
-          <Text style={[styles.badgeText, { color }]}>
-            {getStatusLabel(trip.status)}
-          </Text>
+          <Text style={[styles.badgeText, { color }]}>{getStatusLabel(trip.status)}</Text>
         </View>
       </View>
 
-      {/* Info grid row (Fisherman • Boat • Type) */}
-      <View style={styles.infoRow}>
+      <View style={styles.metaRow}>
         <Icon name="person" size={16} color={PALETTE.text600} />
-        <Text style={styles.infoText} numberOfLines={1}>
-          {trip.fisherman_name || '—'}
-        </Text>
-        <View style={styles.dot} />
+        <Text style={styles.metaText} numberOfLines={1}>{trip.fisherman_name || '—'}</Text>
+      </View>
+      <View style={styles.metaRow}>
         <Icon name="directions-boat" size={16} color={PALETTE.text600} />
-        <Text style={styles.infoText} numberOfLines={1}>
-          {trip.boat_name || '—'}
-        </Text>
-        <View style={styles.dot} />
-        <Icon name="category" size={16} color={PALETTE.text600} />
-        <Text style={styles.infoText} numberOfLines={1}>
-          {trip.trip_type_label || '—'}
-        </Text>
+        <Text style={styles.metaText} numberOfLines={1}>{trip.boat_name || '—'}</Text>
       </View>
-
-      {/* Route row */}
-      <View style={styles.routeRow}>
+      <View style={styles.metaRow}>
         <Icon name="place" size={16} color={PALETTE.text600} />
-        <Text style={styles.routeText} numberOfLines={1}>
-          {trip.departure_port || 'Unknown'}
-        </Text>
+        <Text style={styles.metaText} numberOfLines={1}>{trip.departure_port || 'Unknown'}</Text>
       </View>
-
-      {/* Time row */}
-      <View style={styles.timeRow}>
+      <View style={styles.metaRow}>
         <Icon name="schedule" size={16} color={PALETTE.text600} />
-        <Text style={styles.cardTime} numberOfLines={1}>
-          {trip.departure_time || 'Time not set'}
-        </Text>
+        <Text style={styles.metaText} numberOfLines={1}>{trip.departure_time || 'Time not set'}</Text>
       </View>
 
-      {/* Footer actions */}
       <View style={styles.cardActions}>
-        <Pressable
-          onPress={() => onPress(trip)}
-          style={[styles.actionBtn, styles.btnGhost]}
-          accessibilityLabel="View"
-        >
+        <Pressable onPress={() => onPress(trip)} style={[styles.actionBtn, styles.btnGhost]} accessibilityLabel="View">
           <Icon name="visibility" size={18} color={PALETTE.text900} />
           <Text style={styles.btnGhostText}>View</Text>
         </Pressable>
@@ -135,11 +110,7 @@ const TripCard = ({
           <>
             <Pressable
               onPress={() => onApprove(trip)}
-              style={[
-                styles.actionBtn, 
-                styles.btnSuccess,
-                approveLoading === trip.id.toString() && styles.loadingOpacity
-              ]}
+              style={[styles.actionBtn, styles.btnSuccess, approveLoading === trip.id.toString() && styles.loadingOpacity]}
               disabled={approveLoading === trip.id.toString() || rejectLoading === trip.id.toString()}
               accessibilityLabel="Approve"
             >
@@ -155,11 +126,7 @@ const TripCard = ({
 
             <Pressable
               onPress={() => onReject(trip)}
-              style={[
-                styles.actionBtn, 
-                styles.btnDanger,
-                rejectLoading === trip.id.toString() && styles.loadingOpacity
-              ]}
+              style={[styles.actionBtn, styles.btnDanger, rejectLoading === trip.id.toString() && styles.loadingOpacity]}
               disabled={approveLoading === trip.id.toString() || rejectLoading === trip.id.toString()}
               accessibilityLabel="Reject"
             >
@@ -472,7 +439,7 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: PALETTE.green700,
-    paddingTop: 50,
+    paddingTop: 10,
     paddingBottom: 16,
     paddingHorizontal: 20,
     flexDirection: 'row',
@@ -531,126 +498,38 @@ const styles = StyleSheet.create({
   listContainer: {
     padding: 16,
   },
-  // Card styles matching fisherman implementation
   card: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 14,
+    padding: 14,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: PALETTE.text900,
-    flex: 1,
-    marginRight: 8,
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
     borderWidth: 1,
-    backgroundColor: '#fff',
+    borderColor: PALETTE.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+    overflow: 'hidden',
   },
-  badgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 6,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    flexWrap: 'wrap',
-  },
-  infoText: {
-    fontSize: 14,
-    color: PALETTE.text600,
-    marginLeft: 4,
-    flex: 1,
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: PALETTE.text400,
-    marginHorizontal: 8,
-  },
-  routeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  routeText: {
-    fontSize: 14,
-    color: PALETTE.text600,
-    marginLeft: 8,
-    flex: 1,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  cardTime: {
-    fontSize: 14,
-    color: PALETTE.text600,
-    marginLeft: 8,
-    flex: 1,
-  },
-  cardActions: {
-    flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
-  },
-  btnGhost: {
-    backgroundColor: PALETTE.border,
-  },
-  btnSuccess: {
-    backgroundColor: PALETTE.green700,
-  },
-  btnDanger: {
-    backgroundColor: PALETTE.error,
-  },
-  btnGhostText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: PALETTE.text900,
-  },
-  btnWhiteText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  loadingOpacity: {
-    opacity: 0.6,
-  },
+  statusBarTop: { position: 'absolute', left: 0, right: 0, top: 0, height: 3 },
+  cardHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  avatarCircle: { width: 34, height: 34, borderRadius: 17, backgroundColor: PALETTE.green700, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  subtleText: { fontSize: 12, color: PALETTE.text500, marginTop: 2 },
+  badge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, borderWidth: 1, backgroundColor: '#fff' },
+  badgeDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
+  badgeText: { fontSize: 12, fontWeight: '600' },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: PALETTE.text900, flex: 1, marginRight: 8 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  metaText: { fontSize: 14, color: PALETTE.text700, marginLeft: 8, flex: 1 },
+  cardActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 6 },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, gap: 6 },
+  btnGhost: { backgroundColor: PALETTE.border },
+  btnSuccess: { backgroundColor: PALETTE.green700 },
+  btnDanger: { backgroundColor: PALETTE.error },
+  btnGhostText: { fontSize: 14, fontWeight: '600', color: PALETTE.text900 },
+  btnWhiteText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  loadingOpacity: { opacity: 0.6 },
   emptyState: {
     alignItems: 'center',
     paddingVertical: 60,

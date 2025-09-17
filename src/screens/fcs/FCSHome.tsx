@@ -14,17 +14,21 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { FCSStackParamList } from '../../app/navigation/stacks/FCSStack';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { useTranslation } from 'react-i18next';
 import PALETTE from '../../theme/palette';
-import { listTripsPage, getTripCounts } from '../../services/trips';
-import { getFCSDistributionCounts } from '../../services/fcs';
-import { useDispatch } from 'react-redux';
+import { getTripCounts } from '../../services/trips';
+import { getFCSDistributionCounts, fetchFCSDistributions, type FishLotDistribution } from '../../services/fcs';
+import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../redux/actions/authActions';
+import type { AuthState } from '../../redux/types';
 
 type Nav = NativeStackNavigationProp<FCSStackParamList>;
 
 export default function FCSHome() {
   const navigation = useNavigation<Nav>();
   const dispatch = useDispatch();
+  const { t } = useTranslation();
+  const auth = useSelector((s: { auth: AuthState }) => s.auth);
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -39,13 +43,16 @@ export default function FCSHome() {
     verified: 0,
     pending: 0,
   });
+  const [recentDistributions, setRecentDistributions] = useState<FishLotDistribution[]>([]);
+  const userProfile: any = auth.user?.profile || auth.user || {};
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [tripsData, distributionsData] = await Promise.all([
+      const [tripsData, distributionsData, recent] = await Promise.all([
         getTripCounts(),
         getFCSDistributionCounts(),
+        fetchFCSDistributions({ page: 1, per_page: 5 }),
       ]);
       
       setTripCounts({
@@ -61,6 +68,8 @@ export default function FCSHome() {
         verified: distributionsData.totals.verified,
         pending: distributionsData.totals.pending,
       });
+
+      setRecentDistributions(recent.items || []);
     } catch (error) {
       console.error('Error loading FCS data:', error);
     } finally {
@@ -79,11 +88,11 @@ export default function FCSHome() {
   }, [loadData]);
 
   const confirmLogout = useCallback(() => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: () => (dispatch as any)(logout() as any) },
+    Alert.alert(t('fcs.logoutTitle'), t('fcs.logoutConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('fcs.logout'), style: 'destructive', onPress: () => (dispatch as any)(logout() as any) },
     ]);
-  }, [dispatch]);
+  }, [dispatch, t]);
 
   const ActionTile = ({ 
     title, 
@@ -138,7 +147,7 @@ export default function FCSHome() {
       <View style={styles.loadingContainer}>
         <StatusBar backgroundColor={PALETTE.green700} barStyle="light-content" />
         <ActivityIndicator size="large" color={PALETTE.green700} />
-        <Text style={styles.loadingText}>Loading FCS Dashboard...</Text>
+        <Text style={styles.loadingText}>{t('fcs.loadingDashboard')}</Text>
       </View>
     );
   }
@@ -150,12 +159,17 @@ export default function FCSHome() {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.headerTextContainer}>
-            <Text style={styles.welcomeText}>Welcome to FCS Portal</Text>
-            <Text style={styles.subtitleText}>Fisheries Control System</Text>
+            <Text style={styles.welcomeText}>{t('fcs.headerWelcome')}</Text>
+            <Text style={styles.subtitleText}>{t('fcs.headerSubtitle')}</Text>
           </View>
-          <View style={styles.logo}>
-            <Icon name="account-balance" size={32} color="#fff" />
-          </View>
+          <Pressable
+            onPress={confirmLogout}
+            accessibilityRole="button"
+            accessibilityLabel={t('fcs.logout')}
+            style={({ pressed }) => [styles.headerIcon, pressed && { opacity: 0.85 }]}
+          >
+            <Icon name="logout" size={20} color="#fff" />
+          </Pressable>
         </View>
       </View>
 
@@ -165,54 +179,83 @@ export default function FCSHome() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        {/* Profile Section */}
+        <View style={styles.cardLike}>
+          <View style={styles.rowStart}>
+            <View style={[styles.avatarSmall, { backgroundColor: PALETTE.green700 }]}>
+              <Icon name="badge" size={22} color="#fff" />
+            </View>
+            <View style={styles.flex1}>
+              <Text style={styles.cardTitle}>{t('fisherman.yourProfile')}</Text>
+              <Text style={styles.cardSubtitle}>{t('fcs.portalDescription')}</Text>
+            </View>
+          </View>
+          <View style={styles.rowBetween}>
+            <Text style={styles.rowLabel}>{t('fisherman.fullName')}</Text>
+            <Text style={styles.rowValue}>{userProfile?.name || `${userProfile?.first_name ?? ''} ${userProfile?.last_name ?? ''}` || '—'}</Text>
+          </View>
+          <View style={styles.rowBetween}>
+            <Text style={styles.rowLabel}>{t('fisherman.emailAddress')}</Text>
+            <Text style={styles.rowValue}>{userProfile?.email || '—'}</Text>
+          </View>
+          <View style={styles.rowBetween}>
+            <Text style={styles.rowLabel}>{t('fisherman.phoneNumber')}</Text>
+            <Text style={styles.rowValue}>{userProfile?.phone || '—'}</Text>
+          </View>
+          <View style={styles.rowBetween}>
+            <Text style={styles.rowLabel}>FCS License</Text>
+            <Text style={styles.rowValue}>{userProfile?.fcs_license_number || '—'}</Text>
+          </View>
+        </View>
+
         {/* Statistics Cards */}
         <View style={styles.statsSection}>
-          <Text style={styles.sectionTitle}>Trip Statistics</Text>
+          <Text style={styles.sectionTitle}>{t('fcs.tripStatistics')}</Text>
           <View style={styles.statsGrid}>
             <StatCard 
-              title="Total Trips" 
+              title={t('fcs.totalTrips')} 
               value={tripCounts.total} 
-              subtitle="All trips" 
+              subtitle={t('exporter.allTrips')} 
             />
             <StatCard 
-              title="Active Trips" 
+              title={t('fcs.activeTrips')} 
               value={tripCounts.active} 
-              subtitle="Currently active" 
+              subtitle={t('fisherman.active')} 
               color={PALETTE.blue700}
             />
             <StatCard 
-              title="Completed" 
+              title={t('fcs.completed')} 
               value={tripCounts.completed} 
-              subtitle="Successfully completed" 
+              subtitle={t('fisherman.completed')} 
               color={PALETTE.green700}
             />
             <StatCard 
-              title="Pending Approval" 
+              title={t('fcs.pendingApproval')} 
               value={tripCounts.pending} 
-              subtitle="Awaiting review" 
+              subtitle={t('fcs.pendingReview')} 
               color={PALETTE.orange700}
             />
           </View>
         </View>
 
         <View style={styles.statsSection}>
-          <Text style={styles.sectionTitle}>Distribution Statistics</Text>
+          <Text style={styles.sectionTitle}>{t('fcs.distributionStatistics')}</Text>
           <View style={styles.statsGrid}>
             <StatCard 
-              title="Total Distributions" 
+              title={t('fcs.totalDistributions')} 
               value={distributionCounts.total} 
-              subtitle="All distributions" 
+              subtitle={t('fcs.allDistributions')} 
             />
             <StatCard 
-              title="Verified" 
+              title={t('fcs.verified')} 
               value={distributionCounts.verified} 
-              subtitle="Approved distributions" 
+              subtitle={t('fisherman.confirmed')} 
               color={PALETTE.green700}
             />
             <StatCard 
-              title="Pending Review" 
+              title={t('fcs.pendingReview')} 
               value={distributionCounts.pending} 
-              subtitle="Awaiting verification" 
+              subtitle={t('fcs.pendingReview')} 
               color={PALETTE.orange700}
             />
           </View>
@@ -220,54 +263,71 @@ export default function FCSHome() {
 
         {/* Action Tiles */}
         <View style={styles.actionsSection}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <Text style={styles.sectionTitle}>{t('fcs.quickActions')}</Text>
           
           <ActionTile
-            title="All Trips"
-            subtitle="View and manage all fishing trips"
+            title={t('fcs.allTrips')}
+            subtitle={t('fcs.viewManageTrips')}
             icon="sailing"
             count={tripCounts.total}
             onPress={() => navigation.navigate('FCSTripsList')}
           />
           
-          <ActionTile
-            title="Pending Trips"
-            subtitle="Review trips awaiting approval"
+          {/* <ActionTile
+            title={t('fcs.pendingTrips')}
+            subtitle={t('fcs.reviewPendingTrips')}
             icon="pending-actions"
             count={tripCounts.pending}
             color={PALETTE.orange700}
             onPress={() => navigation.navigate('FCSTripsList')}
-          />
+          /> */}
           
           <ActionTile
-            title="All Distributions"
-            subtitle="View and manage all distributions"
+            title={t('fcs.allDistributions')}
+            subtitle={t('fcs.viewManageDistributions')}
             icon="local-shipping"
             count={distributionCounts.total}
             onPress={() => navigation.navigate('FCSDistributionsList')}
           />
           
-          <ActionTile
-            title="Pending Distributions"
-            subtitle="Review distributions awaiting verification"
+          {/* <ActionTile
+            title={t('fcs.pendingDistributions')}
+            subtitle={t('fcs.reviewPendingDistributions')}
             icon="pending"
             count={distributionCounts.pending}
             color={PALETTE.orange700}
             onPress={() => navigation.navigate('FCSDistributionsList')}
-          />
+          /> */}
+        </View>
+
+        {/* Recent Distributions */}
+        <View style={styles.statsSection}>
+          <Text style={styles.sectionTitle}>{t('fcs.allDistributions')}</Text>
+          {recentDistributions.length === 0 ? (
+            <Text style={styles.emptyText}>{t('fisherman.noDistributionsFound')}</Text>
+          ) : (
+            recentDistributions.map((d) => (
+              <View key={String(d.id)} style={styles.distItem}>
+                <View style={[styles.actionIcon, { backgroundColor: PALETTE.green700 }]}>
+                  <Icon name="inventory" size={22} color="#fff" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.distTitle}>{d.trip?.trip_id || `#${d.id}`}</Text>
+                  <Text style={styles.distSubtitle}>
+                    {d.middle_man?.name || '—'} • {d.total_quantity_kg} kg
+                  </Text>
+                </View>
+                <Text style={[styles.badge, { backgroundColor: PALETTE.green50, color: PALETTE.green700 }]}>
+                  {d.verification_status_label}
+                </Text>
+              </View>
+            ))
+          )}
         </View>
       </ScrollView>
 
-      {/* Logout (secondary) */}
-      <View style={styles.logoutContainer}>
-        <Pressable
-          onPress={confirmLogout}
-          style={({ pressed }) => [styles.logoutBtn, pressed && { opacity: 0.9 }]}
-        >
-          <Icon name="logout" size={18} color="#fff" />
-          <Text style={styles.logoutText}>Logout</Text>
-        </Pressable>
-      </View>
+      {/* Footer spacer */}
+      <View style={{ height: 8 }} />
     </View>
   );
 }
@@ -290,44 +350,48 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: PALETTE.green700,
-    paddingTop: 50,
-    paddingBottom: 24,
-    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
   },
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 60,
+    minHeight: 52,
   },
   headerTextContainer: {
     flex: 1,
-    marginRight: 16,
+    marginRight: 12,
   },
   welcomeText: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   subtitleText: {
-    fontSize: 14,
+    fontSize: 12,
     color: 'rgba(255, 255, 255, 0.9)',
   },
-  logo: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  headerIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   content: {
     flex: 1,
-    padding: 20,
+    padding: 16,
   },
   statsSection: {
     marginBottom: 24,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: PALETTE.text600,
   },
   sectionTitle: {
     fontSize: 18,
@@ -372,6 +436,19 @@ const styles = StyleSheet.create({
   actionsSection: {
     marginBottom: 24,
   },
+  rowStart: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  flex1: { flex: 1 },
+  avatarSmall: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
   actionTile: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -411,24 +488,63 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
-  logoutContainer: {
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 20,
-    backgroundColor: '#f8f9fa',
-  },
-  logoutBtn: {
+  distItem: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#d32f2f',
-    paddingVertical: 12,
-    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  logoutText: {
-    color: '#fff',
-    marginLeft: 8,
+  distTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: PALETTE.text900,
+  },
+  distSubtitle: {
+    fontSize: 12,
+    color: PALETTE.text600,
+    marginTop: 2,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    fontSize: 12,
     fontWeight: '700',
+  },
+  cardLike: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  rowBetween: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  rowLabel: { color: PALETTE.text600 },
+  rowValue: { color: PALETTE.text900, fontWeight: '700' },
+  cardTitle: {
     fontSize: 16,
+    fontWeight: '700',
+    color: PALETTE.text900,
+  },
+  cardSubtitle: {
+    fontSize: 12,
+    color: PALETTE.text600,
+    marginTop: 2,
   },
 });

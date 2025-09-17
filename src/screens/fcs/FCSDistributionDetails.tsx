@@ -472,7 +472,7 @@ const shadow = (opacity: number, radius: number, offset: number) => ({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 0 : 20,
+    paddingTop: Platform.OS === 'ios' ? 0 : 10,
     paddingBottom: 16,
     paddingHorizontal: 16,
     flexDirection: 'row',

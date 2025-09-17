@@ -300,4 +300,32 @@
     "selectDistribution": "Select Distribution",
     "selectCompany": "Select Company"
   }
+  ,
+  "fcs": {
+    "loadingDashboard": "Loading FCS Dashboard...",
+    "headerWelcome": "Welcome to FCS Portal",
+    "headerSubtitle": "Fisheries Control System",
+    "portalDescription": "You're logged into the Marine Fisheries Department Portal as FCS.",
+    "tripStatistics": "Trip Statistics",
+    "distributionStatistics": "Distribution Statistics",
+    "totalTrips": "Total Trips",
+    "activeTrips": "Active Trips",
+    "completed": "Completed",
+    "pendingApproval": "Pending Approval",
+    "totalDistributions": "Total Distributions",
+    "verified": "Verified",
+    "pendingReview": "Pending Review",
+    "quickActions": "Quick Actions",
+    "allTrips": "All Trips",
+    "pendingTrips": "Pending Trips",
+    "allDistributions": "All Distributions",
+    "pendingDistributions": "Pending Distributions",
+    "logout": "Logout",
+    "logoutTitle": "Logout",
+    "logoutConfirm": "Are you sure you want to logout?",
+    "viewManageTrips": "View and manage all fishing trips",
+    "reviewPendingTrips": "Review trips awaiting approval",
+    "viewManageDistributions": "View and manage all distributions",
+    "reviewPendingDistributions": "Review distributions awaiting verification"
+  }
 }
