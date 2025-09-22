@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   RefreshControl,
   StatusBar,
@@ -48,6 +49,7 @@ export default function MiddleManHome() {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const loadingMoreRef = useRef(false);
+  const [noCompanyModal, setNoCompanyModal] = useState(false);
 
   const load = useCallback(
     async (replace = false) => {
@@ -136,8 +138,13 @@ export default function MiddleManHome() {
   }, [navigation]);
 
   const goCreatePurchase = useCallback(() => {
+    const hasActiveCompany = assignments?.some(a => (a?.status || '').toLowerCase() === 'active');
+    if (!hasActiveCompany) {
+      setNoCompanyModal(true);
+      return;
+    }
     navigation.navigate('CreatePurchase' as any);
-  }, [navigation]);
+  }, [navigation, assignments]);
 
   // Computed values from user data
   const name = useMemo(() => {
@@ -287,6 +294,40 @@ export default function MiddleManHome() {
         {/* Footer space */}
         <View style={{ height: 16 }} />
       </ScrollView>
+
+      {/* No Company Assigned Modal */}
+      <Modal visible={noCompanyModal} animationType="fade" transparent onRequestClose={() => setNoCompanyModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconWrap}>
+              <Icon name="business" size={28} color={PALETTE.green700} />
+            </View>
+            <Text style={styles.modalTitle}>No Company Assigned</Text>
+            <Text style={styles.modalText}>
+              You cannot create a purchase because no company is assigned to your account.
+            </Text>
+            <Text style={[styles.modalText, { marginTop: 6 }]}>Please contact MFD staff to assign a company to you.</Text>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => {
+                  setNoCompanyModal(false);
+                  navigation.navigate('Assignments' as any);
+                }}
+                style={({ pressed }) => [styles.modalSecondaryBtn, pressed && { opacity: 0.9 }]}
+              >
+                <Text style={styles.modalSecondaryText}>View Assignments</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setNoCompanyModal(false)}
+                style={({ pressed }) => [styles.modalPrimaryBtn, pressed && { opacity: 0.95 }]}
+              >
+                <Text style={styles.modalPrimaryText}>OK</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -436,5 +477,74 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  // modal styles
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  modalIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: PALETTE.green50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: PALETTE.text900,
+    textAlign: 'center',
+  },
+  modalText: {
+    fontSize: 14,
+    color: PALETTE.text600,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 16,
+    gap: 8,
+  },
+  modalSecondaryBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+  },
+  modalSecondaryText: {
+    color: PALETTE.text700,
+    fontWeight: '700',
+  },
+  modalPrimaryBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: PALETTE.green700,
+  },
+  modalPrimaryText: {
+    color: '#fff',
+    fontWeight: '700',
   },
 });
