@@ -13,12 +13,22 @@ export type PurchasedLot = {
   quantity_kg: string;
 };
 
+export type EnrichedPurchasedLot = {
+  lot_no: string;
+  quantity_kg: string;
+  species_name: string;
+  grade: string;
+  type: string;
+  notes: string | null;
+};
+
 export type MiddlemanPurchase = {
   id: number;
   exporter_id: number;
   middle_man_id: number;
   company_id: number;
   purchased_lots: PurchasedLot[];
+  enriched_purchased_lots?: EnrichedPurchasedLot[];
   total_quantity_kg: string;
   total_value: string;
   purchase_reference: string;

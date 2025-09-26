@@ -164,12 +164,21 @@ export default function PurchasesList() {
 
         {/* Lots scroller */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }} contentContainerStyle={{ gap: 8 }}>
-          {(item.purchased_lots || []).map((lot: any, i: number) => (
-            <View key={i} style={styles.lotPill}>
-              <Text style={{ color: PALETTE.text700, fontWeight: '800' }}>{lot.lot_no}</Text>
-              <Text style={{ color: PALETTE.text600, marginLeft: 8 }}>{Number(lot.quantity_kg).toFixed(2)} kg</Text>
-            </View>
-          ))}
+          {(item.enriched_purchased_lots || item.purchased_lots || []).map((lot: any, i: number) => {
+            const enrichedLot = item.enriched_purchased_lots?.[i];
+            return (
+              <View key={i} style={styles.lotPill}>
+                <Text style={{ color: PALETTE.text700, fontWeight: '800' }}>{lot.lot_no}</Text>
+                <Text style={{ color: PALETTE.text600, marginLeft: 8 }}>{Number(lot.quantity_kg).toFixed(2)} kg</Text>
+                {enrichedLot && (
+                  <>
+                    <Text style={styles.lotSpecies}> • {enrichedLot.species_name}</Text>
+                    <Text style={styles.lotGrade}> • Grade {enrichedLot.grade}</Text>
+                  </>
+                )}
+              </View>
+            );
+          })}
         </ScrollView>
 
         {/* Action Buttons */}
@@ -374,7 +383,9 @@ const styles = StyleSheet.create({
   row: { marginTop: 2, flexDirection: 'row', justifyContent: 'space-between' },
   k: { color: PALETTE.text600 },
   v: { color: PALETTE.text900, fontWeight: '700' },
-  lotPill: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: PALETTE.border, backgroundColor: '#F8FAFC', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
+  lotPill: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: PALETTE.border, backgroundColor: '#F8FAFC', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, flexWrap: 'wrap' },
+  lotSpecies: { fontSize: 10, color: PALETTE.text600, fontWeight: '600' },
+  lotGrade: { fontSize: 9, color: PALETTE.text500 },
   qtyRow: { marginTop: 10, flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   filters: { marginTop: 12, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: PALETTE.border, padding: 12 },
   searchInput: { borderWidth: 1, borderColor: PALETTE.border, backgroundColor: '#FFFFFF', borderRadius: 10, paddingHorizontal: 12, paddingVertical: Platform.OS === 'ios' ? 10 : 8, color: PALETTE.text900 },

@@ -11,6 +11,7 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  SafeAreaView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import NetInfo from '@react-native-community/netinfo';
@@ -171,7 +172,7 @@ export default function ExporterHome() {
   }, [user]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: PALETTE.green50 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: PALETTE.green50 }}>
       <StatusBar backgroundColor={APPBAR_BG} barStyle="light-content" />
       <LanguageSwitcher />
 
@@ -378,7 +379,7 @@ export default function ExporterHome() {
         {/* Footer space */}
         <View style={{ height: 16 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 /* -------------------- tiny UI atoms -------------------- */
@@ -504,8 +505,7 @@ function ActionTile({
 const styles = StyleSheet.create({
   appbar: {
     backgroundColor: APPBAR_BG,
-    paddingTop: Platform.OS === 'ios' ? 10 : 0,
-    height: 56 + (Platform.OS === 'ios' ? 10 : 0),
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,

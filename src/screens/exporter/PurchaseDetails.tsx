@@ -219,13 +219,40 @@ export default function PurchaseDetails() {
 
         {/* Purchased Lots Card */}
         <View style={styles.card}>
-          <Text style={styles.cardSectionTitle}>Purchased Lots</Text>
-          {purchase.purchased_lots?.map((lot, index) => (
-            <View key={index} style={styles.lotItem}>
-              <Text style={styles.lotNumber}>Lot #{lot.lot_no}</Text>
-              <Text style={styles.lotQuantity}>{Number(lot.quantity_kg).toFixed(2)} kg</Text>
-            </View>
-          ))}
+          <Text style={styles.cardSectionTitle}>Purchased Lots ({purchase.purchased_lots?.length || 0})</Text>
+          {(purchase.enriched_purchased_lots || purchase.purchased_lots || []).map((lot, index) => {
+            const enrichedLot = purchase.enriched_purchased_lots?.[index];
+            return (
+              <View key={index} style={styles.lotItem}>
+                <View style={styles.lotHeader}>
+                  <Text style={styles.lotNumber}>Lot #{lot.lot_no}</Text>
+                  <Text style={styles.lotQuantity}>{Number(lot.quantity_kg).toFixed(2)} kg</Text>
+                </View>
+                {enrichedLot && (
+                  <View style={styles.lotDetails}>
+                    <View style={styles.lotDetailRow}>
+                      <Text style={styles.lotDetailLabel}>Species:</Text>
+                      <Text style={styles.lotDetailValue}>{enrichedLot.species_name}</Text>
+                    </View>
+                    <View style={styles.lotDetailRow}>
+                      <Text style={styles.lotDetailLabel}>Grade:</Text>
+                      <Text style={styles.lotDetailValue}>{enrichedLot.grade}</Text>
+                    </View>
+                    <View style={styles.lotDetailRow}>
+                      <Text style={styles.lotDetailLabel}>Type:</Text>
+                      <Text style={styles.lotDetailValue}>{enrichedLot.type}</Text>
+                    </View>
+                    {enrichedLot.notes && (
+                      <View style={styles.lotDetailRow}>
+                        <Text style={styles.lotDetailLabel}>Notes:</Text>
+                        <Text style={styles.lotDetailValue}>{enrichedLot.notes}</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+            );
+          })}
         </View>
       </ScrollView>
 
@@ -425,13 +452,15 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   lotItem: {
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  lotHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
     marginBottom: 8,
   },
   lotNumber: {
@@ -442,6 +471,30 @@ const styles = StyleSheet.create({
   lotQuantity: {
     fontSize: 14,
     color: PALETTE.text600,
+  },
+  lotDetails: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  lotDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  lotDetailLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: PALETTE.text600,
+    width: '30%',
+  },
+  lotDetailValue: {
+    fontSize: 12,
+    color: PALETTE.text900,
+    flex: 1,
+    textAlign: 'right',
   },
   actionContainer: {
     padding: 20,

@@ -241,6 +241,27 @@ export function CompleteTripModal({
       return { ...prev, rows };
     });
   }
+
+  // Function to extract weight from lot selection and auto-fill quantity
+  function handleLotSelection(i: number, lotNo: string) {
+    // Find the selected lot from availableLots
+    const selectedLot = availableLots.find(lot => lot.lot_no === lotNo);
+    
+    if (selectedLot && selectedLot.quantity_kg) {
+      // Extract the weight and auto-fill the quantity field
+      const weight = typeof selectedLot.quantity_kg === 'string' 
+        ? selectedLot.quantity_kg 
+        : String(selectedLot.quantity_kg);
+      
+      updateRow(i, { 
+        lot_no: lotNo, 
+        quantity_kg: weight 
+      });
+    } else {
+      // If no weight found, just update the lot_no
+      updateRow(i, { lot_no: lotNo });
+    }
+  }
   function addRow() {
     setForm(prev => ({
       ...prev,
@@ -479,7 +500,7 @@ export function CompleteTripModal({
                         search
                         searchPlaceholder="Search lot..."
                         onChange={item =>
-                          updateRow(i, { lot_no: String(item.value) })
+                          handleLotSelection(i, String(item.value))
                         }
                         style={styles.dd}
                         placeholderStyle={styles.ddPlaceholder}
@@ -551,41 +572,40 @@ export function CompleteTripModal({
               );
             })}
 
-            {/* Landing site (Dropdown) + notes */}
-            <View style={[styles.grid, wide && { columnGap: 12 }]}>
-              <FormField label="Landing Site" required flex>
-                <Dropdown
-                  data={landingOptions}
-                  labelField="label"
-                  valueField="value"
-                  value={form.landing_site || null}
-                  placeholder="Select landing site"
-                  onChange={item =>
-                    setForm(prev => ({
-                      ...prev,
-                      landing_site: String(item.value),
-                    }))
-                  }
-                  style={styles.dd}
-                  placeholderStyle={styles.ddPlaceholder}
-                  selectedTextStyle={styles.ddSelected}
-                  itemTextStyle={styles.ddItemText}
-                  itemContainerStyle={styles.ddItemContainer}
-                />
-              </FormField>
+            {/* Landing site (Dropdown) */}
+            <FormField label="Landing Site" required>
+              <Dropdown
+                data={landingOptions}
+                labelField="label"
+                valueField="value"
+                value={form.landing_site || null}
+                placeholder="Select landing site"
+                onChange={item =>
+                  setForm(prev => ({
+                    ...prev,
+                    landing_site: String(item.value),
+                  }))
+                }
+                style={styles.dd}
+                placeholderStyle={styles.ddPlaceholder}
+                selectedTextStyle={styles.ddSelected}
+                itemTextStyle={styles.ddItemText}
+                itemContainerStyle={styles.ddItemContainer}
+              />
+            </FormField>
 
-              <FormField label="Landing Notes" flex>
-                <TextInput
-                  placeholder="e.g., Trip completed successfully"
-                  value={form.landing_notes}
-                  onChangeText={v =>
-                    setForm(prev => ({ ...prev, landing_notes: v }))
-                  }
-                  style={styles.input}
-                  placeholderTextColor={MUTED}
-                />
-              </FormField>
-            </View>
+            {/* Landing Notes */}
+            <FormField label="Landing Notes">
+              <TextInput
+                placeholder="e.g., Trip completed successfully"
+                value={form.landing_notes}
+                onChangeText={v =>
+                  setForm(prev => ({ ...prev, landing_notes: v }))
+                }
+                style={styles.input}
+                placeholderTextColor={MUTED}
+              />
+            </FormField>
 
             {/* Available lots helper */}
             {!!availableLots?.length && (

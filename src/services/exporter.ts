@@ -2,6 +2,15 @@ import { api } from './https';
 
 // ===== TYPES =====
 
+export type EnrichedPurchasedLot = {
+  lot_no: string;
+  quantity_kg: string;
+  species_name: string;
+  grade: string;
+  type: string;
+  notes: string | null;
+};
+
 export type ExporterPurchase = {
   id: number;
   exporter_id: number;
@@ -11,6 +20,7 @@ export type ExporterPurchase = {
     lot_no: string;
     quantity_kg: string;
   }>;
+  enriched_purchased_lots?: EnrichedPurchasedLot[];
   total_quantity_kg: string;
   total_value: string;
   purchase_reference: string;

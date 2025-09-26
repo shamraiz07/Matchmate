@@ -182,7 +182,14 @@ export default function FishingActivityDetailsScreen() {
           </View>
         </View>
 
-        {/* Back-to-Trip removed as requested */}
+        {/* All Trips Button */}
+        <Pressable 
+          onPress={() => navigation.navigate('AllTrip')} 
+          style={styles.headerBtn}
+        >
+          <MaterialIcons name="list" size={16} color={PRIMARY} />
+          <Text style={styles.headerBtnText}>All Trips</Text>
+        </Pressable>
       </View>
 
       {loading ? (
@@ -344,6 +351,25 @@ export default function FishingActivityDetailsScreen() {
                 )}
               </>
             )}
+
+            {/* All Trips Button - Always visible */}
+            <Pressable
+              style={[
+                styles.secondaryBtn,
+                styles.actionBtn,
+                { backgroundColor: PALETTE.surface, borderColor: PRIMARY }
+              ]}
+              onPress={() => navigation.navigate('AllTrip')}
+            >
+              <MaterialIcons
+                name="list"
+                size={18}
+                color={PRIMARY}
+              />
+              <Text style={[styles.secondaryBtnText, { color: PRIMARY }]} numberOfLines={1} ellipsizeMode="tail">
+                {`${t('fisherman.allTrips') || 'All Trips'} / تمام سفر`}
+              </Text>
+            </Pressable>
           </View>
         </ScrollView>
       )}
@@ -499,6 +525,25 @@ const styles = StyleSheet.create({
   },
   hollowBtnText: { 
     color: PALETTE.text900, 
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  secondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  secondaryBtnText: { 
     fontWeight: '800',
     fontSize: 16,
   },

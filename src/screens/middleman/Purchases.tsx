@@ -9,6 +9,7 @@ import {
   Alert,
   StatusBar,
   Pressable,
+  ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -194,118 +195,131 @@ const PurchaseCard = ({
 }) => (
   <Pressable
     onPress={onPress}
-    style={({ pressed }) => [styles.card, pressed && { opacity: 0.95, transform: [{ scale: 0.98 }] }]}
+    style={({ pressed }) => [styles.card, pressed && { opacity: 0.95 }]}
     accessibilityRole="button"
     accessibilityLabel={`Open purchase ${purchase.id}`}
   >
-    {/* Header with Purchase ID and Status */}
+    {/* Header */}
     <View style={styles.cardHeader}>
-      <View style={styles.cardTitleContainer}>
-        <Text style={styles.cardTitle}>Purchase #{purchase.id}</Text>
-        <View style={styles.productBadge}>
-          <Text style={styles.productText}>{purchase.final_product_name}</Text>
-        </View>
-      </View>
-      <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-        <Text style={styles.statusText}>{statusText}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.cardEyebrow}>Purchase</Text>
+        <Text style={styles.cardTitle} numberOfLines={1}>#{purchase.id} • {purchase.final_product_name || '—'}</Text>
       </View>
     </View>
 
-    {/* Purchase Info */}
-    <View style={styles.cardInfo}>
-      <View style={styles.infoItem}>
-        <View style={styles.infoIconContainer}>
-          <Icon name="business" size={18} color={PALETTE.blue700} />
-        </View>
-        <View style={styles.infoContent}>
-          <Text style={styles.infoLabel}>Exporter</Text>
-          <Text style={styles.infoValue} numberOfLines={1}>
-            {purchase.exporter?.name || '—'}
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.infoItem}>
-        <View style={styles.infoIconContainer}>
-          <Icon name="person" size={18} color={PALETTE.green700} />
-        </View>
-        <View style={styles.infoContent}>
-          <Text style={styles.infoLabel}>Middleman</Text>
-          <Text style={styles.infoValue} numberOfLines={1}>
-            {purchase.middle_man?.name || '—'}
-          </Text>
-        </View>
+    {/* Status Badge - Top Right */}
+    <View style={styles.statusContainer}>
+      <View style={[styles.badge, { borderColor: statusColor }]}>
+        <View style={[styles.badgeDot, { backgroundColor: statusColor }]} />
+        <Text style={[styles.badgeText, { color: statusColor }]}>{statusText}</Text>
       </View>
     </View>
 
-    {/* Quantity and Value */}
-    <View style={styles.metricsContainer}>
-      <View style={styles.metricItem}>
-        <Text style={styles.metricLabel}>Total Quantity</Text>
-        <Text style={styles.metricValue}>{purchase.total_quantity_kg} kg</Text>
-      </View>
-      <View style={styles.metricItem}>
-        <Text style={styles.metricLabel}>Total Value</Text>
-        <Text style={styles.metricValue}>${purchase.total_value}</Text>
-      </View>
-      <View style={styles.metricItem}>
-        <Text style={styles.metricLabel}>Reference</Text>
-        <Text style={styles.metricValue}>{purchase.purchase_reference}</Text>
-      </View>
+    {/* Meta grid */}
+    <View style={styles.metaGrid}>
+      <Meta icon="store" k="Company" v={purchase?.company?.name || '—'} />
+      <Meta icon="badge" k="Exporter" v={purchase?.exporter?.name || '—'} />
+      <Meta icon="person" k="Middle Man" v={purchase?.middle_man?.name || '—'} />
+      <Meta icon="calendar-today" k="Created" v={formatDate(purchase.created_at)} />
     </View>
 
-    {/* Date */}
-    <View style={styles.dateContainer}>
-      <Icon name="schedule" size={16} color={PALETTE.text500} />
-      <Text style={styles.dateText}>
-        Created: {formatDate(purchase.created_at)}
-      </Text>
+    {/* Quantities */}
+    <View style={styles.qtyRow}>
+      <Chip icon="scale" label={`${Number(purchase.total_quantity_kg).toFixed(2)} kg`} />
+      <Chip icon="fitness-center" label={`Final ${Number(purchase.final_weight_quantity).toFixed(2)} kg`} tone="ok" />
+      {purchase.purchase_reference ? <Chip icon="tag" label={`Ref ${purchase.purchase_reference}`} tone="info" /> : null}
     </View>
+
+    {/* Lots scroller */}
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }} contentContainerStyle={{ gap: 8 }}>
+      {(purchase.enriched_purchased_lots || purchase.purchased_lots || []).map((lot: any, i: number) => {
+        const enrichedLot = purchase.enriched_purchased_lots?.[i];
+        return (
+          <View key={i} style={styles.lotPill}>
+            <Text style={{ color: PALETTE.text700, fontWeight: '800' }}>{lot.lot_no}</Text>
+            <Text style={{ color: PALETTE.text600, marginLeft: 8 }}>{Number(lot.quantity_kg).toFixed(2)} kg</Text>
+            {enrichedLot && (
+              <>
+                <Text style={styles.lotSpecies}> • {enrichedLot.species_name}</Text>
+                <Text style={styles.lotGrade}> • Grade {enrichedLot.grade}</Text>
+              </>
+            )}
+          </View>
+        );
+      })}
+    </ScrollView>
 
     {/* Action Buttons */}
-    <View style={styles.cardFooter}>
+    <View style={styles.actionButtons}>
       {purchase.status === 'pending' ? (
         <>
           <Pressable
             onPress={onPress}
             style={({ pressed }) => [
+              styles.actionButton,
               styles.viewButton,
-              pressed && { opacity: 0.8 }
+              pressed && { opacity: 0.9 }
             ]}
             accessibilityLabel="View Details"
           >
-            <Icon name="visibility" size={18} color={PALETTE.green700} />
-            <Text style={styles.viewButtonText}>View</Text>
+            <Icon name="visibility" size={16} color={PALETTE.green700} />
+            <Text style={[styles.actionButtonText, { color: PALETTE.green700 }]}>View Details</Text>
           </Pressable>
-          <View style={{ width: 10 }} />
           <Pressable
             onPress={onConfirm}
             style={({ pressed }) => [
+              styles.actionButton,
               styles.confirmButton,
               pressed && { opacity: 0.9 }
             ]}
             accessibilityLabel="Confirm Purchase"
           >
-            <Icon name="check-circle" size={18} color="#fff" />
-            <Text style={styles.confirmButtonText}>Confirm</Text>
+            <Icon name="check-circle" size={16} color="#fff" />
+            <Text style={[styles.actionButtonText, { color: '#fff' }]}>Confirm</Text>
           </Pressable>
         </>
       ) : (
         <Pressable
           onPress={onPress}
           style={({ pressed }) => [
+            styles.actionButton,
             styles.viewButton,
-            pressed && { opacity: 0.8 }
+            pressed && { opacity: 0.9 }
           ]}
           accessibilityLabel="View Details"
         >
-          <Icon name="arrow-forward-ios" size={16} color={PALETTE.green700} />
-          <Text style={styles.viewButtonText}>View Details</Text>
+          <Icon name="visibility" size={16} color={PALETTE.green700} />
+          <Text style={[styles.actionButtonText, { color: PALETTE.green700 }]}>View Details</Text>
         </Pressable>
       )}
     </View>
   </Pressable>
 );
+
+// Meta component for displaying key-value pairs
+function Meta({ icon, k, v }: { icon: string; k: string; v: string }) {
+  return (
+    <View style={styles.row}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <Icon name={icon} size={16} color={PALETTE.text600} />
+        <Text style={[styles.k, { marginLeft: 6 }]}>{k}</Text>
+      </View>
+      <Text style={styles.v} numberOfLines={1}>{v}</Text>
+    </View>
+  );
+}
+
+// Chip component for displaying labels with icons
+function Chip({ icon, label, tone = 'default' }: { icon?: string; label: string; tone?: 'default'|'ok'|'info'| 'warn'|'error' }) {
+  const bg = tone === 'ok' ? '#E8F5E9' : tone === 'info' ? '#E3F2FD' : tone === 'warn' ? '#FFF4E5' : tone === 'error' ? '#FFEBEE' : '#F1F5F9';
+  const fg = tone === 'ok' ? PALETTE.green700 : tone === 'info' ? PALETTE.info : tone === 'warn' ? PALETTE.warn : tone === 'error' ? PALETTE.error : PALETTE.text700;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 }}>
+      {icon ? <Icon name={icon} size={14} color={fg} style={{ marginRight: 6 }} /> : null}
+      <Text style={{ color: fg, fontWeight: '700' }}>{label}</Text>
+    </View>
+  );
+}
 
 const FilterChip = ({
   label,
@@ -439,7 +453,13 @@ const styles = StyleSheet.create({
     borderColor: '#f0f0f0',
   },
   cardHeader: {
-    marginBottom: 16,
+    marginBottom: 8,
+  },
+  statusContainer: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    zIndex: 1,
   },
   cardTitleContainer: {
     flexDirection: 'row',
@@ -598,5 +618,100 @@ const styles = StyleSheet.create({
   emptySubText: {
     fontSize: 14,
     color: PALETTE.text600,
+  },
+  // New styles for exporter-like design
+  cardEyebrow: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: PALETTE.text500,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  badgeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  metaGrid: {
+    marginTop: 20,
+    rowGap: 8,
+  },
+  row: {
+    marginTop: 2,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  k: {
+    color: PALETTE.text600,
+  },
+  v: {
+    color: PALETTE.text900,
+    fontWeight: '700',
+  },
+  qtyRow: {
+    marginTop: 10,
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  lotPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    flexWrap: 'wrap',
+  },
+  lotSpecies: {
+    fontSize: 10,
+    color: PALETTE.text600,
+    fontWeight: '600',
+  },
+  lotGrade: {
+    fontSize: 9,
+    color: PALETTE.text500,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+    flexWrap: 'wrap',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  viewButton: {
+    backgroundColor: '#f8f9fa',
+    borderColor: PALETTE.green600,
+  },
+  confirmButton: {
+    backgroundColor: PALETTE.green700,
+    borderColor: PALETTE.green700,
+  },
+  actionButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
   },
 });

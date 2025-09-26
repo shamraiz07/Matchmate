@@ -17,7 +17,7 @@ import Toast from 'react-native-toast-message';
 import NetInfo from '@react-native-community/netinfo';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { listTripsPage, startTrip } from '../../../services/trips';
+import { listTripsPage, startTrip, getTripById } from '../../../services/trips';
 import { countQueuedActivitiesForTrip } from '../../../offline/TripQueues';
 import PALETTE from '../../../theme/palette';
 
@@ -56,7 +56,60 @@ export default function TripsScreen() {
   const [trips, setTrips] = useState<TripRow[]>([]);
   const [actionBusyId, setActionBusyId] = useState<string | number | null>(null);
   const [online, setOnline] = useState<boolean>(true);
+  const [buttonTexts, setButtonTexts] = useState<Record<string, string>>({});
   const navigation = useNavigation();
+
+  // Function to check if there's an active activity for a trip
+  const getActiveActivity = useCallback(async (tripId: string | number) => {
+    try {
+      const tripDetails = await getTripById(tripId);
+      const activeActivity = tripDetails.activities?.find(activity => activity.status === 'active');
+      return activeActivity || null;
+    } catch (error) {
+      console.error('Error fetching trip details:', error);
+      return null;
+    }
+  }, []);
+
+  // Function to get the last activity for a trip
+  const getLastActivity = useCallback(async (tripId: string | number) => {
+    try {
+      const tripDetails = await getTripById(tripId);
+      const activities = tripDetails.activities || [];
+      if (activities.length === 0) return null;
+      
+      // Sort by activity number and get the last one
+      const sortedActivities = activities.sort((a, b) => (a.number || 0) - (b.number || 0));
+      return sortedActivities[sortedActivities.length - 1] || null;
+    } catch (error) {
+      console.error('Error fetching trip details:', error);
+      return null;
+    }
+  }, []);
+
+  // Function to determine button text and action
+  const getActivityButtonInfo = useCallback(async (tripId: string | number) => {
+    try {
+      const activeActivity = await getActiveActivity(tripId);
+      
+      if (activeActivity) {
+        return { text: 'View Activity', action: 'view', activityId: activeActivity.id };
+      } else {
+        const lastActivity = await getLastActivity(tripId);
+        const isLastActivityComplete = lastActivity && 
+          (lastActivity.status === 'completed' || lastActivity.status === 'complete');
+        
+        if (isLastActivityComplete || !lastActivity) {
+          return { text: 'Add Activity', action: 'create', activityId: null };
+        } else {
+          return { text: 'View Activity', action: 'view', activityId: lastActivity.id };
+        }
+      }
+    } catch (error) {
+      console.error('Error determining button info:', error);
+      return { text: 'Activity', action: 'create', activityId: null };
+    }
+  }, [getActiveActivity, getLastActivity]);
   const handleBack = () => {
     // go back if possible, else fall back to FishermanHome
     // @ts-ignore
@@ -94,6 +147,30 @@ export default function TripsScreen() {
   useEffect(() => {
     loadTrips();
   }, [loadTrips]);
+
+  // Preload button texts for active trips
+  useEffect(() => {
+    const loadButtonTexts = async () => {
+      const activeTrips = trips.filter(trip => trip.status === 'active');
+      const newButtonTexts: Record<string, string> = {};
+      
+      for (const trip of activeTrips) {
+        try {
+          const buttonInfo = await getActivityButtonInfo(trip.id);
+          newButtonTexts[trip.id] = buttonInfo.text;
+        } catch (error) {
+          console.error(`Error loading button text for trip ${trip.id}:`, error);
+          newButtonTexts[trip.id] = 'Activity';
+        }
+      }
+      
+      setButtonTexts(newButtonTexts);
+    };
+
+    if (trips.length > 0) {
+      loadButtonTexts();
+    }
+  }, [trips, getActivityButtonInfo]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -201,20 +278,37 @@ export default function TripsScreen() {
           {isActive ? (
             <Pressable
               onPress={async () => {
-                const queued = await countQueuedActivitiesForTrip({ tripServerId: Number(item.id) || undefined });
-                const nextNo = (item.fishing_activity_count ?? 0) + queued + 1;
-                (navigation as any).navigate('FishingActivity', {
-                  tripId: String(item.trip_name),
-                  meta: { id: item.id, trip_id: item.trip_name },
-                  mode: 'create',
-                  activityNo: nextNo,
-                });
+                try {
+                  const buttonInfo = await getActivityButtonInfo(item.id);
+                  
+                  if (buttonInfo.action === 'view' && buttonInfo.activityId) {
+                    // Navigate to existing activity
+                    (navigation as any).navigate('FishingActivityDetails', {
+                      activityId: buttonInfo.activityId,
+                    });
+                  } else if (buttonInfo.action === 'create') {
+                    // Create a new activity
+                    const queued = await countQueuedActivitiesForTrip({ tripServerId: Number(item.id) || undefined });
+                    const nextNo = (item.fishing_activity_count ?? 0) + queued + 1;
+                    (navigation as any).navigate('FishingActivity', {
+                      tripId: String(item.trip_name),
+                      meta: { id: item.id, trip_id: item.trip_name },
+                      mode: 'create',
+                      activityNo: nextNo,
+                    });
+                  }
+                } catch (error) {
+                  console.error('Error handling activity:', error);
+                  Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to check activity status' });
+                }
               }}
               style={[styles.actionBtn, styles.btnInfo]}
-              accessibilityLabel="Add Activity"
+              accessibilityLabel="Activity"
             >
               <Icon name="set-meal" size={18} color="#fff" />
-              <Text style={styles.btnWhiteText}>Add Activity</Text>
+              <Text style={styles.btnWhiteText}>
+                {buttonTexts[item.id] || 'Activity'}
+              </Text>
             </Pressable>
           ) : null}
 
