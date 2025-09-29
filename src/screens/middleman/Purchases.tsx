@@ -9,7 +9,6 @@ import {
   Alert,
   StatusBar,
   Pressable,
-  ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -87,6 +86,7 @@ export default function Purchases() {
       <PurchaseCard
         purchase={item}
         onPress={() => navigation.navigate('purchaseDetails', { purchaseId: item.id })}
+        onEdit={() => navigation.navigate('CreatePurchase', { editPurchaseId: item.id, hideFinalFields: true })}
         onConfirm={async () => {
           try {
             const proceed = await new Promise<boolean>((resolve) => {
@@ -141,7 +141,7 @@ export default function Purchases() {
         <Pressable onPress={() => navigation.goBack()} style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.8 }]}>
           <Icon name="arrow-back" size={24} color="#fff" />
         </Pressable>
-        <Text style={styles.headerTitle}>Purchases</Text>
+        <Text style={styles.headerTitle}>All Purchases</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -183,12 +183,14 @@ export default function Purchases() {
 const PurchaseCard = ({
   purchase,
   onPress,
+  onEdit,
   onConfirm,
   statusColor,
   statusText
 }: {
   purchase: MiddlemanPurchase;
   onPress: () => void;
+  onEdit?: () => void;
   onConfirm: () => void;
   statusColor: string;
   statusText: string;
@@ -206,6 +208,13 @@ const PurchaseCard = ({
         <Text style={styles.cardTitle} numberOfLines={1}>#{purchase.id} • {purchase.final_product_name || '—'}</Text>
       </View>
     </View>
+
+    {/* Final Product Hint for TBD */}
+    {purchase.final_product_name === 'TBD' && (
+      <View style={{ marginTop: 4 }}>
+        <Chip label="Needs Exporter Input" tone="warn" />
+      </View>
+    )}
 
     {/* Status Badge - Top Right */}
     <View style={styles.statusContainer}>
@@ -230,68 +239,72 @@ const PurchaseCard = ({
       {purchase.purchase_reference ? <Chip icon="tag" label={`Ref ${purchase.purchase_reference}`} tone="info" /> : null}
     </View>
 
-    {/* Lots scroller */}
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }} contentContainerStyle={{ gap: 8 }}>
+    {/* Lots list - one lot per row */}
+    <View style={{ marginTop: 10, rowGap: 8 }}>
       {(purchase.enriched_purchased_lots || purchase.purchased_lots || []).map((lot: any, i: number) => {
         const enrichedLot = purchase.enriched_purchased_lots?.[i];
         return (
-          <View key={i} style={styles.lotPill}>
-            <Text style={{ color: PALETTE.text700, fontWeight: '800' }}>{lot.lot_no}</Text>
-            <Text style={{ color: PALETTE.text600, marginLeft: 8 }}>{Number(lot.quantity_kg).toFixed(2)} kg</Text>
-            {enrichedLot && (
-              <>
-                <Text style={styles.lotSpecies}> • {enrichedLot.species_name}</Text>
-                <Text style={styles.lotGrade}> • Grade {enrichedLot.grade}</Text>
-              </>
-            )}
+          <View key={i} style={styles.lotRow}>
+            <View style={styles.lotLeft}>
+              <Text style={styles.lotNo}>{lot.lot_no}</Text>
+              {enrichedLot && (
+                <View style={styles.lotMetaRow}>
+                  <Text style={styles.lotSpecies}>{enrichedLot.species_name}</Text>
+                  <Text style={styles.lotDot}> • </Text>
+                  <Text style={styles.lotGrade}>Grade {enrichedLot.grade}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.lotQty}>{Number(lot.quantity_kg).toFixed(2)} kg</Text>
           </View>
         );
       })}
-    </ScrollView>
+    </View>
 
     {/* Action Buttons */}
     <View style={styles.actionButtons}>
-      {purchase.status === 'pending' ? (
-        <>
-          <Pressable
-            onPress={onPress}
-            style={({ pressed }) => [
-              styles.actionButton,
-              styles.viewButton,
-              pressed && { opacity: 0.9 }
-            ]}
-            accessibilityLabel="View Details"
-          >
-            <Icon name="visibility" size={16} color={PALETTE.green700} />
-            <Text style={[styles.actionButtonText, { color: PALETTE.green700 }]}>View Details</Text>
-          </Pressable>
-          <Pressable
-            onPress={onConfirm}
-            style={({ pressed }) => [
-              styles.actionButton,
-              styles.confirmButton,
-              pressed && { opacity: 0.9 }
-            ]}
-            accessibilityLabel="Confirm Purchase"
-          >
-            <Icon name="check-circle" size={16} color="#fff" />
-            <Text style={[styles.actionButtonText, { color: '#fff' }]}>Confirm</Text>
-          </Pressable>
-        </>
-      ) : (
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.actionButton,
+          styles.viewButton,
+          pressed && { opacity: 0.9 }
+        ]}
+        accessibilityLabel="View Details"
+      >
+        <Icon name="visibility" size={16} color={PALETTE.green700} />
+        <Text style={[styles.actionButtonText, { color: PALETTE.green700 }]}>View Details</Text>
+      </Pressable>
+
+      {(statusText?.toLowerCase?.() === 'pending verification') && onEdit ? (
         <Pressable
-          onPress={onPress}
+          onPress={onEdit}
           style={({ pressed }) => [
             styles.actionButton,
-            styles.viewButton,
+            styles.editButton,
             pressed && { opacity: 0.9 }
           ]}
-          accessibilityLabel="View Details"
+          accessibilityLabel="Edit Purchase"
         >
-          <Icon name="visibility" size={16} color={PALETTE.green700} />
-          <Text style={[styles.actionButtonText, { color: PALETTE.green700 }]}>View Details</Text>
+          <Icon name="edit" size={16} color={PALETTE.warn} />
+          <Text style={[styles.actionButtonText, { color: PALETTE.warn }]}>Edit</Text>
         </Pressable>
-      )}
+      ) : null}
+
+      {purchase.status === 'pending' ? (
+        <Pressable
+          onPress={onConfirm}
+          style={({ pressed }) => [
+            styles.actionButton,
+            styles.confirmButton,
+            pressed && { opacity: 0.9 }
+          ]}
+          accessibilityLabel="Confirm Purchase"
+        >
+          <Icon name="check-circle" size={16} color="#fff" />
+          <Text style={[styles.actionButtonText, { color: '#fff' }]}>Confirm</Text>
+        </Pressable>
+      ) : null}
     </View>
   </Pressable>
 );
@@ -667,6 +680,33 @@ const styles = StyleSheet.create({
     gap: 8,
     flexWrap: 'wrap',
   },
+  lotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: PALETTE.border,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  lotLeft: {
+    flex: 1,
+  },
+  lotNo: {
+    color: PALETTE.text700,
+    fontWeight: '800',
+  },
+  lotMetaRow: {
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  lotDot: {
+    color: PALETTE.text500,
+  },
   lotPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -677,6 +717,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
     flexWrap: 'wrap',
+  },
+  lotQty: {
+    color: PALETTE.text600,
+    fontWeight: '700',
   },
   lotSpecies: {
     fontSize: 10,
@@ -701,13 +745,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
   },
-  viewButton: {
-    backgroundColor: '#f8f9fa',
-    borderColor: PALETTE.green600,
-  },
-  confirmButton: {
-    backgroundColor: PALETTE.green700,
-    borderColor: PALETTE.green700,
+  editButton: {
+    backgroundColor: '#FFF4E5',
+    borderColor: PALETTE.warn,
   },
   actionButtonText: {
     fontSize: 12,

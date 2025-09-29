@@ -43,10 +43,10 @@ export default function TraceabilityForm() {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const [purchaseId, setPurchaseId] = useState<string>('');
   const [purchases, setPurchases] = useState<ExporterPurchase[]>([]);
   const [purchaseModal, setPurchaseModal] = useState(false);
-  const [prefillData, setPrefillData] = useState<PurchasePrefillData | null>(null);
+  const [selectedPurchaseIds, setSelectedPurchaseIds] = useState<number[]>([]);
+  const [selectedPrefills, setSelectedPrefills] = useState<PurchasePrefillData[]>([]);
 
   const [invoiceNo, setInvoiceNo] = useState('');
   const [exportCertNo, setExportCertNo] = useState('');
@@ -86,34 +86,46 @@ export default function TraceabilityForm() {
     })();
   }, []);
 
-  const handlePurchaseSelect = async (purchase: ExporterPurchase) => {
+  const togglePurchasePick = (purchaseId: number) => {
+    setSelectedPurchaseIds(prev => prev.includes(purchaseId) ? prev.filter(id => id !== purchaseId) : [...prev, purchaseId]);
+  };
+
+  const applySelectedPurchases = async () => {
+    if (selectedPurchaseIds.length === 0) {
+      Alert.alert('Select Purchases', 'Please select at least one purchase.');
+      return;
+    }
     try {
       setLoading(true);
-      const prefill = await fetchPurchasePrefill(purchase.id);
-      setPrefillData(prefill);
-      setPurchaseId(String(purchase.id));
-      setFinalWeight(String(prefill.final_weight_quantity));
+      const prefills = await Promise.all(selectedPurchaseIds.map(id => fetchPurchasePrefill(id)));
+      setSelectedPrefills(prefills);
+      // Pre-fill final weight with sum of selected purchases final weights
+      const sumFinal = prefills.reduce((acc, p) => acc + (Number(p.final_weight_quantity) || 0), 0);
+      setFinalWeight(String(sumFinal || ''));
       setPurchaseModal(false);
     } catch (error) {
-      console.error('Error loading purchase prefill:', error);
-      Alert.alert('Error', 'Failed to load purchase details. Please try again.');
+      console.error('Error loading purchases prefill:', error);
+      Alert.alert('Error', 'Failed to load purchases. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const selectedPurchase = useMemo(() => {
-    return purchases.find(p => String(p.id) === purchaseId);
-  }, [purchases, purchaseId]);
+    if (selectedPurchaseIds.length === 1) return purchases.find(p => p.id === selectedPurchaseIds[0]);
+    return null;
+  }, [purchases, selectedPurchaseIds]);
 
   const lots = useMemo(() => {
-    if (!prefillData) return [];
-    return prefillData.lots.map(lot => ({
-      lot_no: lot.lot_no,
-      final_product_name: prefillData.final_product_name,
-      quantity_kg: String(lot.quantity_kg)
-    }));
-  }, [prefillData]);
+    if (!selectedPrefills || selectedPrefills.length === 0) return [];
+    const rows: Array<{ lot_no: string; final_product_name: string; quantity_kg: string; purchase_id: number; company_name?: string }>=[];
+    selectedPrefills.forEach(p => {
+      p.lots.forEach(l => {
+        rows.push({ lot_no: l.lot_no, final_product_name: p.final_product_name, quantity_kg: String(l.quantity_kg), purchase_id: p.purchase_id, company_name: p.exporter?.company_name || p.exporter?.name });
+      });
+    });
+    return rows;
+  }, [selectedPrefills]);
 
   const totalQuantityKg = useMemo(() => {
     return lots.reduce((acc, l) => acc + (parseFloat(l.quantity_kg || '0') || 0), 0);
@@ -124,8 +136,8 @@ export default function TraceabilityForm() {
       Alert.alert('Error', 'Missing exporter account.');
       return;
     }
-    if (!purchaseId || !prefillData) {
-      Alert.alert('Missing Purchase', 'Please select a purchase.');
+    if (selectedPrefills.length === 0) {
+      Alert.alert('Missing Purchase', 'Please select at least one purchase.');
       return;
     }
     if (!invoiceNo || !consigneeName || !consigneeCountry) {
@@ -138,21 +150,22 @@ export default function TraceabilityForm() {
       
       const body = {
         exporter_id: exporterId,
-        company_id: prefillData.company_id,
-        purchase_id: prefillData.purchase_id,
+        company_id: selectedPrefills[0]?.company_id ?? null,
+        exporter_purchase_ids: selectedPurchaseIds,
         invoice_no: invoiceNo,
         consignee_name: consigneeName,
         consignee_country: consigneeCountry,
         date_of_shipment: formatDate(shipmentDate),
         export_certificate_no: exportCertNo || undefined,
-        selected_lots: lots.map(l => ({ 
-          lot_no: l.lot_no, 
-          quantity_kg: l.quantity_kg || '0', 
-          final_product_name: l.final_product_name 
+        selected_lots: lots.map(l => ({
+          lot_no: l.lot_no,
+          final_product_name: l.final_product_name,
+          quantity: l.quantity_kg || '0',
+          purchase_id: l.purchase_id,
         })),
         total_quantity_kg: String(totalQuantityKg),
         final_weight_quantity: finalWeight,
-        additional_information: additionalInfo || undefined,
+        notes: additionalInfo || undefined,
       } as any;
 
       await createTraceabilityRecord(body);
@@ -163,7 +176,7 @@ export default function TraceabilityForm() {
     } finally {
       setSubmitting(false);
     }
-  }, [exporterId, purchaseId, prefillData, invoiceNo, consigneeName, consigneeCountry, shipmentDate, exportCertNo, lots, totalQuantityKg, finalWeight, additionalInfo, navigation]);
+  }, [exporterId, selectedPrefills, selectedPurchaseIds, invoiceNo, consigneeName, consigneeCountry, shipmentDate, exportCertNo, lots, totalQuantityKg, finalWeight, additionalInfo, navigation]);
 
   if (loading) {
     return (
@@ -195,12 +208,16 @@ export default function TraceabilityForm() {
           </Text>
           <Pressable onPress={() => setPurchaseModal(true)} style={({ pressed }) => [styles.select, pressed && { opacity: 0.95 }]}>
             <View style={styles.selectedPurchase}>
-              {selectedPurchase ? (
+              {selectedPurchaseIds.length > 0 ? (
                 <Text style={styles.selectedPurchaseText}>
-                  {selectedPurchase.id} - {selectedPurchase.exporter?.name} ({selectedPurchase.total_quantity_kg} kg)
+                  {selectedPurchaseIds.length === 1 && selectedPurchase ? (
+                    `${selectedPurchase.id} - ${selectedPurchase.exporter?.name} (${selectedPurchase.total_quantity_kg} kg)`
+                  ) : (
+                    `${selectedPurchaseIds.length} purchases selected`
+                  )}
                 </Text>
               ) : (
-                <Text style={styles.placeholderText}>Select Exporter Purchase</Text>
+                <Text style={styles.placeholderText}>Select Exporter Purchases</Text>
               )}
             </View>
             <Icon name="arrow-drop-down" size={22} color={PALETTE.text700} />
@@ -297,23 +314,30 @@ export default function TraceabilityForm() {
       <Modal visible={purchaseModal} animationType="fade" transparent onRequestClose={() => setPurchaseModal(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setPurchaseModal(false)} />
         <View style={styles.modalSheet}>
-          <Text style={styles.modalTitle}>Select Purchase</Text>
+          <Text style={styles.modalTitle}>Select Purchases</Text>
           <FlatList
             data={purchases}
             keyExtractor={it => String(it.id)}
             renderItem={({ item }) => (
-              <Pressable onPress={() => handlePurchaseSelect(item)} style={({ pressed }) => [styles.modalItem, pressed && { opacity: 0.9 }]}>
+              <Pressable onPress={() => togglePurchasePick(item.id)} style={({ pressed }) => [styles.modalItem, pressed && { opacity: 0.9 }]}>
                 <View style={styles.purchaseItem}>
                   <Text style={styles.purchaseTitle}>
                     {item.id} - {item.exporter?.name} ({item.total_quantity_kg} kg)
                   </Text>
                   <Text style={styles.purchaseProduct}>{item.final_product_name}</Text>
                   <Text style={styles.purchaseRef}>Ref: {item.purchase_reference}</Text>
+                  {selectedPurchaseIds.includes(item.id) && (
+                    <Text style={{ color: PALETTE.green700, fontWeight: '800', marginTop: 4 }}>Selected</Text>
+                  )}
                 </View>
               </Pressable>
             )}
             ItemSeparatorComponent={ItemSeparator}
           />
+          <Pressable onPress={applySelectedPurchases} style={({ pressed }) => [styles.applyBtn, pressed && { opacity: 0.9 }]}>
+            <Icon name="check" size={18} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: '800' }}>Apply</Text>
+          </Pressable>
         </View>
       </Modal>
 
@@ -362,13 +386,14 @@ const styles = StyleSheet.create({
   submitBtn: { marginTop: 4, backgroundColor: PALETTE.green700, paddingVertical: 12, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 },
   submitText: { color: '#fff', fontWeight: '800' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
-  modalSheet: { position: 'absolute', left: 20, right: 20, top: '50%', transform: [{ translateY: -220 }], borderRadius: 16, backgroundColor: '#fff', padding: 16, maxHeight: 440, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 8 },
+  modalSheet: { position: 'absolute', left: 20, right: 20, top: '50%', transform: [{ translateY: -220 }], borderRadius: 16, backgroundColor: '#fff', padding: 16, maxHeight: 480, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 8 },
   modalTitle: { color: PALETTE.text900, fontWeight: '800', fontSize: 16, marginBottom: 8 },
   modalItem: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: PALETTE.border },
   purchaseItem: { flex: 1 },
   purchaseTitle: { color: PALETTE.text900, fontWeight: '700', fontSize: 16, marginBottom: 4 },
   purchaseProduct: { color: PALETTE.text700, fontSize: 14, marginBottom: 2 },
   purchaseRef: { color: PALETTE.text600, fontSize: 12 },
+  applyBtn: { marginTop: 12, alignSelf: 'flex-end', backgroundColor: PALETTE.green700, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
   datePicker: {
     flexDirection: 'row',
     alignItems: 'center',

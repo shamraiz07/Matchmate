@@ -9,6 +9,7 @@ import traceabilityForm from '../../../screens/exporter/traceabilityForm';
 import AllTrips from '../../../screens/exporter/AllTrips';
 import PurchasesList from '../../../screens/exporter/PurchasesList';
 import PurchaseDetails from '../../../screens/exporter/PurchaseDetails';
+import CreatePurchase from '../../../screens/exporter/CreatePurchase';
 import CompaniesList from '../../../screens/exporter/CompaniesList';
 import ViewRecord from '../../../screens/exporter/ViewRecord';
 import PDFViewer from '../../../screens/exporter/PDFViewer';
@@ -19,6 +20,7 @@ export type ExporterStackParamList = {
   AllTrips: undefined;
   PurchasesList: undefined;
   PurchaseDetails: { purchaseId: string };
+  CreatePurchase: { hideFinalFields?: boolean; editPurchaseId?: number } | undefined;
   CompaniesList: undefined;
   boughtLots: undefined;
   addFinalProduct: undefined;
@@ -57,6 +59,11 @@ export default function ExporterStack() {
         name="PurchaseDetails"
         component={PurchaseDetails}
         options={{ title: 'Purchase Details' }}
+      />
+      <Stack.Screen
+        name="CreatePurchase"
+        component={CreatePurchase}
+        options={{ title: 'Create / Edit Purchase' }}
       />
       <Stack.Screen
         name="CompaniesList"

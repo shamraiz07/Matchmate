@@ -538,6 +538,21 @@ export async function createExporterPurchase(body: CreateExporterPurchaseBody): 
   return json?.data ?? json;
 }
 
+// ===== EXPORTER PURCHASE UPDATE (Edit) =====
+export type UpdateExporterPurchaseBody = {
+  company_id?: number | string;
+  purchase_reference?: string;
+  final_product_name?: string;
+  processing_notes?: string;
+  final_weight_quantity?: string | number;
+  selected_lots?: Array<{ lot_no: string; quantity_kg: number | string }>; // replace lots selection
+};
+
+export async function updateExporterPurchase(id: number | string, body: UpdateExporterPurchaseBody): Promise<FishPurchase> {
+  const json = await api(`/exporter-purchases/${id}`, { method: 'PUT', body });
+  return json?.data ?? json;
+}
+
 // ===== CONVENIENCE FUNCTIONS =====
 
 export function fetchDistributionsByStatus(status: DistributionStatus, page = 1, per_page = 15) {

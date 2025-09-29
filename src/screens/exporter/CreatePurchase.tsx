@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, SafeAreaView, Pressable, TextInput, ScrollView,
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import PALETTE from '../../theme/palette';
-import { createExporterPurchase, fetchDistributions, fetchAssignments } from '../../services/middlemanDistribution';
+import { createExporterPurchase, fetchDistributions, fetchAssignments, updateExporterPurchase, fetchPurchaseById } from '../../services/middlemanDistribution';
 import { type ExporterCompany } from '../../services/traceability';
 import { loadTokenFromStorage } from '../../services/https';
 
@@ -14,6 +14,7 @@ export default function CreatePurchase() {
   const navigation = useNavigation();
   const route = useRoute<any>();
   const hideFinalFields = !!(route as any)?.params?.hideFinalFields;
+  const editPurchaseId: number | undefined = (route as any)?.params?.editPurchaseId;
   const [distributionId, setDistributionId] = useState<string>('');
   const [companyId, setCompanyId] = useState('');
   const [reference, setReference] = useState('');
@@ -27,6 +28,8 @@ export default function CreatePurchase() {
   const [distOptions, setDistOptions] = useState<Array<{ id: number; title: string; displayText: string; data: any }>>([]);
   const [companies, setCompanies] = useState<ExporterCompany[]>([]);
   const [loadingDistributions, setLoadingDistributions] = useState(false);
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
+  const [loadingPurchase, setLoadingPurchase] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -38,6 +41,7 @@ export default function CreatePurchase() {
   useEffect(() => {
     (async () => {
       try {
+        setLoadingDistributions(true);
         const dRes = await fetchDistributions({ page: 1, per_page: 50 });
         setDistOptions(dRes.items.map(d => {
           const tripId = d.trip?.id || d.trip_id;
@@ -53,9 +57,10 @@ export default function CreatePurchase() {
       } catch (error: any) {
         console.log('Error fetching distributions:', error?.message);
         // Don't show error to user on load, just log it
-      }
+      } finally { setLoadingDistributions(false); }
       try {
         // Use middleman assignments as the source of allowed companies
+        setLoadingCompanies(true);
         const assignments = await fetchAssignments({ page: 1, per_page: 100 });
         const unique: Record<string, ExporterCompany> = {} as any;
         assignments.items.forEach(a => {
@@ -75,9 +80,34 @@ export default function CreatePurchase() {
       } catch (error: any) {
         console.log('Error fetching companies:', error?.message);
         // Don't show error to user on load, just log it
-      }
+      } finally { setLoadingCompanies(false); }
     })();
   }, []);
+
+  // load existing purchase when editing
+  useEffect(() => {
+    if (!editPurchaseId) return;
+    (async () => {
+      try {
+        setLoadingPurchase(true);
+        const p: any = await fetchPurchaseById(editPurchaseId as any);
+        setCompanyId(String(p?.company?.id || p?.company_id || ''));
+        setReference(p?.purchase_reference || '');
+        setProduct(p?.final_product_name || '');
+        setNotes(p?.processing_notes || '');
+        setFinalWeight(String(p?.final_weight_quantity || ''));
+        const mappedLots: LotRow[] = (p?.purchased_lots || []).map((l: any) => ({
+          lot_no: String(l.lot_no || l.lot_id),
+          max: parseFloat(l.quantity_kg || '0') || null,
+          quantity_kg: String(l.quantity_kg || ''),
+          selected: true,
+        }));
+        setLots(mappedLots);
+      } catch (e) {
+        console.log('Failed to load purchase for edit', e);
+      } finally { setLoadingPurchase(false); }
+    })();
+  }, [editPurchaseId]);
 
   const toggleLotSelection = (i: number) => {
     setLots(prev => prev.map((l, idx) => 
@@ -164,39 +194,44 @@ export default function CreatePurchase() {
 
   const submit = useCallback(async () => {
     const selectedLots = lots.filter(l => l.selected);
-    if (!distributionId || !companyId || selectedLots.length === 0 || selectedLots.some(l => !l.quantity_kg) || (!hideFinalFields && !finalWeight)) {
+    if (!companyId || selectedLots.length === 0 || selectedLots.some(l => !l.quantity_kg) || (!hideFinalFields && !finalWeight)) {
       showToast('Please fill all required fields.' + (hideFinalFields ? '' : ' Include final weight.'), 'error');
       return;
     }
     try {
       setSubmitting(true);
-      await createExporterPurchase({
-        distribution_id: parseInt(distributionId, 10),
-        company_id: companyId,
-        purchase_reference: reference || undefined,
-        final_product_name: hideFinalFields ? undefined : (product || undefined),
-        processing_notes: notes || undefined,
-        selected_lots: selectedLots.map(l => ({ lot_no: l.lot_no, quantity_kg: l.quantity_kg })),
-        final_weight_quantity: hideFinalFields ? undefined : finalWeight,
-      });
-      showToast('Purchase created successfully!', 'success');
+      if (editPurchaseId) {
+        await updateExporterPurchase(editPurchaseId as any, {
+          company_id: companyId,
+          purchase_reference: reference || undefined,
+          final_product_name: hideFinalFields ? undefined : (product || undefined),
+          processing_notes: notes || undefined,
+          selected_lots: selectedLots.map(l => ({ lot_no: l.lot_no, quantity_kg: l.quantity_kg })),
+          final_weight_quantity: hideFinalFields ? undefined : finalWeight,
+        } as any);
+        showToast('Purchase updated successfully!', 'success');
+      } else {
+        await createExporterPurchase({
+          distribution_id: parseInt(distributionId, 10),
+          company_id: companyId,
+          purchase_reference: reference || undefined,
+          final_product_name: hideFinalFields ? undefined : (product || undefined),
+          processing_notes: notes || undefined,
+          selected_lots: selectedLots.map(l => ({ lot_no: l.lot_no, quantity_kg: l.quantity_kg })),
+          final_weight_quantity: hideFinalFields ? undefined : finalWeight,
+        } as any);
+        showToast('Purchase created successfully!', 'success');
+      }
       setTimeout(() => {
-        // Redirect to Middleman purchases list now
-        try {
-          // @ts-ignore
-          navigation.navigate('Purchases');
-        } catch (e) {
-          // Fallback: go back
-          // @ts-ignore
-          navigation.goBack();
-        }
-      }, 1500);
+        // @ts-ignore
+        navigation.navigate('Purchases');
+      }, 1200);
     } catch (e: any) {
-      showToast(e?.message || 'Failed to create purchase', 'error');
+      showToast(e?.message || 'Failed to submit purchase', 'error');
     } finally {
       setSubmitting(false);
     }
-  }, [distributionId, companyId, reference, product, notes, finalWeight, lots, navigation, hideFinalFields]);
+  }, [editPurchaseId, distributionId, companyId, reference, product, notes, finalWeight, lots, navigation, hideFinalFields]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: PALETTE.surface }}>
@@ -207,28 +242,70 @@ export default function CreatePurchase() {
             <Icon name="arrow-back" size={24} color="#FFFFFF" />
           </Pressable>
           <View style={styles.heroBody}>
-            <Text style={styles.heroTitle}>Create New Purchase</Text>
-            <Text style={styles.heroSub}>Select distribution and fill purchase details</Text>
+            <Text style={styles.heroTitle}>{editPurchaseId ? 'Edit Purchase' : 'Create New Purchase'}</Text>
+            <Text style={styles.heroSub}>{editPurchaseId ? 'Update purchase details and lots' : 'Select distribution and fill purchase details'}</Text>
           </View>
           <View style={styles.heroIcon}>
             <Icon name="shopping-cart" size={28} color="#FFFFFF" />
           </View>
         </View>
 
-        {/* Select Distribution */}
-        <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <Icon name="assignment" size={20} color={PALETTE.green700} />
-            <Text style={styles.sectionTitle}>Select Distribution</Text>
+        {/* Distribution - create vs edit */}
+        {editPurchaseId ? (
+          <View style={styles.card}>
+            <View style={styles.sectionHeader}>
+              <Icon name="assignment" size={20} color={PALETTE.green700} />
+              <Text style={styles.sectionTitle}>Distribution Information</Text>
+            </View>
+            <Text style={styles.sectionSubtitle}>Current distribution (cannot be changed)</Text>
+            {loadingPurchase ? (
+              <View style={{ paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <ActivityIndicator size="small" color={PALETTE.green700} />
+                <Text style={{ color: PALETTE.text600 }}>Loading purchase…</Text>
+              </View>
+            ) : null}
+            <View style={[styles.select, { opacity: 0.7 }]}> 
+              <Text style={{ color: PALETTE.text900 }}>Purchase #{String(editPurchaseId)}</Text>
+              <Icon name="lock" size={18} color={PALETTE.text700} />
+            </View>
+            {/* Purchased Lots */}
+            <View style={{ marginTop: 10 }}>
+              <Text style={[styles.label, { marginBottom: 6 }]}>Purchased Lots</Text>
+              {lots.length === 0 ? (
+                <Text style={{ color: PALETTE.text600 }}>No lots loaded.</Text>
+              ) : (
+                <View>
+                  {lots.map((lot, i) => (
+                    <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', borderWidth: 1, borderColor: PALETTE.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#F8FAFC', marginBottom: 6 }}>
+                      <Text style={{ color: PALETTE.text900, fontWeight: '800' }}>LOT: {lot.lot_no}</Text>
+                      <Text style={{ color: PALETTE.text700 }}>{(parseFloat(lot.quantity_kg || '0') || 0).toFixed(2)} kg</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
           </View>
-          <Text style={styles.sectionSubtitle}>Choose a distribution to purchase from</Text>
-          <Pressable onPress={() => { loadDistributions(); setDistModal(true); }} style={({ pressed }) => [styles.select, pressed && { opacity: 0.95 }]}>
-            <Text style={{ color: distributionId ? PALETTE.text900 : '#9CA3AF' }}>
-              {distributionId ? distOptions.find(d => String(d.id) === distributionId)?.displayText || `Distribution #${distributionId}` : 'Select a distribution…'}
-            </Text>
-            <Icon name="arrow-drop-down" size={22} color={PALETTE.text700} />
-          </Pressable>
-        </View>
+        ) : (
+          <View style={styles.card}>
+            <View style={styles.sectionHeader}>
+              <Icon name="assignment" size={20} color={PALETTE.green700} />
+              <Text style={styles.sectionTitle}>Select Distribution</Text>
+            </View>
+            <Text style={styles.sectionSubtitle}>Choose a distribution to purchase from</Text>
+            {loadingDistributions ? (
+              <View style={{ paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <ActivityIndicator size="small" color={PALETTE.green700} />
+                <Text style={{ color: PALETTE.text600 }}>Loading distributions…</Text>
+              </View>
+            ) : null}
+            <Pressable onPress={() => { loadDistributions(); setDistModal(true); }} style={({ pressed }) => [styles.select, pressed && { opacity: 0.95 }]}>
+              <Text style={{ color: distributionId ? PALETTE.text900 : '#9CA3AF' }}>
+                {distributionId ? distOptions.find(d => String(d.id) === distributionId)?.displayText || `Distribution #${distributionId}` : 'Select a distribution…'}
+              </Text>
+              <Icon name="arrow-drop-down" size={22} color={PALETTE.text700} />
+            </Pressable>
+          </View>
+        )}
 
         {/* Purchase Details */}
         <View style={styles.card}>
@@ -237,13 +314,23 @@ export default function CreatePurchase() {
             <Text style={styles.sectionTitle}>Purchase Details</Text>
           </View>
           <Text style={styles.sectionSubtitle}>Fill in the purchase information</Text>
+          {loadingCompanies ? (
+            <View style={{ paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <ActivityIndicator size="small" color={PALETTE.green700} />
+              <Text style={{ color: PALETTE.text600 }}>Loading companies…</Text>
+            </View>
+          ) : null}
           <Pressable onPress={() => setCompanyModal(true)} style={({ pressed }) => [styles.select, pressed && { opacity: 0.95 }]}>
             <Text style={{ color: companyId ? PALETTE.text900 : '#9CA3AF' }}>
               {companyId ? companies.find(c => String(c.id) === companyId)?.company_name || `Company ID: ${companyId}` : 'Select company…'}
             </Text>
             <Icon name="arrow-drop-down" size={22} color={PALETTE.text700} />
           </Pressable>
-          {hideFinalFields ? null : (
+          {hideFinalFields ? (
+            <View style={{ marginTop: 6 }}>
+              <Text style={{ color: PALETTE.text600, fontStyle: 'italic' }}>Final product and final weight will be provided by the exporter.</Text>
+            </View>
+          ) : (
             <>
               <Field label="Final Product Name" value={product} onChangeText={setProduct} />
               <Field label="Final Weight Quantity (kg)" value={finalWeight} onChangeText={setFinalWeight} keyboardType="decimal-pad" />
@@ -253,15 +340,20 @@ export default function CreatePurchase() {
           <Field label="Processing Notes" value={notes} onChangeText={setNotes} multiline />
         </View>
 
-        {/* Lots & cleaQuantities */}
+        {/* Lots & Quantities */}
         <View style={styles.card}>
           <View style={styles.sectionHeader}>
             <Icon name="pets" size={20} color={PALETTE.green700} />
             <Text style={styles.sectionTitle}>Select Lots & Quantities</Text>
           </View>
-          {distributionId ? (
+          {distributionId || editPurchaseId ? (
             <>
-              {lots.length === 0 ? (
+              {loadingPurchase && editPurchaseId ? (
+                <View style={{ paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <ActivityIndicator size="small" color={PALETTE.green700} />
+                  <Text style={{ color: PALETTE.text600 }}>Loading lots…</Text>
+                </View>
+              ) : lots.length === 0 ? (
                 <Text style={{ color: PALETTE.text600 }}>No lots available for selected distribution.</Text>
               ) : (
                 <View style={styles.lotsGrid}>
@@ -288,7 +380,7 @@ export default function CreatePurchase() {
                           keyboardType="decimal-pad"
                           editable={lot.selected}
                         />
-                        <Text style={styles.availableText}>Available: {lot.max?.toFixed(2) || '0.00'} kg</Text>
+                        <Text style={styles.availableText}>{editPurchaseId ? 'Current' : 'Available'}: {lot.max?.toFixed(2) || '0.00'} kg</Text>
                       </View>
                     </View>
                   ))}
@@ -316,12 +408,12 @@ export default function CreatePurchase() {
           {submitting ? (
             <View style={styles.submitContent}>
               <ActivityIndicator size="small" color="#FFFFFF" />
-              <Text style={styles.submitText}>Creating Purchase...</Text>
+              <Text style={styles.submitText}>{editPurchaseId ? 'Updating Purchase...' : 'Creating Purchase...'}</Text>
             </View>
           ) : (
             <View style={styles.submitContent}>
               <Icon name="check-circle" size={20} color="#FFFFFF" />
-              <Text style={styles.submitText}>Create Purchase</Text>
+              <Text style={styles.submitText}>{editPurchaseId ? 'Update Purchase' : 'Create Purchase'}</Text>
             </View>
           )}
         </Pressable>

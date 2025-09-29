@@ -183,6 +183,22 @@ export default function PurchasesList() {
 
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
+          {/* Edit (Exporter can edit anytime before completion) */}
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation();
+              // @ts-ignore
+              navigation.navigate('CreatePurchase', { editPurchaseId: item.id, hideFinalFields: false });
+            }}
+            style={({ pressed }) => [
+              styles.actionButton,
+              styles.viewButton,
+              pressed && { opacity: 0.9 }
+            ]}
+          >
+            <Icon name="edit" size={16} color={PALETTE.warn} />
+            <Text style={[styles.actionButtonText, { color: PALETTE.warn }]}>Edit</Text>
+          </Pressable>
           {/* Verify & Approve when status is pending_verification */}
           {String(item.status).toLowerCase() === 'pending_verification' && (
             <Pressable

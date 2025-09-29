@@ -20,8 +20,8 @@ export type MiddleManStackParamList = {
   Assignments: undefined;
   assignmentDetails: { assignmentId: number };
   Purchases: undefined;
-  purchaseDetails: { purchaseId: number };
-  CreatePurchase: { hideFinalFields?: boolean } | undefined;
+  purchaseDetails: { purchaseId: number; editable?: boolean };
+  CreatePurchase: { hideFinalFields?: boolean; editPurchaseId?: number } | undefined;
   AddDistribution: undefined;
 };
 
