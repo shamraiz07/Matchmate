@@ -12,38 +12,55 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import PALETTE from '../../theme/palette';
-import { type TraceabilityRecord, fetchTraceabilityRecords, approveTraceabilityRecord, rejectTraceabilityRecord } from '../../services/traceability';
+import {
+  type TraceabilityRecord,
+  fetchTraceabilityRecords,
+  approveTraceabilityRecord,
+  rejectTraceabilityRecord,
+} from '../../services/traceability';
 import { getAuthToken, BASE_URL, join } from '../../services/https';
 import RNFS from 'react-native-fs';
 import { PermissionsAndroid, Platform, Alert } from 'react-native';
 import { MFDStackParamList } from '../../app/navigation/stacks/MFDStack';
 import Toast from 'react-native-toast-message';
-import FileViewer from 'react-native-file-viewer';
-import Share from 'react-native-share';
 
 type Nav = NativeStackNavigationProp<MFDStackParamList>;
 
 const getTypeColor = (record: TraceabilityRecord) => {
   // Use status-based colors for traceability records
   switch (record.status) {
-    case 'approved': return '#10b981'; // Modern green
-    case 'pending': return '#f59e0b'; // Modern amber
-    case 'rejected': return '#ef4444'; // Modern red
-    default: return '#6b7280'; // Modern gray
+    case 'approved':
+      return '#10b981'; // Modern green
+    case 'pending':
+      return '#f59e0b'; // Modern amber
+    case 'rejected':
+      return '#ef4444'; // Modern red
+    default:
+      return '#6b7280'; // Modern gray
   }
 };
 
 const getStatusBgColor = (record: TraceabilityRecord) => {
   switch (record.status) {
-    case 'approved': return '#d1fae5'; // Light green
-    case 'pending': return '#fef3c7'; // Light amber
-    case 'rejected': return '#fee2e2'; // Light red
-    default: return '#f3f4f6'; // Light gray
+    case 'approved':
+      return '#d1fae5'; // Light green
+    case 'pending':
+      return '#fef3c7'; // Light amber
+    case 'rejected':
+      return '#fee2e2'; // Light red
+    default:
+      return '#f3f4f6'; // Light gray
   }
 };
 
-const RecordCard = ({ record, onRecordPress, onGenerateDocument, onApprove, onReject }: { 
-  record: TraceabilityRecord; 
+const RecordCard = ({
+  record,
+  onRecordPress,
+  onGenerateDocument,
+  onApprove,
+  onReject,
+}: {
+  record: TraceabilityRecord;
   onRecordPress: (record: TraceabilityRecord) => void;
   onGenerateDocument: (record: TraceabilityRecord) => void;
   onApprove: (record: TraceabilityRecord) => void;
@@ -52,16 +69,23 @@ const RecordCard = ({ record, onRecordPress, onGenerateDocument, onApprove, onRe
   const isPending = record.status?.toLowerCase().includes('pending');
   const isApproved = record.status?.toLowerCase().includes('approved');
   const isRejected = record.status?.toLowerCase().includes('rejected');
-  
+
   return (
     <View style={styles.recordCard}>
       {/* Header Section */}
       <View style={styles.cardHeader}>
         <View style={styles.documentInfo}>
           <Text style={styles.documentId}>{record.document_no}</Text>
-          <Text style={styles.mfdId}>MFD ID: {record.mfd_manual_id || 'N/A'}</Text>
+          <Text style={styles.mfdId}>
+            MFD ID: {record.mfd_manual_id || 'N/A'}
+          </Text>
         </View>
-        <View style={[styles.statusPill, { backgroundColor: getStatusBgColor(record) }]}>
+        <View
+          style={[
+            styles.statusPill,
+            { backgroundColor: getStatusBgColor(record) },
+          ]}
+        >
           <Text style={[styles.statusText, { color: getTypeColor(record) }]}>
             {record.status_label || record.status?.toUpperCase() || 'UNKNOWN'}
           </Text>
@@ -84,62 +108,77 @@ const RecordCard = ({ record, onRecordPress, onGenerateDocument, onApprove, onRe
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Consignee Country</Text>
-          <Text style={styles.detailValue}>{record.consignee_country || '—'}</Text>
+          <Text style={styles.detailValue}>
+            {record.consignee_country || '—'}
+          </Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Quantity (KG)</Text>
-          <Text style={styles.detailValue}>{record.total_quantity_kg || '0.00'} KG</Text>
+          <Text style={styles.detailValue}>
+            {record.total_quantity_kg || '0.00'} KG
+          </Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Date</Text>
           <Text style={styles.detailValue}>
-            {record.document_date 
+            {record.document_date
               ? new Date(record.document_date).toLocaleDateString('en-US', {
                   month: 'short',
                   day: '2-digit',
                   year: 'numeric',
                 })
-              : '—'
-            }
+              : '—'}
           </Text>
         </View>
       </View>
 
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
-        <Pressable 
-          onPress={() => onRecordPress(record)} 
-          style={({ pressed }) => [styles.viewButton, pressed && { opacity: 0.8 }]}
+        <Pressable
+          onPress={() => onRecordPress(record)}
+          style={({ pressed }) => [
+            styles.viewButton,
+            pressed && { opacity: 0.8 },
+          ]}
         >
           <Icon name="visibility" size={16} color="#fff" />
           <Text style={styles.viewButtonText}>View</Text>
         </Pressable>
-        
+
         {isPending ? (
           <>
-            <Pressable 
-              onPress={() => onApprove(record)} 
-              style={({ pressed }) => [styles.approveButton, pressed && { opacity: 0.8 }]}
+            <Pressable
+              onPress={() => onApprove(record)}
+              style={({ pressed }) => [
+                styles.approveButton,
+                pressed && { opacity: 0.8 },
+              ]}
             >
               <Icon name="check-circle" size={16} color="#fff" />
               <Text style={styles.approveButtonText}>Approve</Text>
             </Pressable>
-            <Pressable 
-              onPress={() => onReject(record)} 
-              style={({ pressed }) => [styles.rejectButton, pressed && { opacity: 0.8 }]}
+            <Pressable
+              onPress={() => onReject(record)}
+              style={({ pressed }) => [
+                styles.rejectButton,
+                pressed && { opacity: 0.8 },
+              ]}
             >
               <Icon name="cancel" size={16} color="#fff" />
               <Text style={styles.rejectButtonText}>Reject</Text>
             </Pressable>
           </>
         ) : isApproved ? (
-            <Pressable 
-              onPress={() => onGenerateDocument(record)} 
-              style={({ pressed }) => [styles.generateButton, pressed && { opacity: 0.8 }]}
-            >
-              <Icon name="description" size={16} color="#fff" />
-              <Text style={styles.generateButtonText}>Generate</Text>
-            </Pressable>
+          <Pressable
+            onPress={() => onGenerateDocument(record)}
+            style={({ pressed }) => [
+              styles.generateButton,
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            <Icon name="description" size={16} color="#fff" />
+            <Text style={styles.generateButtonText}>Generate</Text>
+          </Pressable>
         ) : isRejected ? (
           <View style={styles.rejectedPlaceholder} />
         ) : null}
@@ -148,12 +187,22 @@ const RecordCard = ({ record, onRecordPress, onGenerateDocument, onApprove, onRe
   );
 };
 
-const FilterChip = ({ label, isActive, onPress }: { label: string; isActive: boolean; onPress: () => void }) => (
-  <Pressable 
+const FilterChip = ({
+  label,
+  isActive,
+  onPress,
+}: {
+  label: string;
+  isActive: boolean;
+  onPress: () => void;
+}) => (
+  <Pressable
     onPress={onPress}
     style={[styles.filterChip, isActive && styles.filterChipActive]}
   >
-    <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+    <Text
+      style={[styles.filterChipText, isActive && styles.filterChipTextActive]}
+    >
       {label}
     </Text>
   </Pressable>
@@ -171,16 +220,20 @@ const EmptyState = () => (
 
 export default function MFDRecordsList() {
   const navigation = useNavigation<Nav>();
-  
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [records, setRecords] = useState<TraceabilityRecord[]>([]);
-  const [filter, setFilter] = useState<'All' | 'Approved' | 'Pending' | 'Rejected'>('All');
+  const [filter, setFilter] = useState<
+    'All' | 'Approved' | 'Pending' | 'Rejected'
+  >('All');
 
   const loadRecords = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await fetchTraceabilityRecords({ status: filter === 'All' ? undefined : filter.toLowerCase() });
+      const data = await fetchTraceabilityRecords({
+        status: filter === 'All' ? undefined : filter.toLowerCase(),
+      });
       setRecords(data || []);
     } catch (error) {
       console.error('Error loading records:', error);
@@ -229,11 +282,12 @@ export default function MFDRecordsList() {
             PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
             {
               title: 'Storage Permission',
-              message: 'This app needs access to storage to download PDF files.',
+              message:
+                'This app needs access to storage to download PDF files.',
               buttonNeutral: 'Ask Me Later',
               buttonNegative: 'Cancel',
               buttonPositive: 'OK',
-            }
+            },
           );
           return granted === PermissionsAndroid.RESULTS.GRANTED;
         }
@@ -276,7 +330,7 @@ export default function MFDRecordsList() {
               }
             },
           },
-        ]
+        ],
       );
     } catch (error) {
       console.error('Error in approve handler:', error);
@@ -314,7 +368,7 @@ export default function MFDRecordsList() {
               }
             },
           },
-        ]
+        ],
       );
     } catch (error) {
       console.error('Error in reject handler:', error);
@@ -353,13 +407,16 @@ export default function MFDRecordsList() {
         visibilityTime: 2000,
       });
 
-      const response = await fetch(join(BASE_URL, `traceability-records/${record.id}/generate-document`), {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${await getAuthToken()}`,
-          'Accept': 'application/json',
+      const response = await fetch(
+        join(BASE_URL, `traceability-records/${record.id}/generate-document`),
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${await getAuthToken()}`,
+            Accept: 'application/json',
+          },
         },
-      });
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -370,7 +427,9 @@ export default function MFDRecordsList() {
       console.log('📄 PDF Response Data:', responseData);
 
       if (!responseData.success || !responseData.download_url) {
-        throw new Error('Invalid response: Document generation failed or no download URL provided');
+        throw new Error(
+          'Invalid response: Document generation failed or no download URL provided',
+        );
       }
 
       console.log('✅ PDF Download URL received:', responseData.download_url);
@@ -387,13 +446,15 @@ export default function MFDRecordsList() {
       const pdfResponse = await fetch(responseData.download_url, {
         method: 'GET',
         headers: {
-          'Accept': 'application/pdf',
+          Accept: 'application/pdf',
           'User-Agent': 'MFD-TraceFish-Mobile/1.0',
         },
       });
 
       if (!pdfResponse.ok) {
-        throw new Error(`Download failed (${pdfResponse.status}): Unable to download PDF from server`);
+        throw new Error(
+          `Download failed (${pdfResponse.status}): Unable to download PDF from server`,
+        );
       }
 
       // Check content type
@@ -421,117 +482,100 @@ export default function MFDRecordsList() {
 
       // Convert blob to base64
       const reader = new FileReader();
-      
+
       reader.onload = async () => {
         try {
           const base64Data = reader.result as string;
           const base64PDF = base64Data.split(',')[1]; // Remove data:application/pdf;base64, prefix
-          
+
           // Create filename with timestamp for uniqueness
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
           const fileName = `traceability-${record.document_no}-${timestamp}.pdf`;
+
+          // Save directly to Downloads folder - simple and user-friendly
+          const downloadPath = `${RNFS.DownloadDirectoryPath}/${fileName}`;
           
-          // Try multiple directories for better compatibility
-          // Prioritize app storage over Downloads folder to avoid permission issues
-          const possiblePaths = [
-            `${RNFS.DocumentDirectoryPath}/${fileName}`, // App's document directory (most reliable)
-            `${RNFS.CachesDirectoryPath}/${fileName}`,   // App's cache directory
-            `${RNFS.DownloadDirectoryPath}/${fileName}`, // Downloads folder (may require special permissions)
-          ].filter(Boolean);
+          try {
+            // Ensure Downloads directory exists
+            const downloadDirExists = await RNFS.exists(RNFS.DownloadDirectoryPath);
+            if (!downloadDirExists) {
+              await RNFS.mkdir(RNFS.DownloadDirectoryPath);
+            }
 
-          let filePath = '';
-          let success = false;
-          let locationMessage = '';
+            await RNFS.writeFile(downloadPath, base64PDF, 'base64');
+            console.log('✅ PDF saved successfully to Downloads:', downloadPath);
 
-          for (const path of possiblePaths) {
-            if (!path) continue;
+            // Success notification
+            Toast.show({
+              type: 'success',
+              text1: 'Download Complete! 🎉',
+              text2: `PDF saved to Downloads folder`,
+              position: 'top',
+              visibilityTime: 4000,
+            });
+
+            // Simple success alert
+            Alert.alert(
+              'Download Complete',
+              `PDF document has been successfully saved to your Downloads folder!\n\n📄 File: ${fileName}\n📊 Size: ${(
+                pdfBlob.size / 1024
+              ).toFixed(1)} KB\n\nYou can now open it from your file manager or Downloads app.`,
+              [
+                {
+                  text: 'OK',
+                  style: 'default',
+                },
+              ],
+            );
+          } catch (downloadError) {
+            console.error('Failed to save to Downloads:', downloadError);
             
+            // Fallback to app documents folder if Downloads fails
+            const fallbackPath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
             try {
-              // Ensure directory exists
-              const dirPath = path.substring(0, path.lastIndexOf('/'));
-              const dirExists = await RNFS.exists(dirPath);
-              if (!dirExists) {
-                await RNFS.mkdir(dirPath);
-              }
+              await RNFS.writeFile(fallbackPath, base64PDF, 'base64');
+              console.log('✅ PDF saved to fallback location:', fallbackPath);
               
-              await RNFS.writeFile(path, base64PDF, 'base64');
-              filePath = path;
-              success = true;
+              Toast.show({
+                type: 'success',
+                text1: 'Download Complete! 🎉',
+                text2: `PDF saved to App Documents`,
+                position: 'top',
+                visibilityTime: 4000,
+              });
               
-              // Determine location message
-              if (path.includes('DownloadDirectoryPath')) {
-                locationMessage = 'Downloads folder';
-              } else if (path.includes('DocumentDirectoryPath')) {
-                locationMessage = 'App Documents folder';
-              } else if (path.includes('CachesDirectoryPath')) {
-                locationMessage = 'App Cache folder';
-              }
-              
-              break;
-            } catch (error) {
-              console.warn(`Failed to write to ${path}:`, error);
-              continue;
+              Alert.alert(
+                'Download Complete',
+                `PDF document has been saved!\n\n📄 File: ${fileName}\n📊 Size: ${(
+                  pdfBlob.size / 1024
+                ).toFixed(1)} KB\n\nNote: Saved to app storage due to permission restrictions.`,
+                [
+                  {
+                    text: 'OK',
+                    style: 'default',
+                  },
+                ],
+              );
+            } catch (fallbackError) {
+              throw new Error(
+                'Failed to save PDF. Please check storage permissions.',
+              );
             }
           }
-
-          if (!success) {
-            throw new Error('Failed to save PDF to any available directory. Please check storage permissions.');
-          }
-          
-          console.log('✅ PDF saved successfully to:', filePath);
-          
-          // Success notification
-          Toast.show({
-            type: 'success',
-            text1: 'Download Complete! 🎉',
-            text2: `PDF saved to ${locationMessage}`,
-            position: 'top',
-            visibilityTime: 4000,
-          });
-          
-          // Show detailed success alert with action options
-          Alert.alert(
-            'Download Complete',
-            `PDF document has been successfully saved!\n\n📁 Location: ${locationMessage}\n📄 File: ${fileName}\n📊 Size: ${(pdfBlob.size / 1024).toFixed(1)} KB`,
-            [
-              {
-                text: 'Open PDF',
-                onPress: async () => {
-                  try {
-                    await FileViewer.open(filePath, {
-                      showOpenWithDialog: true,
-                      showAppsSuggestions: true,
-                    });
-                  } catch (error) {
-                    console.error('Error opening PDF:', error);
-                    Toast.show({
-                      type: 'error',
-                      text1: 'Open Failed',
-                      text2: 'No app available to open PDF files',
-                      position: 'top',
-                    });
-                  }
-                },
-              },
-              {
-                text: 'OK',
-                style: 'default',
-              },
-            ]
-          );
-          
         } catch (writeError: any) {
           console.error('❌ Error saving PDF:', writeError);
           Toast.show({
             type: 'error',
             text1: 'Save Failed',
-            text2: `Failed to save PDF: ${writeError?.message || 'Unknown error'}`,
+            text2: `Failed to save PDF: ${
+              writeError?.message || 'Unknown error'
+            }`,
             position: 'top',
           });
         }
       };
-      
-      reader.onerror = (error) => {
+
+      reader.onerror = error => {
         console.error('❌ FileReader error:', error);
         Toast.show({
           type: 'error',
@@ -540,25 +584,28 @@ export default function MFDRecordsList() {
           position: 'top',
         });
       };
-      
+
       reader.readAsDataURL(pdfBlob);
-      
     } catch (error) {
       console.error('❌ Error generating document:', error);
-      
+
       // More specific error messages
       let errorMessage = 'Failed to generate document. Please try again.';
       const errorMsg = (error as Error).message || '';
       if (errorMsg.includes('Server error')) {
-        errorMessage = 'Server error occurred. Please check your connection and try again.';
+        errorMessage =
+          'Server error occurred. Please check your connection and try again.';
       } else if (errorMsg.includes('Download failed')) {
-        errorMessage = 'Failed to download PDF. The file may be temporarily unavailable.';
+        errorMessage =
+          'Failed to download PDF. The file may be temporarily unavailable.';
       } else if (errorMsg.includes('empty')) {
-        errorMessage = 'The generated PDF file is empty. Please contact support.';
+        errorMessage =
+          'The generated PDF file is empty. Please contact support.';
       } else if (errorMsg.includes('permission')) {
-        errorMessage = 'Storage permission denied. Please enable storage access in settings.';
+        errorMessage =
+          'Storage permission denied. Please enable storage access in settings.';
       }
-      
+
       Toast.show({
         type: 'error',
         text1: 'Generation Failed',
@@ -584,7 +631,13 @@ export default function MFDRecordsList() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={handleBack} style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.8 }]}>
+        <Pressable
+          onPress={handleBack}
+          style={({ pressed }) => [
+            styles.backButton,
+            pressed && { opacity: 0.8 },
+          ]}
+        >
           <Icon name="arrow-back" size={24} color="#fff" />
         </Pressable>
         <Text style={styles.headerTitle}>MFD Records</Text>
@@ -595,7 +648,7 @@ export default function MFDRecordsList() {
       <View style={styles.filtersContainer}>
         <Text style={styles.filtersTitle}>Filter by status</Text>
         <View style={styles.filtersRow}>
-          {(['All', 'Approved', 'Pending', 'Rejected'] as const).map((status) => (
+          {(['All', 'Approved', 'Pending', 'Rejected'] as const).map(status => (
             <FilterChip
               key={status}
               label={status}
@@ -609,10 +662,10 @@ export default function MFDRecordsList() {
       {/* Records List */}
       <FlatList
         data={filteredRecords}
-        keyExtractor={(item) => String(item.id)}
+        keyExtractor={item => String(item.id)}
         renderItem={({ item }) => (
-          <RecordCard 
-            record={item} 
+          <RecordCard
+            record={item}
             onRecordPress={handleRecordPress}
             onGenerateDocument={handleGenerateDocument}
             onApprove={handleApprove}
@@ -649,7 +702,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   header: {
-    backgroundColor:'#145A1F',
+    backgroundColor: '#145A1F',
     paddingTop: 20,
     paddingBottom: 16,
     paddingHorizontal: 20,
