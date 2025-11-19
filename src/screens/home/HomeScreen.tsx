@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, Pressable, FlatList, View, StyleSheet } from 'react-native';
 import Screen from '../../components/Screen';
-
+import { useAuthStore } from '../../store/Auth_store';
 const MOCK_MATCHES = Array.from({ length: 8 }).map((_, i) => ({
   id: String(i + 1),
   name: `Ayesha ${i + 1}`,
@@ -10,6 +10,8 @@ const MOCK_MATCHES = Array.from({ length: 8 }).map((_, i) => ({
 }));
 
 export default function HomeScreen({ navigation }: any) {
+  const user = useAuthStore((state) => state.user);
+  console.log('user in home screen', user);
   return (
     <Screen>
       <View style={styles.header}>

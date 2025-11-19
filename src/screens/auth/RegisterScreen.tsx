@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Text, TextInput, Pressable, View, StyleSheet, ScrollView } from 'react-native';
 import Screen from '../../components/Screen';
-import { userRegistration } from '../../service/Auth/UeserRegistration';
-
+// import { userRegistration } from '../../service/Auth/UeserRegistration';
+import { useRegister } from '../../service/Hooks/User_Auth_Hook';
+import { useAuthStore } from '../../store/Auth_store';
 export default function RegisterScreen({ navigation }: any) {
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [username, setUsername] = useState('');
@@ -12,7 +13,8 @@ export default function RegisterScreen({ navigation }: any) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-
+  const registerMutation = useRegister();
+  const  setUser  = useAuthStore((state) => state.setUser);
   const handleGoogleSignUp = () => {
     // TODO: Implement Google Sign Up
     console.log('Sign up with Google');
@@ -20,11 +22,30 @@ export default function RegisterScreen({ navigation }: any) {
   };
 
   const handleEmailSignUp = async () => {
-    if (username && firstName && lastName && email && phoneNumber && password && confirmPassword) {
-      if (password !== confirmPassword) {
-        console.log('Passwords do not match');
+    console.log("🟩 FUNCTION CALL — handleEmailSignUp");
+  
+    try {
+      // Log all fields
+      console.log("📌 Current State:", {
+        username,
+        firstName,
+        lastName,
+        email,
+        phoneNumber,
+        password,
+        confirmPassword,
+      });
+  
+      if (!username || !firstName || !lastName || !email || !phoneNumber || !password || !confirmPassword) {
+        console.log("❗ VALIDATION FAILED — Missing fields");
         return;
       }
+  
+      if (password !== confirmPassword) {
+        console.log("❗ PASSWORD MISMATCH");
+        return;
+      }
+  
       const data = {
         username,
         first_name: firstName,
@@ -34,12 +55,29 @@ export default function RegisterScreen({ navigation }: any) {
         password,
         confirm_password: confirmPassword,
       };
-      const response = await userRegistration(data);
-      console.log('response of user registration', response);
-      // navigation.replace('Subscriptions');
+  
+      console.log("📦 FINAL PAYLOAD TO MUTATION:", data);
+  
+      registerMutation.mutate(data, {
+        onSuccess: (res) => {
+          console.log("🎉 REGISTRATION SUCCESS");
+          console.log("📥 Response:", res.data);
+  
+          setUser(res.data.user);
+        },
+  
+        onError: (err: any) => {
+          console.log("🔥 REGISTRATION ERROR (React Query)");
+          console.log("⬅ Status:", err.response?.status);
+          console.log("⬅ Error Data:", err.response?.data);
+        },
+      });
+    } catch (error: any) {
+      console.log("💥 UNEXPECTED ERROR in handleEmailSignUp");
+      console.log("Error:", error);
     }
   };
-
+  
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -262,3 +300,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+

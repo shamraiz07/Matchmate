@@ -27,7 +27,9 @@ import MyProfileScreen from './screens/profile/MyProfileScreen';
 import ProfileVerificationScreen from './screens/profile/ProfileVerificationScreen';
 import VerificationUploadScreen from './screens/profile/VerificationUploadScreen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+const queryClient = new QueryClient();
 const Stack = createNativeStackNavigator();
 const Tabs = createBottomTabNavigator();
 
@@ -98,6 +100,7 @@ function MainTabs() {
 
 export default function App() {
   return (
+    <QueryClientProvider client={queryClient}>
     <SafeAreaProvider>
       <NavigationContainer theme={MatchmateTheme}>
         <Stack.Navigator 
@@ -128,6 +131,7 @@ export default function App() {
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
+    </QueryClientProvider>
   );
 }
 

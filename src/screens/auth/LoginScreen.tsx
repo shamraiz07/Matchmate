@@ -2,22 +2,32 @@ import React, { useState } from 'react';
 import { Text, TextInput, Pressable, View, StyleSheet, Alert } from 'react-native';
 import Screen from '../../components/Screen';
 import { userLogin } from '../../service/Auth/UeserRegistration';
-
+import { useLoginUser } from '../../service/Hooks/User_Auth_Hook';
+import { useAuthStore } from '../../store/Auth_store';
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
+  const loginMutation = useLoginUser();
+  const  setUser  = useAuthStore((state) => state.setUser);
   const handleLogin = async () => {
+    try {
     const data = {
       email,
       password,
     };
-    const response = await userLogin(data);
-    console.log('response of user login', response);
-    if (response.error) {
-      Alert.alert('Error', response.data.message);
-    } else {
-      navigation.replace('Main');
+    loginMutation.mutate(data,{
+      onSuccess: (res) => {
+        console.log('response of user login', res.data);
+        setUser(res.data.user);
+        navigation.replace('Main');
+      },
+      onError: (err: any) => {
+        console.log('error of user login', err.response.data);
+      },
+
+    });
+    } catch (error: any) {
+      console.log('error of user login', error.response.data);
     }
   };
   return (
