@@ -25,14 +25,49 @@ export const LoginUser = async (data: any) => {
 
     console.log("⬅ Server Response:", response.data);
 
-    return { error: false, data: response.data };
+    return response;
 
   } catch (error: any) {
-    console.log("❌ Login Error:", error.response?.data);
+    throw error;
+  }
+};
 
-    return {
-      error: true,
-      data: error.response?.data || error.message,
-    };
+// OTP Send ON EMAIL API
+export const sendResetLink = async (email: string) => {
+  console.log("🟦 SEND RESET LINK SERVICE CALLED");
+  console.log("➡ Payload:", email);
+  try {
+    const response = await apiClient.post(ENDPOINTS.OTP_SEND, { email });
+    return response;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// OTP Verify API
+export const verifyOTP = async (payload: any) => {
+  console.log("🟦 OTP VERIFY SERVICE CALLED");
+  console.log("➡ Payload:", payload);
+  try {
+    const response = await apiClient.post(ENDPOINTS.OTP_VERIFY, payload);
+    return response;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+// New Password API
+export const newPassword = async (payload: any, resetToken: string) => {
+  console.log("🟦 NEW PASSWORD SERVICE CALLED");
+  console.log("➡ Payload:", payload);
+  try {
+    const response = await apiClient.post(ENDPOINTS.NEW_PASSWORD, payload ,{
+      headers: {
+        "x-reset-token": resetToken,
+      }
+    });
+    return response;
+  } catch (error: any) {
+    throw error;
   }
 };

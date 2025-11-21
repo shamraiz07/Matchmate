@@ -11,6 +11,6 @@ export default function Screen({ children }: { children: React.ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000', padding: 16 },
+  container: { justifyContent:'center',flex:1,height: '70%',backgroundColor: '#000000', padding: 16 },
 });
 

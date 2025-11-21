@@ -66,7 +66,7 @@ export default function SettingsScreen({ navigation }: any) {
           <Pressable style={styles.completedButton}>
             <Text style={styles.completedText}>39% completed</Text>
           </Pressable>
-          <Pressable style={styles.signOutButton}>
+          <Pressable style={styles.signOutButton} onPress={() => navigation.replace('Login')}>
             <Text style={styles.signOutText}>Sign out</Text>
           </Pressable>
         </View>
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   header: {
-    marginBottom: 24,
+    marginVertical: '5%',
   },
   profileContainer: {
     flexDirection: 'row',

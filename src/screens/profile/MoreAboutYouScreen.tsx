@@ -15,11 +15,7 @@ export default function MoreAboutYouScreen({ navigation, route }: MoreAboutYouSc
   const maxCharacters = 1000;
 
   const handleBack = () => {
-    if (navigation?.canGoBack?.()) {
-      navigation.goBack();
-    } else if (navigation?.goBack) {
-      navigation.goBack();
-    }
+      navigation.navigate('ProfileSetup');
   };
 
   useEffect(() => {
@@ -172,6 +168,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#D4AF37',
+    marginBottom: 20,
   },
   placeholder: {
     width: 24,

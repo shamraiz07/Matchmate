@@ -4,35 +4,88 @@ import Screen from '../../components/Screen';
 import { userLogin } from '../../service/Auth/UeserRegistration';
 import { useLoginUser } from '../../service/Hooks/User_Auth_Hook';
 import { useAuthStore } from '../../store/Auth_store';
+import Toast from 'react-native-toast-message';
+
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const loginMutation = useLoginUser();
   const  setUser  = useAuthStore((state) => state.setUser);
+  const  setToken  = useAuthStore((state) => state.setToken);
   const handleLogin = async () => {
-    try {
-    const data = {
-      email,
-      password,
-    };
-    loginMutation.mutate(data,{
-      onSuccess: (res) => {
-        console.log('response of user login', res.data);
-        setUser(res.data.user);
-        navigation.replace('Main');
-      },
-      onError: (err: any) => {
-        console.log('error of user login', err.response.data);
-      },
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    });
+      if (!email.trim()) {
+        Toast.show({
+          type: "error",
+          text1: "Missing Information",
+          text2: "Please enter your email.",
+        });
+        return;
+      }
+
+      if (!emailRegex.test(email.trim())) {
+        Toast.show({
+          type: "error",
+          text1: "Invalid Email",
+          text2: "Please enter a valid email address.",
+        });
+        return;
+      }
+
+      if (!password.trim()) {
+        Toast.show({
+          type: "error",
+          text1: "Missing Information",
+          text2: "Please enter your password.",
+        });
+        return;
+      }
+
+    try {
+      const data = {
+        email,
+        password,
+      };
+  
+      loginMutation.mutateAsync({payload: data}, {
+        onSuccess: (res) => {
+          console.log('response of user login', res,JSON.stringify(res));
+          setUser(res.data.user);
+          setToken(res.data.access);
+          navigation.replace('Main');
+        },
+  
+        onError: (err: any) => {
+          const data = err.response?.data || {};
+          const msg =
+            data?.non_field_errors?.[0] ||
+            data?.detail ||
+            "Invalid email or password.";
+        
+          Toast.show({
+            type: "error",
+            text1: "Login Failed",
+            text2: msg,
+          });
+        
+          console.log("login error ===>", data);
+        },
+      });
+  
     } catch (error: any) {
-      console.log('error of user login', error.response.data);
+      Toast.show({
+        type: "error",
+        text1: "Login Failed",
+        text2: "Something went wrong!",
+      });
+      console.log("error of user login", error.response?.data);
     }
   };
   return (
     <Screen>
-      <Text style={styles.title}>Login</Text>
+      <Text style={styles.title}>Welcome Back!</Text>
+      <Text style={styles.subtitle}>Sign in to your account to continue</Text>
       <TextInput
         placeholder="Email or Phone"
         placeholderTextColor="#8C8A9A"
@@ -67,7 +120,8 @@ export default function LoginScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  title: { color: '#D4AF37', fontSize: 22, fontWeight: '700' },
+  title: { color: '#D4AF37', fontSize: 22, fontWeight: '700',textAlign: 'center' },
+  subtitle: { color: '#FFFFFF', marginTop: 6, opacity: 0.8,textAlign: 'center' },
   input: {
     backgroundColor: '#1A1A1A',
     borderWidth: 1,
@@ -77,7 +131,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginTop: 14,
   },
-  link: { color: '#D4AF37', marginTop: 8 },
+  link: { color: '#D4AF37', marginTop: 8,textAlign: 'right' },
   primary: {
     backgroundColor: '#D4AF37',
     padding: 14,

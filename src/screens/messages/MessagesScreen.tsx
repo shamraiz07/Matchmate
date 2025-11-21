@@ -92,7 +92,8 @@ const styles = StyleSheet.create({
     color: '#D4AF37', 
     fontSize: 22, 
     fontWeight: '700',
-    marginBottom: 12,
+    height: 50,
+    marginTop: '10%',
   },
   favoriteBar: {
     flexDirection: 'row',

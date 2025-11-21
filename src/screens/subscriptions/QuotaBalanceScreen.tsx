@@ -121,7 +121,7 @@ export default function QuotaBalanceScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#000000',
     padding: 16,
   },
   scrollContent: {

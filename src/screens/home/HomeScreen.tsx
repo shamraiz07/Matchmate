@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, Pressable, FlatList, View, StyleSheet } from 'react-native';
 import Screen from '../../components/Screen';
 import { useAuthStore } from '../../store/Auth_store';
+import { useProfileView } from '../../service/Hooks/User_Profile_Hook';
 const MOCK_MATCHES = Array.from({ length: 8 }).map((_, i) => ({
   id: String(i + 1),
   name: `Ayesha ${i + 1}`,
@@ -12,6 +13,8 @@ const MOCK_MATCHES = Array.from({ length: 8 }).map((_, i) => ({
 export default function HomeScreen({ navigation }: any) {
   const user = useAuthStore((state) => state.user);
   console.log('user in home screen', user);
+  const { data: profileData } = useProfileView();
+  console.log('profile data in home screen', JSON.stringify(profileData));
   return (
     <Screen>
       <View style={styles.header}>
@@ -40,6 +43,8 @@ export default function HomeScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   header: {
+    height: 80,
+    marginTop: '5%',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',

@@ -58,7 +58,7 @@ export default function RegisterScreen({ navigation }: any) {
   
       console.log("📦 FINAL PAYLOAD TO MUTATION:", data);
   
-      registerMutation.mutate(data, {
+      registerMutation.mutateAsync(data, {
         onSuccess: (res) => {
           console.log("🎉 REGISTRATION SUCCESS");
           console.log("📥 Response:", res.data);
@@ -81,32 +81,22 @@ export default function RegisterScreen({ navigation }: any) {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Create Account</Text>
+        <Text style={styles.title}>Creates Account</Text>
         <Text style={styles.subtitle}>
           Sign up to start finding your perfect match
         </Text>
 
-        <View style={styles.spacing} />
-
-        {/* Sign up with Google */}
-        <Pressable onPress={handleGoogleSignUp} style={styles.googleButton}>
-          <Text style={styles.googleButtonText}>🔗 Sign up with Google</Text>
-        </Pressable>
-
-        {/* Divider */}
-        <View style={styles.dividerContainer}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>OR</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
+       
         {/* Sign up with Email */}
         {!showEmailForm ? (
+          <View>
+           <View style={styles.spacing} />
           <Pressable
             onPress={() => setShowEmailForm(true)}
             style={styles.emailButton}>
-            <Text style={styles.emailButtonText}>📧 Sign up with Email</Text>
+            <Text style={styles.emailButtonText}>Create Account with Email</Text>
           </Pressable>
+          </View>
         ) : (
           <View style={styles.formContainer}>
             <TextInput
@@ -174,6 +164,17 @@ export default function RegisterScreen({ navigation }: any) {
               ]}>
               <Text style={styles.continueButtonText}>Continue</Text>
             </Pressable>
+                {/* Divider */}
+        <View style={styles.dividerContainer}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>OR</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+          {/* Sign up with Google */}
+          <Pressable onPress={handleGoogleSignUp} style={styles.googleButton}>
+          <Text style={styles.googleButtonText}>🔗 Sign up with Google</Text>
+        </Pressable>
           </View>
         )}
 
@@ -217,7 +218,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 24,
   },
   googleButtonText: {
     color: '#000000',
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 24,
+    marginVertical: 12,
   },
   dividerLine: {
     flex: 1,
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   formContainer: {
-    marginTop: 8,
+    // marginTop: 8,
   },
   input: {
     backgroundColor: '#1A1A1A',
@@ -283,11 +283,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   loginContainer: {
+    marginTop: 10,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 20,
   },
   loginText: {
     color: '#FFFFFF',

@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView, TextInput, Alert } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, Pressable, StyleSheet, ScrollView, TextInput, Alert, Image } from 'react-native';
 import Screen from '../../components/Screen';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Header from '../../components/Header';
-
+import { useProfileUpdate, useProfileView } from '../../service/Hooks/User_Profile_Hook';
+import Toast from 'react-native-toast-message';
+import { useQueryClient } from '@tanstack/react-query';
 interface SectionProps {
   title: string;
   children: React.ReactNode;
@@ -127,50 +129,145 @@ export default function MyProfileScreen({ navigation }: any) {
       navigation.goBack();
     }
   };
+  const profileUpdateMutation = useProfileUpdate();
+  // Fetch profile data from API
+  const { data: profileResponse } = useProfileView();
+  console.log('profile data response', profileResponse);
+  const queryClient = useQueryClient();
+  // Helper function to calculate age from date of birth
+  const calculateAge = (dateOfBirth: string): string => {
+    if (!dateOfBirth) return '';
+    const birthDate = new Date(dateOfBirth);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age.toString();
+  };
 
-  // State management for profile data
-  const [profileData, setProfileData] = useState({
-    contact: '+923233755388',
-    matrimonyId: '7574305',
-    name: 'shamraiz',
-    gender: 'Male',
-    maritalStatus: 'Single',
-    age: '22',
-    religion: 'Muslim',
-    sect: 'Sunni',
+  // Helper function to capitalize first letter
+  const capitalize = (str: string): string => {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  };
+
+  // Map API response to local state structure
+  const mappedProfileData = useMemo(() => {
+    if (!profileResponse?.data) {
+      return {
+        contact: '',
+        matrimonyId: '',
+        name: '',
+        gender: '',
+        maritalStatus: '',
+        age: '',
+        religion: '',
+        sect: '',
     ethnicity: '',
     caste: '',
-    weight: '70kg',
+        weight: '',
     height: '',
     disability: 'No',
-    description:
-      'I am 22 years old Single Male, currently residing in Lahore, Pakistan. I belong to the Muslim (Sunni) faith. My weight is 70 kg. I am currently Employed and working as a Software Engineer.',
-    country: 'Pakistan',
-    city: 'Lahore',
+        description: '',
+        country: '',
+        city: '',
     birthCountry: '',
     nationality: '',
     languages: '',
     institute: '',
     degreeTitle: '',
-    duration: '2025 - 2025',
-    employmentStatus: 'Employed',
+        duration: '',
+        employmentStatus: '',
     fatherEducation: '',
-    fatherEmployment: 'Employed',
+        fatherEmployment: '',
     fatherProfession: '',
     fatherDeceased: 'No',
     motherEducation: '',
-    motherEmployment: 'Employed',
+        motherEmployment: '',
     motherProfession: '',
     motherDeceased: 'No',
     brothers: '0',
-    sisters: '3',
+        sisters: '0',
     prefMaritalStatus: '',
     prefAge: '18 - 70 Yrs',
     prefCountry: '',
     prefCity: '',
     prefReligion: '',
     prefCaste: '',
-  });
+        profilePicture: null,
+      };
+    }
+
+    const apiData = profileResponse.data;
+    const candidateInfo = apiData.candidate_information || {};
+    const profileDetails = apiData.profile_details || {};
+    const familyDetails = apiData.family_details || {};
+    const siblingsDetails = apiData.siblings_details || {};
+    const educationEmployment = apiData.education_employment || {};
+    const media = apiData.media || {};
+    const meta = apiData.meta || {};
+
+    const phoneContact = candidateInfo.phone_country_code && candidateInfo.phone_number
+      ? `${candidateInfo.phone_country_code}${candidateInfo.phone_number}`
+      : '';
+
+    return {
+      contact: phoneContact,
+      matrimonyId: meta.profile_id?.toString() || '',
+      name: candidateInfo.candidate_name || '',
+      gender: capitalize(profileDetails.gender || ''),
+      maritalStatus: capitalize(profileDetails.marital_status || ''),
+      age: calculateAge(candidateInfo.date_of_birth || ''),
+      religion: candidateInfo.religion || '',
+      sect: candidateInfo.sect || '',
+      ethnicity: '',
+      caste: candidateInfo.caste || '',
+      weight: candidateInfo.weight_kg ? `${candidateInfo.weight_kg}kg` : '',
+      height: candidateInfo.height_cm ? `${candidateInfo.height_cm}cm` : '',
+      disability: 'No',
+      description: `I am ${calculateAge(candidateInfo.date_of_birth || '')} years old ${capitalize(profileDetails.marital_status || '')} ${capitalize(profileDetails.gender || '')}, currently residing in ${candidateInfo.city || ''}, ${candidateInfo.country || ''}. I belong to the ${candidateInfo.religion || ''} (${candidateInfo.sect || ''}) faith. My weight is ${candidateInfo.weight_kg || ''} kg. I am currently ${educationEmployment.employment_status || ''} and working as ${educationEmployment.profession || ''}.`,
+      country: candidateInfo.country || '',
+      city: candidateInfo.city || '',
+      birthCountry: '',
+      nationality: '',
+      languages: '',
+      institute: '',
+      degreeTitle: '',
+      duration: '',
+      employmentStatus: educationEmployment.employment_status || '',
+      profession: educationEmployment.profession || '',
+      educationLevel: educationEmployment.education_level || '',
+      fatherEducation: '',
+      fatherEmployment: familyDetails.father_employment_status || '',
+      fatherProfession: '',
+      fatherDeceased: familyDetails.father_status === 'deceased' ? 'Yes' : 'No',
+      motherEducation: '',
+      motherEmployment: familyDetails.mother_employment_status || '',
+      motherProfession: '',
+      motherDeceased: familyDetails.mother_status === 'deceased' ? 'Yes' : 'No',
+      brothers: siblingsDetails.total_brothers?.toString() || '0',
+      sisters: siblingsDetails.total_sisters?.toString() || '0',
+      prefMaritalStatus: '',
+      prefAge: '18 - 70 Yrs',
+      prefCountry: '',
+      prefCity: '',
+      prefReligion: '',
+      prefCaste: '',
+      profilePicture: media.profile_picture || null,
+    };
+  }, [profileResponse]);
+
+  // State management for profile data
+  const [profileData, setProfileData] = useState(mappedProfileData);
+
+  // Update local state when API data changes
+  useEffect(() => {
+    if (profileResponse?.data) {
+      setProfileData(mappedProfileData);
+    }
+  }, [profileResponse, mappedProfileData]);
 
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editData, setEditData] = useState<any>({});
@@ -181,10 +278,23 @@ export default function MyProfileScreen({ navigation }: any) {
     setEditData({ ...profileData });
   };
 
-  const handleSave = (section: string) => {
+  const handleSave = (_section: string) => {
+    console.log('editData', editData);
+    profileUpdateMutation.mutate({payload: editData}, {
+      onSuccess: (res) => {
+        console.log("response of profile update===========================",res);
+        Toast.show({
+          type: "success",
+          text1: "Profile updated successfully",
+        });
+        queryClient.invalidateQueries({ queryKey: ['profile-view'] });
+      },
+      onError: (err: any) => {
+        console.log("error of profile update===========================",err.response);
+      },
+    });
     setProfileData({ ...profileData, ...editData });
     setEditingSection(null);
-    Alert.alert('Success', 'Profile updated successfully!');
   };
 
   const handleCancel = () => {
@@ -207,7 +317,15 @@ export default function MyProfileScreen({ navigation }: any) {
           onSave={() => handleSave('Photos')}
           onCancel={handleCancel}>
           <View style={styles.profilePhotoContainer}>
+            {profileData.profilePicture ? (
+              <Image
+                source={{ uri: profileData.profilePicture }}
+                style={styles.profileImage}
+                resizeMode="cover"
+              />
+            ) : (
             <Icon name="person" size={64} color="#D4AF37" />
+            )}
             <Pressable style={styles.profileButton}>
               <Text style={styles.profileButtonText}>Profile</Text>
             </Pressable>
@@ -366,7 +484,7 @@ export default function MyProfileScreen({ navigation }: any) {
           <InfoItem
             icon="location"
             label="Birth country"
-            value={editingSection === 'Region' ? editData.birthCountry : profileData.birthCountry}
+            value={editingSection === 'Region' ? editData.birthCountry : profileData.country}
             editable={editingSection === 'Region'}
             onChangeText={(text) => updateField('birthCountry', text)}
           />
@@ -389,7 +507,7 @@ export default function MyProfileScreen({ navigation }: any) {
           ) : (
             <View style={styles.inputField}>
               <Text style={styles.inputPlaceholder}>
-                {profileData.nationality || 'Not specified'}
+                {profileData.nationality || 'Pakistani'}
               </Text>
             </View>
           )}
@@ -424,6 +542,15 @@ export default function MyProfileScreen({ navigation }: any) {
           isEditing={editingSection === 'Education'}
           onSave={() => handleSave('Education')}
           onCancel={handleCancel}>
+          <InfoItem
+            icon="school"
+            label="Education Level"
+            value={
+              editingSection === 'Education' ? editData.educationLevel : profileData.educationLevel
+            }
+            editable={editingSection === 'Education'}
+            onChangeText={(text) => updateField('educationLevel', text)}
+          />
           <Text style={styles.subsectionTitle}>Bachelors</Text>
           <InfoItem
             icon="business"
@@ -467,12 +594,24 @@ export default function MyProfileScreen({ navigation }: any) {
             editable={editingSection === 'Employment'}
             onChangeText={(text) => updateField('employmentStatus', text)}
           />
+          <InfoItem
+            icon="person"
+            label="Profession"
+            value={
+              editingSection === 'Employment'
+                ? editData.profession
+                : profileData.profession
+            }
+            editable={editingSection === 'Employment'}
+            onChangeText={(text) => updateField('profession', text)}
+          />
         </Section>
 
         <Section
           title="Accommodation"
-          onEdit={() => Alert.alert('Accommodation', 'Feature coming soon!')}
-        />
+          onEdit={() => Alert.alert('Accommodation', 'Feature coming soon!')}>
+          <Text style={styles.inputPlaceholder}>No accommodation details available</Text>
+        </Section>
 
         <Section
           title="Parents"
@@ -600,7 +739,7 @@ export default function MyProfileScreen({ navigation }: any) {
           )}
         </Section>
 
-        <Section
+        {/* <Section
           title="Preferences"
           onEdit={() => handleEdit('Preferences')}
           isEditing={editingSection === 'Preferences'}
@@ -668,7 +807,7 @@ export default function MyProfileScreen({ navigation }: any) {
             editable={editingSection === 'Preferences'}
             onChangeText={(text) => updateField('prefCaste', text)}
           />
-        </Section>
+        </Section> */}
       </ScrollView>
     </Screen>
   );
@@ -792,6 +931,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
     marginBottom: 12,
+  },
+  profileImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 12,
+    backgroundColor: '#F5F5F5',
   },
   profileButton: {
     backgroundColor: '#FFA500',

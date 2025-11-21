@@ -6,17 +6,25 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
-  TouchableOpacity,
+  PermissionsAndroid, Platform,
+  Image
 } from 'react-native';
 import DatePicker from 'react-native-date-picker';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Screen from '../../components/Screen';
 import Dropdown from '../../components/Dropdown';
+import { useProfileCreate, useProfileView } from '../../service/Hooks/User_Profile_Hook';
+import { useAuthStore } from '../../store/Auth_store';
+import {launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import Toast from 'react-native-toast-message';
 
 export default function ProfileSetupScreen({ navigation }: any) {
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 5;
-
+  const token = useAuthStore((state) => state.token);
+  const { data: profileData } = useProfileView();
+  console.log('profile data in home screens', profileData);
+  console.log("token of profile setup===========================",token);
   // Step 1: Profile For, Gender, Marital Status
   const [profileFor, setProfileFor] = useState('');
   const [gender, setGender] = useState('');
@@ -39,7 +47,7 @@ export default function ProfileSetupScreen({ navigation }: any) {
   const [phoneNumber, setPhoneNumber] = useState('');
 
   // Step 3: Photo (placeholder)
-  const [photoUri, setPhotoUri] = useState('');
+  const [selectedImage, setSelectedImage] = useState('');
   const [blurPhoto, setBlurPhoto] = useState(false);
 
   // Step 4: Education & Employment
@@ -56,7 +64,7 @@ export default function ProfileSetupScreen({ navigation }: any) {
   const [sistersCount, setSistersCount] = useState(0);
 
   const profileForOptions = ['Myself', 'Brother', 'Sister', 'Son', 'Daughter', 'Other'];
-  const genderOptions = ['Male', 'Female'];
+  const genderOptions = ['male', 'female'];
   const maritalStatusOptions = ['Single', 'Divorced', 'Married', 'Separated', 'Widower'];
   const countryOptions = ['Pakistan', 'India', 'USA', 'UK', 'Canada', 'UAE', 'Saudi Arabia'];
   const cityOptions = ['Lahore', 'Karachi', 'Islamabad', 'Faisalabad', 'Multan', 'Rawalpindi'];
@@ -64,16 +72,16 @@ export default function ProfileSetupScreen({ navigation }: any) {
   const sectOptions = ['Sunni', 'Shia', 'Ahle Hadith', 'Deobandi', 'Barelvi'];
   const casteOptions = ['Syed', 'Mughal', 'Rajput', 'Arain', 'Jatt', 'Other'];
   const heightOptions = [
-    '4\'0"',
-    '4\'6"',
-    '5\'0"',
-    '5\'6"',
-    '6\'0"',
-    '6\'6"',
-    '5\'2"',
-    '5\'4"',
-    '5\'8"',
-    '5\'10"',
+    121.92,
+    137.16,
+    152.40,
+    157.48,
+    162.56,
+    167.64,
+    172.72,
+    177.80,
+    182.88,
+    198.12,
   ];
   const educationOptions = [
     'Primary',
@@ -104,43 +112,140 @@ export default function ProfileSetupScreen({ navigation }: any) {
     { icon: 'briefcase', label: 'Education' },
     { icon: 'people', label: 'Family' },
   ];
-
+  const requestCameraPermission = async () => {
+    if (Platform.OS === "android") {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.CAMERA,
+        {
+          title: "Camera Permission",
+          message: "This app needs access to your camera",
+          buttonPositive: "OK",
+        }
+      );
+  
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    }
+    return true;
+  };
+  
+  const profileUpdateMutation = useProfileCreate();
   const handleNext = () => {
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
     } else {
+      try{
       // Collect all profile data
-      const profileData = {
-        profileFor,
-        gender,
-        maritalStatus,
-        candidateName,
-        dateOfBirth,
-        country,
-        city,
-        religion,
-        sect,
-        caste,
-        height,
-        weight,
-        phoneCode,
-        phoneNumber,
-        educationLevel,
-        employmentStatus,
-        profession,
-        fatherAlive,
-        fatherEmployment,
-        motherAlive,
-        motherEmployment,
-        brothersCount,
-        sistersCount,
-      };
+      const payload = {
+        candidate_information: {
+          candidate_name: candidateName,
+          hidden_name: hiddenName,
+          date_of_birth: dateOfBirth,
+          country: country,
+          city: city,
+          religion: religion,
+          sect: sect,
+          caste: caste,
+          height_cm: height,
+          weight_kg: weight,
+          phone_country_code: phoneCode,
+          phone_number: phoneNumber,
+        },
       
+        profile_details: {
+          profile_for: profileFor,
+          gender: gender,
+          marital_status: maritalStatus,
+        },
+      
+        family_details: {
+          father_status: fatherAlive ? "alive" : "deceased",
+          father_employment_status: fatherEmployment,
+          mother_status: motherAlive ? "alive" : "deceased",
+          mother_employment_status: motherEmployment,
+        },
+      
+        siblings_details: {
+          total_brothers: brothersCount,
+          total_sisters: sistersCount,
+        },
+      
+        education_employment: {
+          education_level: educationLevel,
+          employment_status: employmentStatus,
+          profession: profession,
+        },
+      
+        media: {
+          blur_photo: blurPhoto,
+        },
+      };
+      profileUpdateMutation.mutate({payload: payload}, {
+        onSuccess: (res) => {
+          console.log("response of profile update===========================",res);
+          if(res.status === 200){
+            navigation.navigate('Main');
+            Toast.show({
+              type: "success",
+              text1: "Profile updated successfully",
+            });
+          }
+        },
+        onError: (err: any) => {
+          console.log("error of profile update===========================",err);
+        },
+      });
+      }catch(error: any){
+        console.log("error of profile update===========================",error);
+      }
       // Complete profile setup - navigate to MoreAboutYou
-      navigation.replace('MoreAboutYou', { profileData });
+      // navigation.replace('MoreAboutYou', { profileData });
     }
   };
-
+  const pickImageFromGallery = () => {
+    const options = {
+      mediaType: 'photo',
+      quality: 1,
+    };
+  
+    launchImageLibrary(options, (response) => {
+      if (response.didCancel) {
+        console.log('User cancelled image picker');
+      } else if (response.errorCode) {
+        console.log('ImagePicker Error: ', response.errorMessage);
+      } else {
+        const image = response.assets[0];
+        console.log("Selected Image:", image);
+        
+        // Example: Save to state
+        setSelectedImage(image.uri);
+      }
+    });
+  };
+  const openCamera = async () => {
+    const hasPermission = await requestCameraPermission();
+    if (!hasPermission) {
+      console.log("Camera permission denied");
+      return;
+    }
+  
+    const options = {
+      mediaType: 'photo',
+      quality: 1,
+      saveToPhotos: true,
+    };
+  
+    launchCamera(options, response => {
+      if (response.didCancel) {
+        console.log('User cancelled camera');
+      } else if (response.errorCode) {
+        console.log('Camera Error:', response.errorMessage);
+      } else {
+        const image = response.assets[0];
+        setSelectedImage(image.uri);
+      }
+    });
+  };
+  
   const handleBack = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
@@ -219,7 +324,6 @@ export default function ProfileSetupScreen({ navigation }: any) {
   const renderStep2 = () => (
     <View>
       <Text style={styles.sectionTitle}>Candidate information</Text>
-
       <Text style={styles.label}>Candidate name *</Text>
       <TextInput
         placeholder="Enter candidate name"
@@ -261,10 +365,12 @@ export default function ProfileSetupScreen({ navigation }: any) {
         onConfirm={date => {
           setDatePickerOpen(false);
           setSelectedDate(date);
-          const day = String(date.getDate()).padStart(2, '0');
-          const month = String(date.getMonth() + 1).padStart(2, '0');
+        
           const year = date.getFullYear();
-          setDateOfBirth(`${day}/${month}/${year}`);
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const day = String(date.getDate()).padStart(2, "0");
+        
+          setDateOfBirth(`${year}-${month}-${day}`); // ⬅️ YYYY-MM-DD
         }}
         onCancel={() => {
           setDatePickerOpen(false);
@@ -335,16 +441,24 @@ export default function ProfileSetupScreen({ navigation }: any) {
       <Text style={styles.sectionTitle}>Upload photo</Text>
 
       <View style={styles.photoButtons}>
-        <Pressable style={styles.photoButton}>
+        <Pressable style={styles.photoButton} onPress={() => pickImageFromGallery()}>
           <Text style={styles.photoButtonText}>Upload photo</Text>
         </Pressable>
-        <Pressable style={styles.photoButton}>
+        <Pressable style={styles.photoButton} onPress={() => openCamera()}>
           <Text style={styles.photoButtonText}>Take a Selfie</Text>
         </Pressable>
       </View>
 
       <View style={styles.photoPlaceholder}>
-        <Icon name="camera" size={48} color="#D4AF37" />
+        {selectedImage ? (
+          <Image
+            source={{ uri: selectedImage }}
+            style={styles.selectedImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <Icon name="camera" size={48} color="#D4AF37" />
+        )}
       </View>
 
       <View style={styles.blurContainer}>
@@ -482,7 +596,7 @@ export default function ProfileSetupScreen({ navigation }: any) {
         options={employmentStatusOptions}
         onSelect={setMotherEmployment}
       />
-
+  <Text style={styles.sectionTitle}>CANDIDATE SIBLINGS DETAILS</Text>
       <View style={styles.counterContainer}>
         <Text style={styles.counterLabel}>Total No. of Brothers</Text>
         <View style={styles.counter}>
@@ -592,7 +706,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    marginTop: '10%',
+    height: 80,
+    borderRadius:10,
     backgroundColor: '#1A1A1A',
   },
   progressStep: {
@@ -621,28 +737,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#D4AF37',
   },
   scrollContent: {
-    padding: 20,
+    
+    paddingHorizontal: 20,
     paddingBottom: 100,
   },
   sectionTitle: {
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '700',
-    marginTop: 20,
-    marginBottom: 12,
+    marginVertical: 20,
+  
   },
   buttonGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 20,
+    gap: 10,
+ 
+    
   },
   selectButton: {
+
     backgroundColor: '#000000',
     padding: 12,
     borderRadius: 8,
-    marginRight: 8,
+    // marginRight: 8,
     marginBottom: 8,
-    minWidth: 100,
+    // minWidth: 100,
   },
   selectButtonActive: {
     backgroundColor: '#D4AF37',
@@ -661,7 +781,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
-    marginTop: 8,
   },
   textInput: {
     backgroundColor: '#FFFFFF',
@@ -780,6 +899,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     backgroundColor: '#1A1A1A',
+    overflow: 'hidden',
+  },
+  selectedImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 6,
   },
   blurContainer: {
     flexDirection: 'row',

@@ -24,7 +24,9 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { color: '#D4AF37', fontSize: 22, fontWeight: '700' },
+  title: { color: '#D4AF37', fontSize: 22, fontWeight: '700',
+    height: 40,
+    marginTop: '10%'},
   card: {
     backgroundColor: '#1A1A1A',
     borderWidth: 1,

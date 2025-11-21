@@ -12,7 +12,7 @@ import PreferencesScreen from './screens/preferences/PreferencesScreen';
 import HomeScreen from './screens/home/HomeScreen';
 import MessagesScreen from './screens/messages/MessagesScreen';
 import NotificationsScreen from './screens/notifications/NotificationsScreen';
-import ProfileScreen from './screens/profile/ProfileScreen';
+import OtpScreen from './screens/auth/OtpScreen';
 import SearchScreen from './screens/home/SearchScreen';
 import ChatScreen from './screens/messages/ChatScreen';
 import CallScreen from './screens/messages/CallScreen';
@@ -24,10 +24,12 @@ import SettingsScreen from './screens/settings/SettingsScreen';
 import AccountSettingsScreen from './screens/settings/AccountSettingsScreen';
 import DeleteAccountScreen from './screens/settings/DeleteAccountScreen';
 import MyProfileScreen from './screens/profile/MyProfileScreen';
+import NewPasswordScreen from './screens/auth/NewPasswordScreen';
 import ProfileVerificationScreen from './screens/profile/ProfileVerificationScreen';
 import VerificationUploadScreen from './screens/profile/VerificationUploadScreen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import Toast from 'react-native-toast-message';
 
 const queryClient = new QueryClient();
 const Stack = createNativeStackNavigator();
@@ -109,6 +111,8 @@ export default function App() {
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
           <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+          <Stack.Screen name="Otp" component={OtpScreen} />
+          <Stack.Screen name="NewPassword" component={NewPasswordScreen} />
           <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
           <Stack.Screen name="MoreAboutYou" component={MoreAboutYouScreen} />
           <Stack.Screen name="Preferences" component={PreferencesScreen} />
@@ -131,6 +135,7 @@ export default function App() {
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
+    <Toast />
     </QueryClientProvider>
   );
 }

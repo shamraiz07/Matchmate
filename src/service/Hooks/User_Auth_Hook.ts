@@ -1,4 +1,4 @@
-import { LoginUser, registerUser } from "../Api_service/Auth_Service";
+import { LoginUser, newPassword, registerUser, sendResetLink, verifyOTP } from "../Api_service/Auth_Service";
 import {useMutation} from '@tanstack/react-query'
 
 // Register User Hook
@@ -15,10 +15,43 @@ export const useRegister = () => {
 // Login User Hook
 export const useLoginUser =() => {
   return useMutation({
-    mutationFn: async (payload) => {
+    mutationFn: async ({payload}: {payload: any}) => {
       console.log("🟦 React Query Mutation Called",payload);
       console.log("➡ Payload Received:", payload);
       return LoginUser(payload);
     },
   })
+};
+
+// OTP Send ON EMAIL Hook
+export const useSendResetLink = () => {
+  return useMutation({
+    mutationFn: async (email: string) => {
+      console.log("🟦 React Query Mutation Called", email);
+      console.log("➡ Payload Received:", email);
+      return sendResetLink(email);
+    },
+  });
+};
+
+// OTP Verify API
+export const useVerifyOTP = () => {
+  return useMutation({
+    mutationFn: async (payload: any) => {
+      console.log("🟦 React Query Mutation Called", payload);
+      console.log("➡ Payload Received:", payload);
+      return verifyOTP(payload);
+    },
+  });
+};
+
+// New Password API
+export const useNewPassword = () => {
+  return useMutation({
+    mutationFn: async ({payload, resetToken}: {payload: any, resetToken: string}) => {
+      console.log("🟦 React Query Mutation Called", payload);
+      console.log("➡ Payload Received:", payload);
+      return newPassword(payload, resetToken);
+    },
+  });
 };
