@@ -49,3 +49,62 @@ export const profileCreate = async (payload: any, token: string) => {
       throw error;
     }
   };
+
+  // Profile_Paragraph API
+  export const profileUpdate_Generated = async (token: string) => {
+    console.log("🟦 profileUpdate_Generated SERVICE CALLED");
+
+    try {
+      const response = await apiClient.post(
+        ENDPOINTS_USER.PARAGRAPH_GENERATED,
+        {},  // empty body
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.log("❌ API ERROR", error.response?.data);
+      throw error;
+    }
+  };
+
+  // Profile_Picture_Verification
+  export const Profile_Picture_Verification = async (payload: any, token: string) => {
+    console.log("🟦 Profile_Picture_Verification SERVICE CALLED");
+    try {
+      const response = await apiClient.post(ENDPOINTS_USER.PROFILE_PICTURE_VERIFICATION, payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data', // Explicitly state this
+        },
+      });
+      return response;
+    } catch (error: any) {
+      throw error;
+    }
+  };
+
+    // Profile_Match API
+    export const profileMatch = async (token: string) => {
+      console.log("🟦 profileMatch SERVICE CALLED");
+      try {
+        const response = await apiClient.get(ENDPOINTS_USER.PROFILE_MATCH, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+        });
+    
+        return response.data;
+      } catch (error) {
+        console.log("❌ API ERROR", error.response?.data);
+        throw error;
+      }
+    };

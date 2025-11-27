@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Text, View, Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { Text, View, Pressable, ScrollView, StyleSheet, TextInput, ActivityIndicator } from 'react-native';
 import Screen from '../../components/Screen';
 import Header from '../../components/Header';
+import { useProfileParagraph } from '../../service/Hooks/User_Profile_Hook';
 
 interface MoreAboutYouScreenProps {
   navigation: any;
@@ -14,138 +15,86 @@ export default function MoreAboutYouScreen({ navigation, route }: MoreAboutYouSc
   const [characterCount, setCharacterCount] = useState(0);
   const maxCharacters = 1000;
 
+  // ⬅️ Import your mutation hook
+  const {
+    mutateAsync: getParagraph,
+    data,
+    isPending,
+    isError
+  } = useProfileParagraph();
+  console.log('Paraaaa',data)
   const handleBack = () => {
-      navigation.navigate('ProfileSetup');
+    navigation.navigate('ProfileSetup');
   };
 
   useEffect(() => {
-    // Generate paragraph based on profile data
-    const paragraph = generateProfileParagraph(profileData);
-    setGeneratedText(paragraph);
-    setCharacterCount(paragraph.length);
-  }, []);
-
-  const generateProfileParagraph = (data: any): string => {
-    let paragraph = '';
-
-    // Age calculation from date of birth
-    let age = '';
-    if (data.dateOfBirth) {
-      try {
-        // Handle DD/MM/YYYY format
-        const [day, month, year] = data.dateOfBirth.split('/');
-        const birthDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-        const today = new Date();
-        let calculatedAge = today.getFullYear() - birthDate.getFullYear();
-        const monthDiff = today.getMonth() - birthDate.getMonth();
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-          calculatedAge--;
+ 
+    // Step 2: Call API as soon as screen opens
+    getParagraph({}, {
+      onSuccess: (res: any) => {
+        // Update paragraph from API response
+        console.log('generated_description',res)
+        if (res?.generated_description) {
+          setGeneratedText(res.generated_description);
+          setCharacterCount(res.generated_description.length);
         }
-        age = `${calculatedAge}`;
-      } catch (e) {
-        // If date parsing fails, skip age
-      }
-    }
+      },
+    });
 
-    // Gender
-    if (data.gender) {
-      paragraph += age ? `I am ${age} ` : 'I am ';
-      paragraph += data.maritalStatus || 'Single';
-      paragraph += ` ${data.gender}. `;
-    }
+  }, [getParagraph]);
 
-    // Location
-    if (data.city && data.country) {
-      paragraph += `Currently residing in ${data.city}, ${data.country}. `;
-    } else if (data.city) {
-      paragraph += `Currently residing in ${data.city}. `;
-    } else if (data.country) {
-      paragraph += `Currently residing in ${data.country}. `;
-    }
-
-    // Religion
-    if (data.religion) {
-      paragraph += `I belong to the ${data.religion}`;
-      if (data.sect) {
-        paragraph += ` (${data.sect})`;
-      }
-      paragraph += ' faith. ';
-    }
-
-    // Weight
-    if (data.weight) {
-      paragraph += `My weight is ${data.weight} kg. `;
-    }
-
-    // Employment and Profession
-    if (data.employmentStatus || data.profession) {
-      paragraph += `I am currently `;
-      if (data.employmentStatus) {
-        paragraph += data.employmentStatus;
-        if (data.profession) {
-          paragraph += ` and working as a ${data.profession}`;
-        }
-      } else if (data.profession) {
-        paragraph += `working as a ${data.profession}`;
-      }
-      paragraph += '. ';
-    }
-
-    // Closing statement
-    paragraph += "I'm looking for a partner who shares my values and interests, as I believe mutual understanding is key to a strong relationship.";
-
-    return paragraph.trim();
-  };
-
-  const handleTextChange = (text: string) => {
+  const handleTextChange = (text) => {
     if (text.length <= maxCharacters) {
       setGeneratedText(text);
       setCharacterCount(text.length);
     }
   };
 
-  const handleAccept = () => {
-    // Navigate to Main (Home Screen)
-    navigation.replace('Main');
-  };
-
-  const handleReject = () => {
-    // Go back to profile setup or allow editing
-    navigation.goBack();
-  };
-
+  const handleAccept = () => navigation.replace('Main');
+  const handleReject = () => navigation.goBack();
+  
   return (
     <Screen>
       <Header title="More About You" onBack={handleBack} />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>More About You</Text>
-
-        <View style={styles.textContainer}>
-          <TextInput
-            style={styles.textInput}
-            multiline
-            value={generatedText}
-            onChangeText={handleTextChange}
-            placeholder="Your description will appear here..."
-            placeholderTextColor="#8C8A9A"
-            maxLength={maxCharacters}
-          />
-          <Text style={styles.characterCount}>
-            {characterCount} / {maxCharacters}
-          </Text>
+  
+      {isPending ? (
+        <View style={{ flex:1,justifyContent:'center',alignItems: 'center' }}>
+          <ActivityIndicator size="large" />
+          <Text>Generating description...</Text>
         </View>
-
-        <View style={styles.buttonContainer}>
-          <Pressable onPress={handleReject} style={styles.rejectButton}>
-            <Text style={styles.rejectButtonText}>✕</Text>
-          </Pressable>
-          <Pressable onPress={handleAccept} style={styles.acceptButton}>
-            <Text style={styles.acceptButtonText}>✓</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
+      ) : (
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+  
+          <Text style={styles.title}>More About You</Text>
+  
+          <View style={styles.textContainer}>
+            <TextInput
+              style={styles.textInput}
+              multiline
+              value={generatedText}
+              onChangeText={handleTextChange}
+              placeholder="Your description will appear here..."
+              placeholderTextColor="#8C8A9A"
+              maxLength={maxCharacters}
+            />
+            <Text style={styles.characterCount}>
+              {characterCount} / {maxCharacters}
+            </Text>
+          </View>
+  
+          <View style={styles.buttonContainer}>
+            <Pressable onPress={handleReject} style={styles.rejectButton}>
+              <Text style={styles.rejectButtonText}>✕</Text>
+            </Pressable>
+            <Pressable onPress={handleAccept} style={styles.acceptButton}>
+              <Text style={styles.acceptButtonText}>✓</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      )}
     </Screen>
   );
+  
 }
 
 const styles = StyleSheet.create({

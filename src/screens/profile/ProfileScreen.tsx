@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, Pressable, View, StyleSheet } from 'react-native';
 import Screen from '../../components/Screen';
+import { useAuthStore } from '../../store/Auth_store';
 
 export default function ProfileScreen({ navigation }: any) {
   return (
@@ -21,7 +22,9 @@ export default function ProfileScreen({ navigation }: any) {
       </Pressable>
       <View style={{ height: 8 }} />
       <Pressable
-        onPress={() => navigation.replace('Login')}
+        onPress={() => {
+          navigation.replace('Login')}
+        }
         style={styles.ghost}>
         <Text style={styles.ghostText}>Logout</Text>
       </Pressable>

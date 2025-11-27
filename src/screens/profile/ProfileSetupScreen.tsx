@@ -7,13 +7,15 @@ import {
   StyleSheet,
   TextInput,
   PermissionsAndroid, Platform,
-  Image
+  Image,
+  ActivityIndicator
 } from 'react-native';
+import RNFS from 'react-native-fs';
 import DatePicker from 'react-native-date-picker';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Screen from '../../components/Screen';
 import Dropdown from '../../components/Dropdown';
-import { useProfileCreate, useProfileView } from '../../service/Hooks/User_Profile_Hook';
+import { Profile_Picture_Verify, useProfileCreate, useProfileView } from '../../service/Hooks/User_Profile_Hook';
 import { useAuthStore } from '../../store/Auth_store';
 import {launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import Toast from 'react-native-toast-message';
@@ -21,10 +23,10 @@ import Toast from 'react-native-toast-message';
 export default function ProfileSetupScreen({ navigation }: any) {
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 5;
-  const token = useAuthStore((state) => state.token);
-  const { data: profileData } = useProfileView();
-  console.log('profile data in home screens', profileData);
-  console.log("token of profile setup===========================",token);
+  // const token = useAuthStore((state) => state.token);
+  // const { data: profileData } = useProfileView();
+  // console.log('profile data in home screens', profileData);
+  // console.log("token of profile setup===========================",token);
   // Step 1: Profile For, Gender, Marital Status
   const [profileFor, setProfileFor] = useState('');
   const [gender, setGender] = useState('');
@@ -49,6 +51,8 @@ export default function ProfileSetupScreen({ navigation }: any) {
   // Step 3: Photo (placeholder)
   const [selectedImage, setSelectedImage] = useState('');
   const [blurPhoto, setBlurPhoto] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
 
   // Step 4: Education & Employment
   const [educationLevel, setEducationLevel] = useState('');
@@ -129,10 +133,45 @@ export default function ProfileSetupScreen({ navigation }: any) {
   };
   
   const profileUpdateMutation = useProfileCreate();
+ const  profilePictureMutation = Profile_Picture_Verify();
+ const uploadProfilePicture = async (image) => {
+  try {
+    setUploading(true);   
+
+    const formData = new FormData();
+    formData.append("file", {
+      uri: image.uri,
+      name: "photo.jpg",
+      type: image.type || "image/jpeg",
+    });
+
+    console.log("payload_picture", formData);
+
+    await profilePictureMutation.mutateAsync(
+      { payload: formData },
+      {
+        onSuccess: () => {
+          setUploading(false);
+          console.log("Uploaded!");
+        },
+        onError: () => {
+          setUploading(false);
+          console.log("Error!");
+        },
+      }
+    );
+
+  } catch (e) {
+    setUploading(false);
+    console.log("Upload error:",e.message);
+  }
+};
+
   const handleNext = () => {
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
-    } else {
+    } 
+    else {
       try{
       // Collect all profile data
       const payload = {
@@ -207,44 +246,32 @@ export default function ProfileSetupScreen({ navigation }: any) {
       quality: 1,
     };
   
-    launchImageLibrary(options, (response) => {
-      if (response.didCancel) {
-        console.log('User cancelled image picker');
-      } else if (response.errorCode) {
-        console.log('ImagePicker Error: ', response.errorMessage);
-      } else {
-        const image = response.assets[0];
-        console.log("Selected Image:", image);
-        
-        // Example: Save to state
-        setSelectedImage(image.uri);
-      }
+    launchImageLibrary(options, async (response) => {
+      if (response.didCancel || response.errorCode) return;
+  
+      const image = response.assets[0];
+      setSelectedImage(image.uri);
+  
+      // Auto upload
+      await uploadProfilePicture(image);
     });
   };
+  
   const openCamera = async () => {
     const hasPermission = await requestCameraPermission();
-    if (!hasPermission) {
-      console.log("Camera permission denied");
-      return;
-    }
+    if (!hasPermission) return;
   
-    const options = {
-      mediaType: 'photo',
-      quality: 1,
-      saveToPhotos: true,
-    };
+    launchCamera({ mediaType: 'photo', quality: 1 }, async (response) => {
+      if (response.didCancel || response.errorCode) return;
   
-    launchCamera(options, response => {
-      if (response.didCancel) {
-        console.log('User cancelled camera');
-      } else if (response.errorCode) {
-        console.log('Camera Error:', response.errorMessage);
-      } else {
-        const image = response.assets[0];
-        setSelectedImage(image.uri);
-      }
+      const image = response.assets[0];
+      setSelectedImage(image.uri);
+  
+      // Auto upload
+      await uploadProfilePicture(image);
     });
   };
+  
   
   const handleBack = () => {
     if (currentStep > 1) {
@@ -450,16 +477,19 @@ export default function ProfileSetupScreen({ navigation }: any) {
       </View>
 
       <View style={styles.photoPlaceholder}>
-        {selectedImage ? (
-          <Image
-            source={{ uri: selectedImage }}
-            style={styles.selectedImage}
-            resizeMode="cover"
-          />
-        ) : (
-          <Icon name="camera" size={48} color="#D4AF37" />
-        )}
-      </View>
+  {uploading ? (
+    <ActivityIndicator size="large" color="#D4AF37" />
+  ) : selectedImage ? (
+    <Image
+      source={{ uri: selectedImage }}
+      style={styles.selectedImage}
+      resizeMode="cover"
+    />
+  ) : (
+    <Icon name="camera" size={48} color="#D4AF37" />
+  )}
+</View>
+
 
       <View style={styles.blurContainer}>
         <Text style={styles.blurLabel}>Blur Photo</Text>

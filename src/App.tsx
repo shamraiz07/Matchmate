@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer, DefaultTheme, Theme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -30,6 +30,9 @@ import VerificationUploadScreen from './screens/profile/VerificationUploadScreen
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Toast from 'react-native-toast-message';
+import { useAuthStore } from './store/Auth_store';
+import { Text, View } from 'react-native';
+import { ActivityIndicator } from 'react-native';
 
 const queryClient = new QueryClient();
 const Stack = createNativeStackNavigator();
@@ -101,12 +104,28 @@ function MainTabs() {
 }
 
 export default function App() {
+  const isAuthenticated = useAuthStore((state) => state.is_Authenticated);
+  const isHydrated = useAuthStore((state) => state.isHydrated);
+
+  useEffect(() => {
+    useAuthStore.getState().hydrate();
+  }, []);
+
+  if (!isHydrated) {
+    // Show splash or loading screen
+    console.log('isAuthenticated_userr',isAuthenticated)
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" ,backgroundColor:'#000000'}}>
+       <ActivityIndicator size="large" color='#D4AF37' />
+      </View>
+    );
+  }
   return (
     <QueryClientProvider client={queryClient}>
     <SafeAreaProvider>
       <NavigationContainer theme={MatchmateTheme}>
         <Stack.Navigator 
-          initialRouteName="Register"
+        initialRouteName={isAuthenticated ? "Main" : "Login"}
           screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />

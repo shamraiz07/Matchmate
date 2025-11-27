@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import Screen from '../../components/Screen';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useAuthStore } from '../../store/Auth_store';
 
 export default function SettingsScreen({ navigation }: any) {
   const menuItems = [
@@ -66,7 +67,10 @@ export default function SettingsScreen({ navigation }: any) {
           <Pressable style={styles.completedButton}>
             <Text style={styles.completedText}>39% completed</Text>
           </Pressable>
-          <Pressable style={styles.signOutButton} onPress={() => navigation.replace('Login')}>
+          <Pressable style={styles.signOutButton} onPress={() => {
+             useAuthStore.getState().logout();
+            navigation.replace('Login')
+            }}>
             <Text style={styles.signOutText}>Sign out</Text>
           </Pressable>
         </View>

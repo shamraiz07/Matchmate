@@ -4,6 +4,7 @@ import Screen from '../../components/Screen';
 // import { userRegistration } from '../../service/Auth/UeserRegistration';
 import { useRegister } from '../../service/Hooks/User_Auth_Hook';
 import { useAuthStore } from '../../store/Auth_store';
+import Toast from 'react-native-toast-message';
 export default function RegisterScreen({ navigation }: any) {
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [username, setUsername] = useState('');
@@ -62,18 +63,27 @@ export default function RegisterScreen({ navigation }: any) {
         onSuccess: (res) => {
           console.log("🎉 REGISTRATION SUCCESS");
           console.log("📥 Response:", res.data);
-  
           setUser(res.data.user);
+          navigation.replace('Login');
+          Toast.show({
+            type: 'success',
+            text1:"🎉 REGISTRATION SUCCESS",
+            text2: "USER--->>>>>>>>REGISTRATION SUCCESS ",
+          });
         },
   
         onError: (err: any) => {
           console.log("🔥 REGISTRATION ERROR (React Query)");
           console.log("⬅ Status:", err.response?.status);
-          console.log("⬅ Error Data:", err.response?.data);
+          console.log("⬅ Error Data-------------------->>>>>>>>>>:", err.response.data.username[0]);
+          Toast.show({
+            type: "error",
+            text1: "Registration Failed",
+            text2: err.response.data.username[0],
+          });
         },
       });
     } catch (error: any) {
-      console.log("💥 UNEXPECTED ERROR in handleEmailSignUp");
       console.log("Error:", error);
     }
   };

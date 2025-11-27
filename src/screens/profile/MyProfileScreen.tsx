@@ -129,10 +129,11 @@ export default function MyProfileScreen({ navigation }: any) {
       navigation.goBack();
     }
   };
+  const [profileData, setProfileData] = useState<any>({});
+
   const profileUpdateMutation = useProfileUpdate();
   // Fetch profile data from API
   const { data: profileResponse } = useProfileView();
-  console.log('profile data response', profileResponse);
   const queryClient = useQueryClient();
   // Helper function to calculate age from date of birth
   const calculateAge = (dateOfBirth: string): string => {
@@ -154,120 +155,51 @@ export default function MyProfileScreen({ navigation }: any) {
   };
 
   // Map API response to local state structure
-  const mappedProfileData = useMemo(() => {
-    if (!profileResponse?.data) {
-      return {
-        contact: '',
-        matrimonyId: '',
-        name: '',
-        gender: '',
-        maritalStatus: '',
-        age: '',
-        religion: '',
-        sect: '',
-    ethnicity: '',
-    caste: '',
-        weight: '',
-    height: '',
+// Only run the effect when the actual data changes, not the response object
+useEffect(() => {
+  if (!profileResponse?.data) return;
+
+  const apiData = profileResponse.data;
+  const candidateInfo = apiData.candidate_information || {};
+  const profileDetails = apiData.profile_details || {};
+  const familyDetails = apiData.family_details || {};
+  const siblingsDetails = apiData.siblings_details || {};
+  const educationEmployment = apiData.education_employment || {};
+  const media = apiData.media || {};
+  const meta = apiData.meta || {};
+
+  const formatted = {
+    hidden_name: candidateInfo.hidden_name || '',
+    date_of_birth: candidateInfo.date_of_birth || '',
+    phone_country_code: candidateInfo.phone_country_code || '',
+    phone_number: candidateInfo.phone_number || '',
+    contact: candidateInfo.phone_number || '',
+    matrimonyId: meta.profile_id?.toString() || '',
+    name: candidateInfo.candidate_name || '',
+    gender: capitalize(profileDetails.gender || ''),
+    maritalStatus: capitalize(profileDetails.marital_status || ''),
+    age: calculateAge(candidateInfo.date_of_birth || ''),
+    religion: candidateInfo.religion || '',
+    sect: candidateInfo.sect || '',
+    caste: candidateInfo.caste || '',
+    weight: candidateInfo.weight_kg ? `${candidateInfo.weight_kg}kg` : '',
+    height: candidateInfo.height_cm ? `${candidateInfo.height_cm}cm` : '',
     disability: 'No',
-        description: '',
-        country: '',
-        city: '',
-    birthCountry: '',
-    nationality: '',
-    languages: '',
-    institute: '',
-    degreeTitle: '',
-        duration: '',
-        employmentStatus: '',
-    fatherEducation: '',
-        fatherEmployment: '',
-    fatherProfession: '',
-    fatherDeceased: 'No',
-    motherEducation: '',
-        motherEmployment: '',
-    motherProfession: '',
-    motherDeceased: 'No',
-    brothers: '0',
-        sisters: '0',
-    prefMaritalStatus: '',
-    prefAge: '18 - 70 Yrs',
-    prefCountry: '',
-    prefCity: '',
-    prefReligion: '',
-    prefCaste: '',
-        profilePicture: null,
-      };
-    }
+    description: '',
+    country: candidateInfo.country || '',
+    city: candidateInfo.city || '',
+    employmentStatus: educationEmployment.employment_status || '',
+    profession: educationEmployment.profession || '',
+    educationLevel: educationEmployment.education_level || '',
+    brothers: siblingsDetails.total_brothers?.toString() || '0',
+    sisters: siblingsDetails.total_sisters?.toString() || '0',
+    blur_photo: media.blur_photo || false,
+    profilePicture: media.profile_picture || null,
+  };
 
-    const apiData = profileResponse.data;
-    const candidateInfo = apiData.candidate_information || {};
-    const profileDetails = apiData.profile_details || {};
-    const familyDetails = apiData.family_details || {};
-    const siblingsDetails = apiData.siblings_details || {};
-    const educationEmployment = apiData.education_employment || {};
-    const media = apiData.media || {};
-    const meta = apiData.meta || {};
-
-    const phoneContact = candidateInfo.phone_country_code && candidateInfo.phone_number
-      ? `${candidateInfo.phone_country_code}${candidateInfo.phone_number}`
-      : '';
-
-    return {
-      contact: phoneContact,
-      matrimonyId: meta.profile_id?.toString() || '',
-      name: candidateInfo.candidate_name || '',
-      gender: capitalize(profileDetails.gender || ''),
-      maritalStatus: capitalize(profileDetails.marital_status || ''),
-      age: calculateAge(candidateInfo.date_of_birth || ''),
-      religion: candidateInfo.religion || '',
-      sect: candidateInfo.sect || '',
-      ethnicity: '',
-      caste: candidateInfo.caste || '',
-      weight: candidateInfo.weight_kg ? `${candidateInfo.weight_kg}kg` : '',
-      height: candidateInfo.height_cm ? `${candidateInfo.height_cm}cm` : '',
-      disability: 'No',
-      description: `I am ${calculateAge(candidateInfo.date_of_birth || '')} years old ${capitalize(profileDetails.marital_status || '')} ${capitalize(profileDetails.gender || '')}, currently residing in ${candidateInfo.city || ''}, ${candidateInfo.country || ''}. I belong to the ${candidateInfo.religion || ''} (${candidateInfo.sect || ''}) faith. My weight is ${candidateInfo.weight_kg || ''} kg. I am currently ${educationEmployment.employment_status || ''} and working as ${educationEmployment.profession || ''}.`,
-      country: candidateInfo.country || '',
-      city: candidateInfo.city || '',
-      birthCountry: '',
-      nationality: '',
-      languages: '',
-      institute: '',
-      degreeTitle: '',
-      duration: '',
-      employmentStatus: educationEmployment.employment_status || '',
-      profession: educationEmployment.profession || '',
-      educationLevel: educationEmployment.education_level || '',
-      fatherEducation: '',
-      fatherEmployment: familyDetails.father_employment_status || '',
-      fatherProfession: '',
-      fatherDeceased: familyDetails.father_status === 'deceased' ? 'Yes' : 'No',
-      motherEducation: '',
-      motherEmployment: familyDetails.mother_employment_status || '',
-      motherProfession: '',
-      motherDeceased: familyDetails.mother_status === 'deceased' ? 'Yes' : 'No',
-      brothers: siblingsDetails.total_brothers?.toString() || '0',
-      sisters: siblingsDetails.total_sisters?.toString() || '0',
-      prefMaritalStatus: '',
-      prefAge: '18 - 70 Yrs',
-      prefCountry: '',
-      prefCity: '',
-      prefReligion: '',
-      prefCaste: '',
-      profilePicture: media.profile_picture || null,
-    };
-  }, [profileResponse]);
-
-  // State management for profile data
-  const [profileData, setProfileData] = useState(mappedProfileData);
-
-  // Update local state when API data changes
-  useEffect(() => {
-    if (profileResponse?.data) {
-      setProfileData(mappedProfileData);
-    }
-  }, [profileResponse, mappedProfileData]);
+  setProfileData(formatted);
+}, [profileResponse?.data]); // Changed from profileResponse to profileResponse?.data
+    
 
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editData, setEditData] = useState<any>({});
@@ -279,33 +211,97 @@ export default function MyProfileScreen({ navigation }: any) {
   };
 
   const handleSave = (_section: string) => {
-    console.log('editData', editData);
-    profileUpdateMutation.mutate({payload: editData}, {
-      onSuccess: (res) => {
-        console.log("response of profile update===========================",res);
-        Toast.show({
-          type: "success",
-          text1: "Profile updated successfully",
-        });
-        queryClient.invalidateQueries({ queryKey: ['profile-view'] });
+   
+    console.log("editData------------------>>", editData);
+    // Build the payload in your required format
+    const payload = {
+      candidate_information: {
+        candidate_name: editData.name,
+        hidden_name: editData.hidden_name || 'false',
+        date_of_birth: editData.date_of_birth,
+        country: editData.country,
+        city: editData.city,
+        religion: editData.religion,
+        sect: editData.sect,
+        caste: editData.caste,
+        height_cm: editData.height,
+        weight_kg: editData.weight,
+        phone_country_code: editData.phone_country_code,
+        phone_number: editData.phone_number,
       },
-      onError: (err: any) => {
-        console.log("error of profile update===========================",err.response);
+  
+      profile_details: {
+        profile_for: editData.profile_for,
+        gender: editData.gender,
+        marital_status: editData.maritalStatus,
       },
-    });
-    setProfileData({ ...profileData, ...editData });
+  
+      family_details: {
+        father_status: editData.fatherDeceased === "yes" ? "deceased" : "alive",
+        father_employment_status: editData.fatherEmployment,
+        mother_status: editData.motherDeceased === "yes" ? "deceased" : "alive",
+        mother_employment_status: editData.motherEmployment,
+      },
+  
+      siblings_details: {
+        total_brothers: Number(editData.brothers || 0),
+        total_sisters: Number(editData.sisters || 0),
+      },
+  
+      education_employment: {
+        education_level: editData.educationLevel,
+        employment_status: editData.employmentStatus,
+        profession: editData.profession,
+      },
+  
+      media: {
+        blur_photo: editData.blur_photo,
+      },
+    };
+    console.log("Payloadd", payload);
+  
+    profileUpdateMutation.mutateAsync(
+      { payload },
+      {
+        onSuccess: (res) => {
+          console.log("Profile updated successfully", res);
+          Toast.show({
+            type: "success",
+            text1: "Profile updated successfully",
+          });
+          queryClient.invalidateQueries({ queryKey: ["profile-view"] });
+        },
+        onError: (err: any) => {
+          console.log("error updating profile", err.response);
+        },
+      }
+    );
+  
     setEditingSection(null);
   };
+  
 
   const handleCancel = () => {
     setEditingSection(null);
     setEditData({});
   };
 
-  const updateField = (field: string, value: string) => {
-    setEditData({ ...editData, [field]: value });
+  const updateField = (path: string, value: any) => {
+    const keys = path.split(".");
+    setEditData((prev) => {
+      let obj = { ...prev };
+      let ref = obj;
+  
+      keys.slice(0, -1).forEach((key) => {
+        ref[key] = ref[key] || {};
+        ref = ref[key];
+      });
+  
+      ref[keys[keys.length - 1]] = value;
+      return obj;
+    });
   };
-
+  
   return (
     <Screen>
       <Header title="My Profile" onBack={handleBack} />

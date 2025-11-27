@@ -50,11 +50,16 @@ export default function LoginScreen({ navigation }: any) {
   
       loginMutation.mutateAsync({payload: data}, {
         onSuccess: (res) => {
-          console.log('response of user login', res,JSON.stringify(res));
-          setUser(res.data.user);
-          setToken(res.data.access);
+          console.log('response of user login', res?.data);
+          setUser(res?.data.user);
+          setToken(res?.data.token);
+          if(res?.data?.hasProfile){
           navigation.replace('Main');
-        },
+        }
+        else{
+          navigation.replace('ProfileSetup');
+        }
+      },
   
         onError: (err: any) => {
           const data = err.response?.data || {};

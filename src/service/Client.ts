@@ -10,12 +10,14 @@ const apiClient = axios.create({
 // Request interceptor
 apiClient.interceptors.request.use(
   (config) => {
+    
+    // Automatically detect FormData
+    if (!(config.data instanceof FormData)) {
+      console.log('form_detectedddddddddd---------------->>>')
+      config.headers['Content-Type'] = 'application/json';
+    }
 
-    config.headers = {
-      ...config.headers,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    };
+    config.headers['Accept'] = 'application/json';
 
     console.log("📤 AXIOS REQUEST:");
     console.log("➡ URL:", config.baseURL + config.url);
@@ -25,11 +27,9 @@ apiClient.interceptors.request.use(
 
     return config;
   },
-  (error) => {
-    console.log("❌ REQUEST ERROR:", error);
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
+
 
 
 // Response interceptor
