@@ -1,9 +1,18 @@
 import React, { useState } from 'react';
-import { Text, View, Pressable, ScrollView, StyleSheet } from 'react-native';
+import {
+  Text,
+  View,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+} from 'react-native';
 import Screen from '../../components/Screen';
 import PrefDropdown from '../../components/PrefDropdown';
 import RangeSlider from '../../components/RangeSlider';
 import Header from '../../components/Header';
+import { useSearch_Profile_Match } from '../../service/Hooks/User_Profile_Hook';
+import Toast from 'react-native-toast-message';
 
 export default function PreferencesScreen({ navigation }: any) {
   const handleBack = () => {
@@ -13,7 +22,8 @@ export default function PreferencesScreen({ navigation }: any) {
       navigation.goBack();
     }
   };
-
+  const SearchprofileMutation = useSearch_Profile_Match();
+  const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('Single');
   const [ageMin, setAgeMin] = useState(18);
   const [ageMax, setAgeMax] = useState(34);
@@ -25,14 +35,49 @@ export default function PreferencesScreen({ navigation }: any) {
   const [profession, setProfession] = useState('Software Engineer');
   const [disability, setDisability] = useState(false);
 
-  const statusOptions = ['Single', 'Divorced', 'Married', 'Separated', 'Widower'];
+  const statusOptions = [
+    'Single',
+    'Divorced',
+    'Married',
+    'Separated',
+    'Widower',
+  ];
   const religionOptions = ['Muslim', 'Christian', 'Hindu', 'Sikh', 'Other'];
-  const casteOptions = ['Butt', 'Syed', 'Mughal', 'Rajput', 'Arain', 'Jatt', 'Other'];
-  const countryOptions = ['Pakistan', 'India', 'USA', 'UK', 'Canada', 'UAE', 'Saudi Arabia'];
-  const cityOptions = ['Lahore', 'Karachi', 'Islamabad', 'Faisalabad', 'Multan', 'Rawalpindi'];
-  const employmentOptions = ['Employed', 'Unemployed', 'Business', 'Self-employed', 'Retired'];
+  const casteOptions = [
+    'Butt',
+    'Syed',
+    'Mughal',
+    'Rajput',
+    'Arain',
+    'Jatt',
+    'Other',
+  ];
+  const countryOptions = [
+    'Pakistan',
+    'India',
+    'USA',
+    'UK',
+    'Canada',
+    'UAE',
+    'Saudi Arabia',
+  ];
+  const cityOptions = [
+    'Lahore',
+    'Karachi',
+    'Islamabad',
+    'Faisalabad',
+    'Multan',
+    'Rawalpindi',
+  ];
+  const employmentOptions = [
+    'Employed',
+    'Unemployed',
+    'Business',
+    'Self-employed',
+    'Retired',
+  ];
   const professionOptions = [
-    'Software Engineer',
+    'Engineer',
     'Doctor',
     'Teacher',
     'Engineer',
@@ -60,10 +105,106 @@ export default function PreferencesScreen({ navigation }: any) {
     setDisability(false);
   };
 
-  const handleApply = () => {
-    navigation.replace('Main');
+  const handleApply = async () => {
+    try {
+      setLoading(true); // ⬅️ Start loader
+
+      console.log('📌 Current State:', {
+        status,
+        ageMin,
+        ageMax,
+        religion,
+        caste,
+        country,
+        city,
+        employment,
+        profession,
+        disability,
+      });
+
+      // Validation
+      if (
+        !status ||
+        !religion ||
+        !caste ||
+        !country ||
+        !city ||
+        !employment ||
+        !profession
+      ) {
+        setLoading(false);
+        console.log('❗ VALIDATION FAILED — Missing fields');
+        return;
+      }
+
+      const data = {
+        status,
+        religion,
+        caste,
+        country,
+        city,
+        employment_status: employment,
+        profession,
+        prefers_disability: disability,
+        min_age: ageMin,
+        max_age: ageMax,
+      };
+
+      console.log('📦 FINAL PAYLOAD TO MUTATION:', data);
+
+      await SearchprofileMutation.mutateAsync(
+        { payload: data },
+        {
+          onSuccess: res => {
+            setLoading(false); // ⬅️ Stop loader
+
+            console.log('📥 SearchResponse:', res);
+
+            // ⬅️ Navigate to results screen with response
+            navigation.navigate('SearchResults', {
+              results: res,
+            });
+
+            Toast.show({
+              type: 'success',
+              text1: '🎉 Profiles Loaded',
+            });
+          },
+          onError: err => {
+            setLoading(false); // ⬅️ Stop loader
+
+            console.log('🔥 Search ERROR:', err.response?.data);
+
+            Toast.show({
+              type: 'error',
+              text1: 'Search failed',
+            });
+          },
+        },
+      );
+    } catch (error) {
+      setLoading(false);
+      console.log('Error:', error);
+    }
   };
 
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: '#000',
+        }}
+      >
+        <ActivityIndicator size="large" color="#D4AF37" />
+        <Text style={{ color: 'white', marginTop: 10 }}>
+          Searching profiles...
+        </Text>
+      </View>
+    );
+  }
   return (
     <Screen>
       <Header title="Preferences" onBack={handleBack} />
@@ -72,11 +213,11 @@ export default function PreferencesScreen({ navigation }: any) {
 
         {/* Age Range Slider */}
         <RangeSlider
-          min={18}
-          max={60}
-          initialMin={ageMin}
-          initialMax={ageMax}
-          onValueChange={handleAgeChange}
+          minAge={ageMin}
+          maxAge={ageMax}
+          setMinAge={setAgeMin}
+          setMaxAge={setAgeMax}
+          // onValueChange={handleAgeChange}
         />
 
         {/* Status */}
@@ -146,7 +287,8 @@ export default function PreferencesScreen({ navigation }: any) {
         <View style={styles.checkboxContainer}>
           <Pressable
             onPress={() => setDisability(!disability)}
-            style={styles.checkbox}>
+            style={styles.checkbox}
+          >
             {disability && <Text style={styles.checkmark}>✓</Text>}
           </Pressable>
           <Text style={styles.checkboxLabel}>Disability</Text>
@@ -235,4 +377,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-

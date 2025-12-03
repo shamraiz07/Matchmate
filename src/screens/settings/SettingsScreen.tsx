@@ -5,6 +5,8 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuthStore } from '../../store/Auth_store';
 
 export default function SettingsScreen({ navigation }: any) {
+  const user = useAuthStore(state => state.user);
+  console.log('user in home screen', user);
   const menuItems = [
     {
       id: 'upgrade',
@@ -59,31 +61,41 @@ export default function SettingsScreen({ navigation }: any) {
               <Icon name="person" size={48} color="#D4AF37" />
             </View>
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>shamraiz</Text>
-              <Text style={styles.profilePhone}>+923233755388</Text>
-              <Text style={styles.profileEmail}>sherry17butt@gmail.com</Text>
+              <Text style={styles.profileName}>
+                {user?.candidate_information?.candidate_name}
+              </Text>
+              <Text style={styles.profilePhone}>
+                {user?.candidate_information?.phone_number}
+              </Text>
+              <Text style={styles.profileEmail}>
+                {user?.candidate_information?.email}
+              </Text>
             </View>
           </View>
           <Pressable style={styles.completedButton}>
             <Text style={styles.completedText}>39% completed</Text>
           </Pressable>
-          <Pressable style={styles.signOutButton} onPress={() => {
-             useAuthStore.getState().logout();
-            navigation.replace('Login')
-            }}>
+          <Pressable
+            style={styles.signOutButton}
+            onPress={() => {
+              useAuthStore.getState().logout();
+              navigation.replace('Login');
+            }}
+          >
             <Text style={styles.signOutText}>Sign out</Text>
           </Pressable>
         </View>
 
         <View style={styles.menuContainer}>
-          {menuItems.map((item) => (
+          {menuItems.map(item => (
             <Pressable
               key={item.id}
               onPress={item.onPress}
               style={[
                 styles.menuItem,
                 item.id === 'upgrade' && styles.menuItemUpgrade,
-              ]}>
+              ]}
+            >
               <Icon
                 name={item.icon}
                 size={24}
@@ -93,7 +105,8 @@ export default function SettingsScreen({ navigation }: any) {
                 style={[
                   styles.menuItemText,
                   item.id === 'upgrade' && styles.menuItemTextUpgrade,
-                ]}>
+                ]}
+              >
                 {item.title}
               </Text>
               <Icon

@@ -41,13 +41,13 @@
 
 //   const handleMinGesture = (event: any) => {
 //     const { state, translationX } = event.nativeEvent;
-    
+
 //     if (state === State.BEGAN) {
 //       minStartX.current = getPositionFromValue(minValue);
 //     } else if (state === State.ACTIVE) {
 //       const newPos = Math.max(0, Math.min(trackWidth, minStartX.current + translationX));
 //       const newValue = getValueFromPosition(newPos);
-      
+
 //       if (newValue < maxValue && newValue >= min) {
 //         setMinValue(newValue);
 //         onValueChange(newValue, maxValue);
@@ -57,13 +57,13 @@
 
 //   const handleMaxGesture = (event: any) => {
 //     const { state, translationX } = event.nativeEvent;
-    
+
 //     if (state === State.BEGAN) {
 //       maxStartX.current = getPositionFromValue(maxValue);
 //     } else if (state === State.ACTIVE) {
 //       const newPos = Math.max(0, Math.min(trackWidth, maxStartX.current + translationX));
 //       const newValue = getValueFromPosition(newPos);
-      
+
 //       if (newValue > minValue && newValue <= max) {
 //         setMaxValue(newValue);
 //         onValueChange(minValue, newValue);
@@ -186,17 +186,110 @@
 //   },
 // });
 
-import { StyleSheet, Text, View } from 'react-native'
-import React from 'react'
+// import { StyleSheet, Text, View } from 'react-native'
+// import React from 'react'
 
-const RangeSlider = () => {
+// const RangeSlider = () => {
+//   return (
+//     <View>
+//       <Text>RangeSlider</Text>
+//     </View>
+//   )
+// }
+
+// export default RangeSlider
+
+// const styles = StyleSheet.create({})
+
+import Slider from '@react-native-community/slider';
+import { View, Text, StyleSheet } from 'react-native';
+
+const RangeSlider = ({ minAge, maxAge, setMinAge, setMaxAge }) => {
   return (
-    <View>
-      <Text>RangeSlider</Text>
+    <View style={styles.container}>
+      {/* Header */}
+      <Text style={styles.title}>Age Preference</Text>
+      <Text style={styles.subtitle}>
+        Selected Age:{' '}
+        <Text style={styles.value}>
+          {minAge} - {maxAge}
+        </Text>
+      </Text>
+
+      {/* Min Age */}
+      <View style={styles.section}>
+        <Text style={styles.label}>Minimum Age</Text>
+        <Text style={styles.selected}>({minAge})</Text>
+      </View>
+
+      <Slider
+        minimumValue={18}
+        maximumValue={60}
+        value={minAge}
+        step={1}
+        minimumTrackTintColor="#D4AF37"
+        maximumTrackTintColor="#808080"
+        thumbTintColor="#D4AF37"
+        onValueChange={value => setMinAge(value)}
+      />
+
+      {/* Max Age */}
+      <View style={[styles.section, { marginTop: 20 }]}>
+        <Text style={styles.label}>Maximum Age</Text>
+        <Text style={styles.selected}>({maxAge})</Text>
+      </View>
+
+      <Slider
+        minimumValue={18}
+        maximumValue={60}
+        value={maxAge}
+        step={1}
+        minimumTrackTintColor="#D4AF37"
+        maximumTrackTintColor="#808080"
+        thumbTintColor="#D4AF37"
+        onValueChange={value => setMaxAge(value)}
+      />
     </View>
-  )
-}
+  );
+};
 
-export default RangeSlider
+const styles = StyleSheet.create({
+  container: {
+    // backgroundColor: '#fff',
+    // padding: 20,
+    borderRadius: 12,
+    marginVertical: 5,
+    elevation: 2,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#D4AF37',
+  },
+  subtitle: {
+    marginTop: 5,
+    fontSize: 16,
+    color: '#ffff',
+    marginBottom: 20,
+  },
+  value: {
+    color: '#D4AF37',
+    fontWeight: '700',
+  },
+  section: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  label: {
+    fontSize: 16,
+    color: '#D4AF37',
+    fontWeight: '800',
+  },
+  selected: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#D4AF37',
+  },
+});
 
-const styles = StyleSheet.create({})
+export default RangeSlider;

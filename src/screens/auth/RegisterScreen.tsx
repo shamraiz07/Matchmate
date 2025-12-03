@@ -181,10 +181,10 @@ export default function RegisterScreen({ navigation }: any) {
           <View style={styles.dividerLine} />
         </View>
 
-          {/* Sign up with Google */}
+          {/* Sign up with Google
           <Pressable onPress={handleGoogleSignUp} style={styles.googleButton}>
           <Text style={styles.googleButtonText}>🔗 Sign up with Google</Text>
-        </Pressable>
+        </Pressable> */}
           </View>
         )}
 

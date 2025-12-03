@@ -1,73 +1,24 @@
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import React from 'react';
-import {
-  Text,
-  Pressable,
-  FlatList,
-  View,
-  StyleSheet,
-  ImageBackground,
-} from 'react-native';
 import Screen from '../../components/Screen';
-import { useAuthStore } from '../../store/Auth_store';
-import {
-  useProfileMatch,
-  useProfileView,
-} from '../../service/Hooks/User_Profile_Hook';
-// const MOCK_MATCHES = Array.from({ length: 8 }).map((_, i) => ({
-//   id: String(i + 1),
-//   name: `Ayesha ${i + 1}`,
-//   age: 24 + i,
-//   city: 'Lahore',
-// }));
 
-export default function HomeScreen({ navigation }: any) {
-  // const user = useAuthStore((state) => state.user);
-  const user = useAuthStore(state => state.user);
-  const setUser = useAuthStore(state => state.setUser);
-  console.log('user in home screen', user);
-
-  const { data: profileData, isLoading: loading1 } = useProfileView();
-  const { data: profileMatch, isLoading: loading2 } = useProfileMatch();
-  setUser(profileData?.data);
-  const MOCK_MATCHES = profileMatch?.results;
-  console.log('profile data', profileData?.data);
-  console.log('profile match', profileMatch);
-
-  // ✅ Correct loading condition
-  if (loading1 || loading2) {
-    return <Text>Loading...</Text>;
-  }
-  // Helper function to calculate age from date of birth
-  const calculateAge = (dateOfBirth: string): string => {
-    if (!dateOfBirth) return '';
-    const birthDate = new Date(dateOfBirth);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (
-      monthDiff < 0 ||
-      (monthDiff === 0 && today.getDate() < birthDate.getDate())
-    ) {
-      age--;
-    }
-    return age.toString();
-  };
+const SearchResultsScreen = ({ route, navigation }) => {
+  const { results } = route.params;
+  console.log(
+    'search_resulttt----------------////////////////////////',
+    results,
+  );
   return (
     <Screen>
       <View style={styles.header}>
         <Text style={styles.title}>Matches</Text>
-        <Pressable onPress={() => navigation.navigate('Preferences')}>
-          <Text style={styles.filterText}>Filters</Text>
-        </Pressable>
       </View>
       <FlatList
-        data={MOCK_MATCHES}
+        data={results}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <Pressable
-            onPress={() =>
-              navigation.navigate('Partnerprofile', { data: item })
-            }
+            onPress={() => navigation.navigate('Chat', { id: item.id })}
             style={styles.card}
           >
             <ImageBackground
@@ -134,7 +85,9 @@ export default function HomeScreen({ navigation }: any) {
       />
     </Screen>
   );
-}
+};
+
+export default SearchResultsScreen;
 
 const styles = StyleSheet.create({
   header: {
