@@ -7,6 +7,7 @@ import {
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
+import FontAwesome6 from 'react-native-vector-icons/FontAwesome6';
 import LoginScreen from './screens/auth/LoginScreen';
 import RegisterScreen from './screens/auth/RegisterScreen';
 import ResetPasswordScreen from './screens/auth/ResetPasswordScreen';
@@ -39,6 +40,7 @@ import { Text, View } from 'react-native';
 import { ActivityIndicator } from 'react-native';
 import SearchResultsScreen from './screens/preferences/SearchResultsScreen';
 import PartnerProfileScreen from './screens/home/PartnerProfileScreen';
+import Connection from './screens/connection/Connection';
 
 const queryClient = new QueryClient();
 const Stack = createNativeStackNavigator();
@@ -77,6 +79,19 @@ function MainTabs() {
           tabBarIcon: ({ color, size = 24, focused }) => (
             <Icon
               name={focused ? 'home' : 'home-outline'}
+              size={size || 24}
+              color={color || '#808080'}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="Connection"
+        component={Connection}
+        options={{
+          tabBarIcon: ({ color, size = 24, focused }) => (
+            <FontAwesome6
+              name={focused ? 'envelope-open-text' : 'envelope-open'}
               size={size || 24}
               color={color || '#808080'}
             />
@@ -152,10 +167,9 @@ export default function App() {
   }
 
   return (
-
-// ! ||--------------------------------------------------------------------------------||
-// ! ||                               //All screen roots                               ||
-// ! ||--------------------------------------------------------------------------------||
+    // ! ||--------------------------------------------------------------------------------||
+    // ! ||                               //All screen roots                               ||
+    // ! ||--------------------------------------------------------------------------------||
 
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>

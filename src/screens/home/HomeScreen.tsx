@@ -13,26 +13,33 @@ import {
   useProfileMatch,
   useProfileView,
 } from '../../service/Hooks/User_Profile_Hook';
-// const MOCK_MATCHES = Array.from({ length: 8 }).map((_, i) => ({
-//   id: String(i + 1),
-//   name: `Ayesha ${i + 1}`,
-//   age: 24 + i,
-//   city: 'Lahore',
-// }));
+import {
+  useSee_SendConnection_to_user,
+  useSeeAllFriendConnection,
+} from '../../service/Hooks/User_Connection_Hook';
+import { useUserConnection } from '../../store/User_Connection_store';
 
 export default function HomeScreen({ navigation }: any) {
   // const user = useAuthStore((state) => state.user);
   const user = useAuthStore(state => state.user);
   const setUser = useAuthStore(state => state.setUser);
+  const setUserSeeConnection = useUserConnection(s => s.setUserSeeConnection);
+  const setuserAllConnection = useUserConnection(s => s.setuserAllConnection);
   console.log('user in home screen', user);
-
+  const { data: SeeConnection } = useSee_SendConnection_to_user();
+  const { data: SeeAllFriendConnection } = useSeeAllFriendConnection();
+  console.log(
+    'see connection----------------------->>>>>>>>>>>>>>>>>>',
+    SeeConnection,
+    'see All connection----------------------->>>>>>>>>>>>>>>>>>',
+    SeeAllFriendConnection,
+  );
+  setuserAllConnection(SeeAllFriendConnection?.data);
+  setUserSeeConnection(SeeConnection?.data);
   const { data: profileData, isLoading: loading1 } = useProfileView();
   const { data: profileMatch, isLoading: loading2 } = useProfileMatch();
   setUser(profileData?.data);
   const MOCK_MATCHES = profileMatch?.results;
-  console.log('profile data', profileData?.data);
-  console.log('profile match', profileMatch);
-
   // ✅ Correct loading condition
   if (loading1 || loading2) {
     return <Text>Loading...</Text>;
