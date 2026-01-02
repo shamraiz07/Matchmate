@@ -1,18 +1,21 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Header from '../../components/Header';
+import { useUser_Quota_Balance } from '../../service/Hooks/User_Report_Hook';
 
 interface QuotaItemProps {
   icon: string;
   title: string;
   consumed: number;
-  total: number;
+  limit: number | null;
+  remaining: number | null;
 }
 
-function QuotaItem({ icon, title, consumed, total }: QuotaItemProps) {
-  const remaining = total - consumed;
-  const percentage = total > 0 ? (consumed / total) * 100 : 0;
+function QuotaItem({ icon, title, consumed, limit, remaining }: QuotaItemProps) {
+  const isUnlimited = limit === null;
+  const displayRemaining = remaining !== null ? remaining : null;
+  const percentage = isUnlimited ? 0 : limit! > 0 ? (consumed / limit!) * 100 : 0;
 
   return (
     <View style={styles.quotaCard}>
@@ -25,28 +28,50 @@ function QuotaItem({ icon, title, consumed, total }: QuotaItemProps) {
           <Text style={styles.quotaConsumed}>{consumed} consumed</Text>
         </View>
         <View style={styles.quotaTotalContainer}>
-          <View style={styles.quotaTotalBox}>
-            <Text style={styles.quotaTotal}>{total}</Text>
-          </View>
-          <Text style={styles.quotaRemaining}>{remaining} left</Text>
-        </View>
-      </View>
-      <View style={styles.progressBarContainer}>
-        <View
-          style={[
-            styles.progressBar,
-            { width: `${Math.min(percentage, 100)}%` },
-          ]}>
-          {percentage > 0 && (
-            <Text style={styles.progressText}>{Math.round(percentage)}%</Text>
+          {isUnlimited ? (
+            <View style={styles.unlimitedBox}>
+              <Text style={styles.unlimitedText}>∞</Text>
+            </View>
+          ) : (
+            <View style={styles.quotaTotalBox}>
+              <Text style={styles.quotaTotal}>{limit}</Text>
+            </View>
+          )}
+          {isUnlimited ? (
+            <Text style={styles.unlimitedRemainingText}>Unlimited</Text>
+          ) : (
+            <Text style={styles.quotaRemaining}>
+              {displayRemaining !== null ? `${displayRemaining} left` : 'N/A'}
+            </Text>
           )}
         </View>
       </View>
+      {isUnlimited ? (
+        <View style={styles.unlimitedProgressContainer}>
+          <View style={styles.unlimitedProgressBar}>
+            <Text style={styles.unlimitedProgressText}>∞ Unlimited Access</Text>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.progressBarContainer}>
+          <View
+            style={[
+              styles.progressBar,
+              { width: `${Math.min(percentage, 100)}%` },
+            ]}>
+            {percentage > 0 && (
+              <Text style={styles.progressText}>{Math.round(percentage)}%</Text>
+            )}
+          </View>
+        </View>
+      )}
     </View>
   );
 }
 
 export default function QuotaBalanceScreen({ navigation }: any) {
+  const { data: quotaData, isLoading, isFetching, refetch } = useUser_Quota_Balance();
+  
   const handleBack = () => {
     if (navigation && navigation.canGoBack && navigation.canGoBack()) {
       navigation.goBack();
@@ -54,62 +79,124 @@ export default function QuotaBalanceScreen({ navigation }: any) {
       navigation.goBack();
     }
   };
+
+  // Pull-to-refresh handler
+  const onRefresh = () => {
+    refetch();
+  };
+
+  // Format date helper
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      const day = date.getDate();
+      const month = date.toLocaleString('default', { month: 'short' });
+      const year = date.getFullYear();
+      return `${day} ${month} ${year}`;
+    } catch (error) {
+      return 'N/A';
+    }
+  };
+
+  // Extract data from API response
+  const planName = quotaData?.data?.plan?.name || quotaData?.data?.plan?.tier?.toUpperCase() || 'FREE PACKAGE';
+  const subscriptionStatus = quotaData?.data?.subscription_status;
+  const isActive = subscriptionStatus?.is_active || false;
+  const expiresAt = subscriptionStatus?.expires_at;
+  const lastResetAt = quotaData?.data?.last_reset_at;
+  const quotaDataFromAPI = quotaData?.data?.quota || {};
+
+  // Map quota data to display format
   const quotas = [
-    {
-      icon: 'eye',
-      title: 'VIEW PROFILES',
-      consumed: 3,
-      total: 15,
-    },
     {
       icon: 'person-add',
       title: 'CONNECTION REQUESTS',
-      consumed: 0,
-      total: 3,
-    },
-    {
-      icon: 'image',
-      title: 'IMAGE REQUESTS',
-      consumed: 0,
-      total: 0,
+      consumed: quotaDataFromAPI?.connections?.used || 0,
+      limit: quotaDataFromAPI?.connections?.limit ?? null,
+      remaining: quotaDataFromAPI?.connections?.remaining ?? null,
     },
     {
       icon: 'chatbubbles',
       title: 'CHATS LIMIT',
-      consumed: 0,
-      total: 3,
+      consumed: quotaDataFromAPI?.chat_users?.used || 0,
+      limit: quotaDataFromAPI?.chat_users?.limit ?? null,
+      remaining: quotaDataFromAPI?.chat_users?.remaining ?? null,
     },
     {
       icon: 'call',
       title: 'CALLS LIMIT',
-      consumed: 0,
-      total: 3,
+      consumed: quotaDataFromAPI?.sessions?.used || 0,
+      limit: quotaDataFromAPI?.sessions?.limit ?? null,
+      remaining: quotaDataFromAPI?.sessions?.remaining ?? null,
     },
   ];
+
+  if (isLoading && !isFetching) {
+    return (
+      <View style={styles.container}>
+        <Header title="Quota Balance" onBack={handleBack} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#D4AF37" />
+          <Text style={styles.loadingText}>Loading quota data...</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <Header title="Quota Balance" onBack={handleBack} />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isFetching}
+            onRefresh={onRefresh}
+            colors={['#FFD700']}
+            tintColor="#FFD700"
+            progressBackgroundColor="#000000"
+          />
+        }
+      >
         <View style={styles.packageCard}>
-          <Text style={styles.packageTitle}>FREE PACKAGE</Text>
-          <View style={styles.activeBadge}>
-            <Text style={styles.activeText}>Active</Text>
-          </View>
+          <Text style={styles.packageTitle}>{planName}</Text>
+          {isActive && (
+            <View style={styles.activeBadge}>
+              <Text style={styles.activeText}>Active</Text>
+            </View>
+          )}
           <View style={styles.validityContainer}>
-            <Text style={styles.validityText}>31 Oct 2025</Text>
-            <Text style={styles.validityText}>30 Nov 2025</Text>
+            {lastResetAt && (
+              <View style={styles.dateItem}>
+                <Text style={styles.dateLabel}>Last Reset:</Text>
+                <Text style={styles.validityText}>{formatDate(lastResetAt)}</Text>
+              </View>
+            )}
+            {expiresAt && (
+              <View style={styles.dateItem}>
+                <Text style={styles.dateLabel}>Expires:</Text>
+                <Text style={styles.validityText}>{formatDate(expiresAt)}</Text>
+              </View>
+            )}
+            {subscriptionStatus?.days_remaining !== undefined && (
+              <View style={styles.dateItem}>
+                <Text style={styles.dateLabel}>Days Left:</Text>
+                <Text style={styles.validityText}>{subscriptionStatus.days_remaining} days</Text>
+              </View>
+            )}
           </View>
         </View>
 
         <View style={styles.quotasContainer}>
-          {quotas.map((quota, index) => (
+          {quotas.map((quotaItem, index) => (
             <QuotaItem
               key={index}
-              icon={quota.icon}
-              title={quota.title}
-              consumed={quota.consumed}
-              total={quota.total}
+              icon={quotaItem.icon}
+              title={quotaItem.title}
+              consumed={quotaItem.consumed}
+              limit={quotaItem.limit}
+              remaining={quotaItem.remaining}
             />
           ))}
         </View>
@@ -129,7 +216,9 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   packageCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#000000',
+    borderWidth: 1,
+    borderColor: '#D4AF37',
     borderRadius: 12,
     padding: 20,
     marginBottom: 20,
@@ -158,20 +247,43 @@ const styles = StyleSheet.create({
   },
   validityContainer: {
     width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     marginTop: 12,
+    gap: 8,
+  },
+  dateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dateLabel: {
+    color: '#D4AF37',
+    fontSize: 12,
+    fontWeight: '600',
   },
   validityText: {
-    color: '#000000',
+    color: '#FFFFFF',
     fontSize: 14,
+    opacity: 0.9,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 100,
+  },
+  loadingText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    marginTop: 16,
     opacity: 0.7,
   },
   quotasContainer: {
     gap: 16,
   },
   quotaCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#000000',
+    borderWidth: 1,
+    borderColor: '#D4AF37',
     borderRadius: 12,
     padding: 16,
   },
@@ -184,7 +296,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#D4AF37',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -193,15 +307,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   quotaTitle: {
-    color: '#000000',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 4,
   },
   quotaConsumed: {
-    color: '#000000',
+    color: '#FFFFFF',
     fontSize: 12,
-    opacity: 0.6,
+    opacity: 0.7,
   },
   quotaTotalContainer: {
     alignItems: 'flex-end',
@@ -216,32 +330,78 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   quotaTotal: {
-    color: '#FFFFFF',
+    color: '#000000',
     fontSize: 20,
     fontWeight: '700',
   },
   quotaRemaining: {
-    color: '#000000',
+    color: '#FFFFFF',
     fontSize: 12,
-    opacity: 0.6,
+    opacity: 0.7,
   },
   progressBarContainer: {
-    height: 8,
-    backgroundColor: '#E0E0E0',
+    height: 20,
+    backgroundColor: '#1A1A1A',
     borderRadius: 4,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#333333',
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#D4AF37',
     justifyContent: 'center',
     alignItems: 'flex-end',
     paddingHorizontal: 4,
+    // paddingVertical: 2,
   },
   progressText: {
-    color: '#FFFFFF',
+    color: '#000000',
     fontSize: 10,
     fontWeight: '600',
+  },
+  unlimitedBox: {
+    backgroundColor: '#D4AF37',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 4,
+    minWidth: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unlimitedText: {
+    color: '#000000',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  unlimitedRemainingText: {
+    color: '#D4AF37',
+    fontSize: 12,
+    fontWeight: '700',
+    opacity: 1,
+  },
+  unlimitedProgressContainer: {
+    height: 20,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 4,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#D4AF37',
+  },
+  unlimitedProgressBar: {
+    height: '100%',
+    backgroundColor: '#D4AF37',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 8,
+  },
+  unlimitedProgressText: {
+    color: '#000000',
+    fontSize: 10,
+    fontWeight: '700',
   },
 });
 

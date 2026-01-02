@@ -3,24 +3,24 @@ import { Text, View, Pressable, ScrollView, StyleSheet, TextInput, ActivityIndic
 import Screen from '../../components/Screen';
 import Header from '../../components/Header';
 import { useProfileParagraph } from '../../service/Hooks/User_Profile_Hook';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface MoreAboutYouScreenProps {
   navigation: any;
   route: any;
 }
 
-export default function MoreAboutYouScreen({ navigation, route }: MoreAboutYouScreenProps) {
-  const profileData = route?.params?.profileData || {};
+export default function MoreAboutYouScreen({ navigation, route: _route }: MoreAboutYouScreenProps) {
   const [generatedText, setGeneratedText] = useState('');
   const [characterCount, setCharacterCount] = useState(0);
   const maxCharacters = 1000;
+  const queryClient = useQueryClient();
 
   // ⬅️ Import your mutation hook
   const {
     mutateAsync: getParagraph,
     data,
     isPending,
-    isError
   } = useProfileParagraph();
   console.log('Paraaaa',data)
   const handleBack = () => {
@@ -30,7 +30,7 @@ export default function MoreAboutYouScreen({ navigation, route }: MoreAboutYouSc
   useEffect(() => {
  
     // Step 2: Call API as soon as screen opens
-    getParagraph({}, {
+    getParagraph(undefined, {
       onSuccess: (res: any) => {
         // Update paragraph from API response
         console.log('generated_description',res)
@@ -43,14 +43,19 @@ export default function MoreAboutYouScreen({ navigation, route }: MoreAboutYouSc
 
   }, [getParagraph]);
 
-  const handleTextChange = (text) => {
+  const handleTextChange = (text: string) => {
     if (text.length <= maxCharacters) {
       setGeneratedText(text);
       setCharacterCount(text.length);
     }
   };
 
-  const handleAccept = () => navigation.replace('Main');
+  const handleAccept = () => {
+    // Invalidate profile queries to force refetch when navigating to Main
+    queryClient.invalidateQueries({ queryKey: ['profile-view'] });
+    queryClient.invalidateQueries({ queryKey: ['profile-match'] });
+    navigation.replace('Subscriptions');
+  };
   const handleReject = () => navigation.goBack();
   
   return (
@@ -59,7 +64,7 @@ export default function MoreAboutYouScreen({ navigation, route }: MoreAboutYouSc
   
       {isPending ? (
         <View style={{ flex:1,justifyContent:'center',alignItems: 'center' }}>
-          <ActivityIndicator size="large" />
+          <ActivityIndicator size="large" color="#D4AF37" />
           <Text>Generating description...</Text>
         </View>
       ) : (

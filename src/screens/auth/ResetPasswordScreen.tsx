@@ -67,7 +67,7 @@ export default function ResetPasswordScreen({ navigation }: any) {
         disabled={sendResetLinkMutation.isLoading}
       >
         {sendResetLinkMutation.isLoading ? (
-          <ActivityIndicator size="small" color="#fff" />
+          <ActivityIndicator size="large" color="#D4AF37" />
         ) : (
           <Text style={styles.primaryText}>Send reset link</Text>
         )}

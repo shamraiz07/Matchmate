@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { Text, TextInput, Pressable, View, StyleSheet, Alert } from 'react-native';
+import {
+  Text,
+  TextInput,
+  Pressable,
+  View,
+  StyleSheet,
+} from 'react-native';
+import Icon from 'react-native-vector-icons/Ionicons';
 import Screen from '../../components/Screen';
 import { userLogin } from '../../service/Auth/UeserRegistration';
 import { useLoginUser } from '../../service/Hooks/User_Auth_Hook';
@@ -9,115 +16,128 @@ import Toast from 'react-native-toast-message';
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const loginMutation = useLoginUser();
-  const  setUser  = useAuthStore((state) => state.setUser);
-  const  setToken  = useAuthStore((state) => state.setToken);
+  const setUser = useAuthStore(state => state.setUser);
+  const setToken = useAuthStore(state => state.setToken);
   const handleLogin = async () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-      if (!email.trim()) {
-        Toast.show({
-          type: "error",
-          text1: "Missing Information",
-          text2: "Please enter your email.",
-        });
-        return;
-      }
+    if (!email.trim()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Missing Information',
+        text2: 'Please enter your email.',
+      });
+      return;
+    }
 
-      if (!emailRegex.test(email.trim())) {
-        Toast.show({
-          type: "error",
-          text1: "Invalid Email",
-          text2: "Please enter a valid email address.",
-        });
-        return;
-      }
+    if (!emailRegex.test(email.trim())) {
+      Toast.show({
+        type: 'error',
+        text1: 'Invalid Email',
+        text2: 'Please enter a valid email address.',
+      });
+      return;
+    }
 
-      if (!password.trim()) {
-        Toast.show({
-          type: "error",
-          text1: "Missing Information",
-          text2: "Please enter your password.",
-        });
-        return;
-      }
+    if (!password.trim()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Missing Information',
+        text2: 'Please enter your password.',
+      });
+      return;
+    }
 
     try {
       const data = {
         email,
         password,
       };
-  
-      loginMutation.mutateAsync({payload: data}, {
-        onSuccess: (res) => {
-          console.log('response of user login', res?.data);
-          setUser(res?.data.user);
-          setToken(res?.data.token);
-          if(res?.data?.hasProfile){
-          navigation.replace('Main');
-        }
-        else{
-          navigation.replace('ProfileSetup');
-        }
-      },
-  
-        onError: (err: any) => {
-          const data = err.response?.data || {};
-          const msg =
-            data?.non_field_errors?.[0] ||
-            data?.detail ||
-            "Invalid email or password.";
-        
-          Toast.show({
-            type: "error",
-            text1: "Login Failed",
-            text2: msg,
-          });
-        
-          console.log("login error ===>", data);
+
+      loginMutation.mutateAsync(
+        { payload: data },
+        {
+          onSuccess: res => {
+            console.log('response of user login', res?.data);
+            setUser(res?.data.user);
+            setToken(res?.data.token);
+            if (res?.data?.hasProfile) {
+              navigation.replace('Main');
+            } else {
+              navigation.replace('ProfileSetup');
+            }
+          },
+
+          onError: (err: any) => {
+            const data = err.response?.data || {};
+            const msg =
+              data?.non_field_errors?.[0] ||
+              data?.detail ||
+              'Invalid email or password.';
+
+            Toast.show({
+              type: 'error',
+              text1: 'Login Failed',
+              text2: msg,
+            });
+
+            console.log('login error ===>', data);
+          },
         },
-      });
-  
+      );
     } catch (error: any) {
       Toast.show({
-        type: "error",
-        text1: "Login Failed",
-        text2: "Something went wrong!",
+        type: 'error',
+        text1: 'Login Failed',
+        text2: 'Something went wrong!',
       });
-      console.log("error of user login", error.response?.data);
+      console.log('error of user login', error.response?.data);
     }
   };
   return (
     <Screen>
-      <Text style={styles.title}>Welcome Back!</Text>
+      <Text style={styles.title}>Matchmate</Text>
       <Text style={styles.subtitle}>Sign in to your account to continue</Text>
       <TextInput
-        placeholder="Email or Phone"
+        placeholder="Email"
         placeholderTextColor="#8C8A9A"
         style={styles.input}
         value={email}
         onChangeText={setEmail}
       />
-      <TextInput
-        placeholder="Password"
-        placeholderTextColor="#8C8A9A"
-        secureTextEntry
-        style={styles.input}
-        value={password}
-        onChangeText={setPassword}
-      />
+      <View style={styles.passwordContainer}>
+        <TextInput
+          placeholder="Password"
+          placeholderTextColor="#8C8A9A"
+          secureTextEntry={!showPassword}
+          style={styles.passwordInput}
+          value={password}
+          onChangeText={setPassword}
+        />
+        <Pressable
+          onPress={() => setShowPassword(!showPassword)}
+          style={styles.eyeIcon}
+        >
+          <Icon
+            name={showPassword ? 'eye-off' : 'eye'}
+            size={20}
+            color="#8C8A9A"
+          />
+        </Pressable>
+      </View>
       <Pressable onPress={() => navigation.navigate('ResetPassword')}>
         <Text style={styles.link}>Forgot password?</Text>
       </Pressable>
-      <Pressable
-        onPress={() => handleLogin()}
-        style={styles.primary}>
+      <Pressable onPress={() => handleLogin()} style={styles.primary}>
         <Text style={styles.primaryText}>Login</Text>
       </Pressable>
       <View style={{ height: 12 }} />
       <Pressable
         onPress={() => navigation.navigate('Register')}
-        style={styles.ghost}>
+        style={styles.ghost}
+      >
         <Text style={styles.ghostText}>Create account</Text>
       </Pressable>
     </Screen>
@@ -125,8 +145,18 @@ export default function LoginScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  title: { color: '#D4AF37', fontSize: 22, fontWeight: '700',textAlign: 'center' },
-  subtitle: { color: '#FFFFFF', marginTop: 6, opacity: 0.8,textAlign: 'center' },
+  title: {
+    color: '#D4AF37',
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  subtitle: {
+    color: '#FFFFFF',
+    marginTop: 6,
+    opacity: 0.8,
+    textAlign: 'center',
+  },
   input: {
     backgroundColor: '#1A1A1A',
     borderWidth: 1,
@@ -136,7 +166,26 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginTop: 14,
   },
-  link: { color: '#D4AF37', marginTop: 8,textAlign: 'right' },
+  passwordContainer: {
+    position: 'relative',
+    marginTop: 14,
+  },
+  passwordInput: {
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#D4AF37',
+    color: '#FFFFFF',
+    padding: 12,
+    paddingRight: 45,
+    borderRadius: 10,
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    padding: 4,
+  },
+  link: { color: '#D4AF37', marginTop: 8, textAlign: 'right' },
   primary: {
     backgroundColor: '#D4AF37',
     padding: 14,
@@ -154,4 +203,3 @@ const styles = StyleSheet.create({
   },
   ghostText: { color: '#D4AF37', fontWeight: '700' },
 });
-

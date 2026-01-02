@@ -9,7 +9,20 @@ import {
   SearchprofileMatch,
 } from '../Api_service/User_Service';
 import { useAuthStore } from '../../store/Auth_store';
-
+import { deleteAcoount } from '../Api_service/Auth_Service';
+import { FCM_Token_Register } from '../Api_service/User_Service';
+// ! ||--------------------------------------------------------------------------------||
+// ! ||                             // Delete Account Hook                             ||
+// ! ||--------------------------------------------------------------------------------||
+export const useDeleteAccount = () => {
+  const token = useAuthStore(state => state.token);
+  console.log('token of useDeleteAccount===========================', token);
+  return useMutation({
+    mutationFn: async () => {
+      return deleteAcoount( token || '');
+    },
+  });
+};
 // ! ||--------------------------------------------------------------------------------||
 // ! ||                             // Profile Create Hook                             ||
 // ! ||--------------------------------------------------------------------------------||
@@ -103,7 +116,21 @@ export const useSearch_Profile_Match = () => {
   return useMutation({
     mutationFn: async ({ payload }: { payload: any }) => {
       console.log('🟦 profileMatch HOOK CALLED', payload, token);
-      return SearchprofileMatch(payload, token);
+      return SearchprofileMatch(payload, token || '');
+    },
+  });
+};
+
+
+// ! ||--------------------------------------------------------------------------------||
+// ! ||                              // FCM Token Register Hook                             ||
+// ! ||--------------------------------------------------------------------------------||
+export const useFCM_Token_Register = () => {
+  const token = useAuthStore(state => state.token);
+  return useMutation({
+    mutationFn: async ({ payload }: { payload: any }) => {
+      console.log('🟦 FCM_Token_Register HOOK CALLED===========================>>>>>>>>', payload, token);
+      return FCM_Token_Register(payload, token || '');
     },
   });
 };

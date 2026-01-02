@@ -1,21 +1,29 @@
 import React from 'react';
 import { Text, FlatList, View, StyleSheet } from 'react-native';
 import Screen from '../../components/Screen';
+import Header from '../../components/Header';
 
-export default function NotificationsScreen() {
+export default function NotificationsScreen({ navigation }: any) {
   const items = [
-    { id: '1', text: 'New match suggestion available' },
-    { id: '2', text: 'Subscription discount 20% off' },
+    { id: '1', text: 'No notifications found' },
+    // { id: '2', text: 'Subscription discount 20% off' },
   ];
+  const handleBack = () => {
+    if (navigation?.canGoBack?.()) {
+      navigation.goBack();
+    } else if (navigation?.goBack) {
+      navigation.goBack();
+    }
+  };
   return (
     <Screen>
-      <Text style={styles.title}>Notifications</Text>
-      <FlatList
-        data={items}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.cardText}>{item.text}</Text>
+      <Header title="Notifications" onBack={handleBack} />
+        <FlatList
+          data={items}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.card}>
+              <Text style={styles.cardText}>{item.text}</Text>
           </View>
         )}
       />

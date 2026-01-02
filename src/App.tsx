@@ -36,11 +36,16 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
 import { useAuthStore } from './store/Auth_store';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import { ActivityIndicator } from 'react-native';
 import SearchResultsScreen from './screens/preferences/SearchResultsScreen';
 import PartnerProfileScreen from './screens/home/PartnerProfileScreen';
 import Connection from './screens/connection/Connection';
+import AllUser_Friends from './screens/connection/AllUser_Friends';
+import ConnectionRequestDetailScreen from './screens/connection/ConnectionRequestDetailScreen';
+import ChangePasswordScreen from './screens/settings/ChangePasswordScreen';
+import { navigationRef } from './utils/navigationRef';
+import { notificationService } from './service/Notifications/NotificationService';
 
 const queryClient = new QueryClient();
 const Stack = createNativeStackNavigator();
@@ -140,18 +145,16 @@ function MainTabs() {
     </Tabs.Navigator>
   );
 }
-
 export default function App() {
   const isAuthenticated = useAuthStore(state => state.is_Authenticated);
   const isHydrated = useAuthStore(state => state.isHydrated);
-
+  
   useEffect(() => {
     useAuthStore.getState().hydrate();
   }, []);
 
+
   if (!isHydrated) {
-    // Show splash or loading screenp
-    console.log('isAuthenticated_userr', isAuthenticated);
     return (
       <View
         style={{
@@ -165,7 +168,6 @@ export default function App() {
       </View>
     );
   }
-
   return (
     // ! ||--------------------------------------------------------------------------------||
     // ! ||                               //All screen roots                               ||
@@ -173,7 +175,7 @@ export default function App() {
 
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
-        <NavigationContainer theme={MatchmateTheme}>
+        <NavigationContainer ref={navigationRef} theme={MatchmateTheme}>
           <Stack.Navigator
             initialRouteName={isAuthenticated ? 'Main' : 'Login'}
             screenOptions={{ headerShown: false }}
@@ -191,6 +193,7 @@ export default function App() {
             <Stack.Screen name="Preferences" component={PreferencesScreen} />
             <Stack.Screen name="Main" component={MainTabs} />
             <Stack.Screen name="Search" component={SearchScreen} />
+            <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
             <Stack.Screen
               name="Partnerprofile"
               component={PartnerProfileScreen}
@@ -217,6 +220,11 @@ export default function App() {
             <Stack.Screen
               name="VerificationUpload"
               component={VerificationUploadScreen}
+            />
+            <Stack.Screen name="AllUserFriend" component={AllUser_Friends} />
+            <Stack.Screen
+              name="ConnectionRequestDetail"
+              component={ConnectionRequestDetailScreen}
             />
             <Stack.Screen
               name="AccountSettings"

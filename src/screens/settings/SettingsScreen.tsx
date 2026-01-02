@@ -1,12 +1,15 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView, Image, Alert } from 'react-native';
 import Screen from '../../components/Screen';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useAuthStore } from '../../store/Auth_store';
+import { useAll_Friends_See } from '../../service/Hooks/User_Connection_Hook';
+import { BASE_URL_IMAGE } from '../../constants/config';
 
 export default function SettingsScreen({ navigation }: any) {
   const user = useAuthStore(state => state.user);
-  console.log('user in home screen', user);
+  const { data: userfriend } = useAll_Friends_See();
+  console.log('user---------->>>>>>>>profilee', user);
   const menuItems = [
     {
       id: 'upgrade',
@@ -16,11 +19,11 @@ export default function SettingsScreen({ navigation }: any) {
       onPress: () => navigation.navigate('ChoosePlan'),
     },
     {
-      id: 'payment',
-      title: 'Payment history',
-      icon: 'wallet',
+      id: 'Friend',
+      title: 'My Friends',
+      icon: 'shield-outline',
       iconColor: '#808080',
-      onPress: () => navigation.navigate('PaymentHistory'),
+      onPress: () => navigation.navigate('AllUserFriend'),
     },
     {
       id: 'quota',
@@ -41,7 +44,15 @@ export default function SettingsScreen({ navigation }: any) {
       title: 'Profile verification',
       icon: 'shield-checkmark',
       iconColor: '#808080',
-      onPress: () => navigation.navigate('ProfileVerification'),
+      // onPress: () => navigation.navigate('ProfileVerification'),
+
+      onPress: () => {
+        if (user?.cnic_verification?.status === 'verified'){
+          navigation.navigate('ProfileVerification');
+        } else {
+          navigation.navigate('VerificationUpload');
+        }
+      },
     },
     {
       id: 'account',
@@ -58,7 +69,13 @@ export default function SettingsScreen({ navigation }: any) {
         <View style={styles.header}>
           <View style={styles.profileContainer}>
             <View style={styles.profileIconContainer}>
-              <Icon name="person" size={48} color="#D4AF37" />
+            {user?.media?.profile_picture ? (<Image
+                source={{
+                  uri: user?.media?.profile_picture,
+                }}
+                style={{ width: 85, height: 85, borderRadius: 100 }}
+              />
+              ) : (<Icon name="person" size={48} color="#D4AF37" />)}
             </View>
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>
@@ -73,13 +90,32 @@ export default function SettingsScreen({ navigation }: any) {
             </View>
           </View>
           <Pressable style={styles.completedButton}>
-            <Text style={styles.completedText}>39% completed</Text>
+            <Text style={styles.completedText}>
+              {user?.profile_completion?.completion_percentage}% completed
+            </Text>
           </Pressable>
           <Pressable
             style={styles.signOutButton}
             onPress={() => {
-              useAuthStore.getState().logout();
-              navigation.replace('Login');
+              Alert.alert(
+                'Sign Out',
+                'Are you sure you want to sign out?',
+                [
+                  {
+                    text: 'Cancel',
+                    style: 'cancel',
+                  },
+                  {
+                    text: 'Sign Out',
+                    style: 'destructive',
+                    onPress: async () => {
+                      await useAuthStore.getState().logout();
+                      navigation.replace('Login');
+                    },
+                  },
+                ],
+                { cancelable: true }
+              );
             }}
           >
             <Text style={styles.signOutText}>Sign out</Text>

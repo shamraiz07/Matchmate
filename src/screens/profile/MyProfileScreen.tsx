@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView, TextInput, Alert, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Pressable, StyleSheet, ScrollView, TextInput, Alert, Image, Platform, PermissionsAndroid, ActivityIndicator } from 'react-native';
 import Screen from '../../components/Screen';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Header from '../../components/Header';
-import { useProfileUpdate, useProfileView } from '../../service/Hooks/User_Profile_Hook';
+import Dropdown from '../../components/Dropdown';
+import DatePicker from 'react-native-date-picker';
+import { useProfileUpdate, useProfileView, Profile_Picture_Verify } from '../../service/Hooks/User_Profile_Hook';
 import Toast from 'react-native-toast-message';
 import { useQueryClient } from '@tanstack/react-query';
+import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 interface SectionProps {
   title: string;
   children: React.ReactNode;
@@ -121,6 +124,52 @@ function InfoItem({
   );
 }
 
+interface InfoItemDropdownProps {
+  icon: string;
+  label: string;
+  value: string;
+  options: string[];
+  iconColor?: string;
+  textColor?: string;
+  editable?: boolean;
+  onSelect?: (value: string) => void;
+}
+
+function InfoItemDropdown({
+  icon,
+  label,
+  value,
+  options,
+  iconColor = '#D4AF37',
+  textColor,
+  editable = false,
+  onSelect,
+}: InfoItemDropdownProps) {
+  return (
+    <View style={styles.infoItem}>
+      <Icon name={icon} size={20} color={iconColor} style={styles.infoIcon} />
+      <Text style={[styles.infoLabel, textColor && { color: textColor }]}>
+        {label}
+      </Text>
+      {editable ? (
+        <View style={styles.dropdownContainer}>
+          <Dropdown
+            label=""
+            value={value}
+            options={options}
+            onSelect={onSelect || (() => {})}
+            containerStyle={styles.dropdownStyle}
+          />
+        </View>
+      ) : (
+        <Text style={[styles.infoValue, textColor && { color: textColor }]}>
+          {value || 'Not specified'}
+        </Text>
+      )}
+    </View>
+  );
+}
+
 export default function MyProfileScreen({ navigation }: any) {
   const handleBack = () => {
     if (navigation?.canGoBack?.()) {
@@ -129,9 +178,180 @@ export default function MyProfileScreen({ navigation }: any) {
       navigation.goBack();
     }
   };
-  const [profileData, setProfileData] = useState<any>({});
 
+  // Dropdown options (same as ProfileSetupScreen)
+  const genderOptions = ['male', 'female'];
+  const maritalStatusOptions = ['Single', 'Divorced', 'Married', 'Separated', 'Widower'];
+  const cityOptions = [
+    'Abbottabad',
+    'Bahawalpur',
+    'Chaman',
+    'Dera Ghazi Khan',
+    'Dera Ismail Khan',
+    'Faisalabad',
+    'Gilgit',
+    'Gujranwala',
+    'Gujrat',
+    'Gwadar',
+    'Haripur',
+    'Hunza',
+    'Hyderabad',
+    'Islamabad',
+    'Jacobabad',
+    'Jhang',
+    'Karachi',
+    'Kasur',
+    'Khuzdar',
+    'Kohat',
+    'Kotli',
+    'Lahore',
+    'Larkana',
+    'Mansehra',
+    'Mardan',
+    'Mastung',
+    'Mirpur (AJK)',
+    'Mirpur Khas',
+    'Multan',
+    'Muzaffarabad',
+    'Nawabshah',
+    'Nowshera',
+    'Okara',
+    'Other',
+    'Peshawar',
+    'Quetta',
+    'Rahim Yar Khan',
+    'Rawalpindi',
+    'Sahiwal',
+    'Sargodha',
+    'Sheikhupura',
+    'Skardu',
+    'Sialkot',
+    'Sukkur',
+    'Swabi',
+    'Thatta',
+    'Turbat',
+    'Zhob',
+  ];
+  
+  const religionOptions = ['Muslim', 'Christian', 'Hindu', 'Sikh', 'Other'];
+  const sectOptions = ['Sunni', 'Shia', 'Ahle Hadith', 'Deobandi', 'Barelvi'];
+  const casteOptions = [
+    'Abbasi',
+    'Achakzai',
+    'Afridi',
+    'Ansari',
+    'Arain',
+    'Awan',
+    'Bajwa',
+    'Bangash',
+    'Barakzai',
+    'Bhatti',
+    'Bhutto',
+    'Bhat',
+    'Brohi',
+    'Bugti',
+    'Butt',
+    'Chandio',
+    'Chaudhry',
+    'Cheema',
+    'Dar',
+    'Farooqi',
+    'Gill',
+    'Gondal',
+    'Gorchani',
+    'Gujjar',
+    'Jamali',
+    'Janjua',
+    'Jatt',
+    'Junejo',
+    'Kakar',
+    'Kalhoro',
+    'Kharal',
+    'Khattak',
+    'Khosa',
+    'Khoso',
+    'Lashari',
+    'Leghari',
+    'Lone',
+    'Mahar',
+    'Malik',
+    'Mangrio',
+    'Marri',
+    'Mazari',
+    'Mehsud',
+    'Mengal',
+    'Minhas',
+    'Mir',
+    'Mirani',
+    'Mohmand',
+    'Niazi',
+    'Orakzai',
+    'Other',
+    'Panhwar',
+    'Popalzai',
+    'Qaisrani',
+    'Qureshi',
+    'Rajput',
+    'Raisani',
+    'Rind',
+    'Samma',
+    'Sandhu',
+    'Shah',
+    'Sheikh',
+    'Shinwari',
+    'Siddiqui',
+    'Solangi',
+    'Soomro',
+    'Syed',
+    'Talpur',
+    'Turi',
+    'Virk',
+    'Wani',
+    'Warraich',
+    'Wazir',
+    'Yousafzai',
+  ];
+  
+  const heightOptions = [
+    '121.92',
+    '137.16',
+    '152.40',
+    '157.48',
+    '162.56',
+    '167.64',
+    '172.72',
+    '177.80',
+    '182.88',
+    '198.12',
+  ];
+  const educationOptions = [
+    'Primary',
+    'Secondary',
+    'Higher Secondary',
+    'Bachelor',
+    'Master',
+    'PhD',
+    'Diploma',
+  ];
+  const employmentOptions = ['Business', 'Employed', 'Home-maker', 'Retired', 'Self-employed', 'Unemployed'];
+  const professionOptions = [
+    'Engineer',
+    'Doctor',
+    'Teacher',
+    'Business',
+    'IT Professional',
+    'Accountant',
+    'Lawyer',
+    'Other',
+  ];
+  const parentEmploymentOptions = ['Employed', 'Unemployed', 'Retired'];
+  const deceasedOptions = ['yes', 'no'];
+  const [profileData, setProfileData] = useState<any>({});
+  const [selectedImage, setSelectedImage] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const profileUpdateMutation = useProfileUpdate();
+  const profilePictureMutation = Profile_Picture_Verify();
   // Fetch profile data from API
   const { data: profileResponse } = useProfileView();
   const queryClient = useQueryClient();
@@ -185,7 +405,7 @@ useEffect(() => {
     weight: candidateInfo.weight_kg ? `${candidateInfo.weight_kg}kg` : '',
     height: candidateInfo.height_cm ? `${candidateInfo.height_cm}cm` : '',
     disability: 'No',
-    description: '',
+    description: apiData?.ai_generated_description?.description || '',
     country: candidateInfo.country || '',
     city: candidateInfo.city || '',
     employmentStatus: educationEmployment.employment_status || '',
@@ -195,14 +415,24 @@ useEffect(() => {
     sisters: siblingsDetails.total_sisters?.toString() || '0',
     blur_photo: media.blur_photo || false,
     profilePicture: media.profile_picture || null,
+    fatherDeceased: familyDetails.father_status || '',
+    motherDeceased: familyDetails.mother_status || '',
+    fatherEmployment: familyDetails.father_employment_status || '',
+    motherEmployment: familyDetails.mother_employment_status || '',
+    instituate_name: educationEmployment.institute_name || '',
+    degree_title: educationEmployment.degree_title || '',
+    duration: educationEmployment.duration || '',
+    birth_country: candidateInfo.birth_country || '',
   };
-
+  console.log("formatted------------------>>", formatted);
   setProfileData(formatted);
 }, [profileResponse?.data]); // Changed from profileResponse to profileResponse?.data
     
 
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editData, setEditData] = useState<any>({});
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   const handleEdit = (section: string) => {
     setEditingSection(section);
@@ -213,6 +443,15 @@ useEffect(() => {
   const handleSave = (_section: string) => {
    
     console.log("editData------------------>>", editData);
+    
+    // Extract numeric values from height and weight (remove "cm" and "kg")
+    const heightValue = editData.height 
+      ? parseFloat(String(editData.height).replace(/cm/gi, '').trim()) || null
+      : null;
+    const weightValue = editData.weight 
+      ? parseFloat(String(editData.weight).replace(/kg/gi, '').trim()) || null
+      : null;
+    
     // Build the payload in your required format
     const payload = {
       candidate_information: {
@@ -224,22 +463,23 @@ useEffect(() => {
         religion: editData.religion,
         sect: editData.sect,
         caste: editData.caste,
-        height_cm: editData.height,
-        weight_kg: editData.weight,
+        height_cm: heightValue,
+        weight_kg: weightValue,
         phone_country_code: editData.phone_country_code,
         phone_number: editData.phone_number,
+        birth_country: editData.birth_country,
       },
-  
+      generated_description: editData.description,
       profile_details: {
         profile_for: editData.profile_for,
-        gender: editData.gender,
+        gender: editData.gender.toLowerCase(),
         marital_status: editData.maritalStatus,
       },
   
       family_details: {
-        father_status: editData.fatherDeceased === "yes" ? "deceased" : "alive",
+        father_status: (editData.fatherDeceased === "yes" || editData.fatherDeceased === "deceased") ? "deceased" : "alive",
         father_employment_status: editData.fatherEmployment,
-        mother_status: editData.motherDeceased === "yes" ? "deceased" : "alive",
+        mother_status: (editData.motherDeceased === "yes" || editData.motherDeceased === "deceased") ? "deceased" : "alive",
         mother_employment_status: editData.motherEmployment,
       },
   
@@ -252,6 +492,9 @@ useEffect(() => {
         education_level: editData.educationLevel,
         employment_status: editData.employmentStatus,
         profession: editData.profession,
+        instituate_name: editData.institute_name,
+        degree_title: editData.degree_title,
+        duration: editData.duration,
       },
   
       media: {
@@ -288,7 +531,7 @@ useEffect(() => {
 
   const updateField = (path: string, value: any) => {
     const keys = path.split(".");
-    setEditData((prev) => {
+    setEditData((prev: any) => {
       let obj = { ...prev };
       let ref = obj;
   
@@ -301,30 +544,384 @@ useEffect(() => {
       return obj;
     });
   };
+  const requestCameraPermission = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          {
+            title: 'Camera Permission',
+            message: 'App needs camera permission to take photos',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          },
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const pickImageFromGallery = () => {
+    const options = {
+      mediaType: 'photo' as const,
+      quality: 1 as const,
+    };
+
+    launchImageLibrary(options, async (response) => {
+      if (response.didCancel || response.errorCode) return;
+
+      if (!response.assets || !response.assets[0]) return;
+
+      const image = response.assets[0];
+
+      // Clear error when user selects a new image
+      if (errors.selectedImage) {
+        setErrors((prev: Record<string, string>) => {
+          const newErrors = { ...prev };
+          delete newErrors.selectedImage;
+          return newErrors;
+        });
+      }
+
+      // Auto upload (don't set selectedImage here, let onSuccess handle it)
+      await uploadProfilePicture(image);
+    });
+  };
+
+  const takePhoto = async () => {
+    const hasPermission = await requestCameraPermission();
+    if (!hasPermission) {
+      Alert.alert('Permission Denied', 'Camera permission is required.');
+      return;
+    }
+
+    launchCamera({ mediaType: 'photo' as const, quality: 1 as const }, async (response) => {
+      if (response.didCancel || response.errorCode) return;
+
+      if (!response.assets || !response.assets[0]) return;
+
+      const image = response.assets[0];
+
+      // Clear error when user selects a new image
+      if (errors.selectedImage) {
+        setErrors((prev: Record<string, string>) => {
+          const newErrors = { ...prev };
+          delete newErrors.selectedImage;
+          return newErrors;
+        });
+      }
+
+      // Auto upload (don't set selectedImage here, let onSuccess handle it)
+      await uploadProfilePicture(image);
+    });
+  };
+
+  // Helper function to get user-friendly error messages
+  const getImageUploadErrorMessage = (error: any): { title: string; message: string } => {
+    const statusCode = error?.response?.status;
+    const errorData = error?.response?.data || error?.data || {};
+
+    // Handle specific HTTP status codes
+    if (statusCode === 400) {
+      const message = errorData?.message || errorData?.error || errorData?.detail;
+      if (message) {
+        // Check if message is HTML (like nginx error pages)
+        if (typeof message === 'string' && message.includes('<html>')) {
+          return {
+            title: 'Invalid Image Format',
+            message: 'The image format is invalid or corrupted. Please choose a valid image file (JPG, PNG, or JPEG).',
+          };
+        }
+        return {
+          title: 'Invalid Request',
+          message: Array.isArray(message) ? message[0] : message,
+        };
+      }
+      return {
+        title: 'Invalid Request',
+        message: 'The image format is invalid or missing required information. Please try again.',
+      };
+    }
+
+    if (statusCode === 401) {
+      return {
+        title: 'Authentication Required',
+        message: 'Your session has expired. Please log in again to continue.',
+      };
+    }
+
+    if (statusCode === 403) {
+      return {
+        title: 'Permission Denied',
+        message: 'You do not have permission to upload profile pictures. Please contact support.',
+      };
+    }
+
+    if (statusCode === 413) {
+      return {
+        title: 'File Too Large',
+        message: 'The image file is too large. Please compress the image or choose a smaller file (recommended size: under 5MB).',
+      };
+    }
+
+    if (statusCode === 415) {
+      return {
+        title: 'Unsupported File Type',
+        message: 'The file format is not supported. Please upload JPG, PNG, or JPEG images only.',
+      };
+    }
+
+    if (statusCode === 500 || statusCode === 502 || statusCode === 503) {
+      return {
+        title: 'Server Error',
+        message: 'Our servers are experiencing issues. Please try again in a few minutes.',
+      };
+    }
+
+    if (statusCode === 504) {
+      return {
+        title: 'Upload Timeout',
+        message: 'The upload took too long. Please check your internet connection and try again with a smaller image.',
+      };
+    }
+
+    // Handle HTML error responses (like nginx error pages)
+    if (error?.response?.data) {
+      const dataStr = typeof error.response.data === 'string' 
+        ? error.response.data 
+        : JSON.stringify(error.response.data);
+      
+      if (dataStr.includes('413') || dataStr.includes('Request Entity Too Large')) {
+        return {
+          title: 'File Too Large',
+          message: 'The image file is too large. Please compress the image or choose a smaller file (recommended size: under 5MB).',
+        };
+      }
+    }
+
+    // Handle network errors
+    if (error?.message) {
+      if (error.message.includes('Network') || error.message.includes('network')) {
+        return {
+          title: 'Network Error',
+          message: 'No internet connection. Please check your network settings and try again.',
+        };
+      }
+      if (error.message.includes('timeout')) {
+        return {
+          title: 'Request Timeout',
+          message: 'The request took too long. Please check your internet connection and try again.',
+        };
+      }
+      if (error.message.includes('413') || error.message.includes('Request Entity Too Large')) {
+        return {
+          title: 'File Too Large',
+          message: 'The image file is too large. Please compress the image or choose a smaller file.',
+        };
+      }
+    }
+
+    // Handle backend error messages
+    if (errorData?.reason) {
+      return {
+        title: 'Upload Failed',
+        message: errorData.reason,
+      };
+    }
+
+    if (errorData?.message) {
+      // Check if message is HTML
+      const messageStr = Array.isArray(errorData.message) ? errorData.message[0] : errorData.message;
+      if (typeof messageStr === 'string' && messageStr.includes('<html>')) {
+        return {
+          title: 'Upload Failed',
+          message: 'Failed to upload image. Please ensure the file is not too large and try again.',
+        };
+      }
+      return {
+        title: 'Upload Failed',
+        message: messageStr,
+      };
+    }
+
+    if (errorData?.error) {
+      return {
+        title: 'Upload Failed',
+        message: Array.isArray(errorData.error) ? errorData.error[0] : errorData.error,
+      };
+    }
+
+    if (errorData?.detail) {
+      return {
+        title: 'Upload Failed',
+        message: errorData.detail,
+      };
+    }
+
+    // Default error
+    return {
+      title: 'Upload Failed',
+      message: 'Failed to upload photo. Please check your internet connection and try again.',
+    };
+  };
+
+  const uploadProfilePicture = async (image: any) => {
+    try {
+      setUploading(true);
+      
+      // Clear any previous errors
+      if (errors.selectedImage) {
+        setErrors((prev: Record<string, string>) => {
+          const newErrors = { ...prev };
+          delete newErrors.selectedImage;
+          return newErrors;
+        });
+      }
   
+      const formData = new FormData();
+      formData.append("file", {
+        uri: Platform.OS === 'ios' ? image.uri.replace('file://', '') : image.uri,
+        name: image.fileName || "photo.jpg",
+        type: image.type || "image/jpeg",
+      } as any);
+  
+      console.log("payload_picture", formData);
+  
+      await profilePictureMutation.mutateAsync(
+        { payload: formData },
+        {
+          onSuccess: () => {
+            setUploading(false);
+            setSelectedImage(image.uri);
+            
+            // Invalidate profile query to refresh data
+            queryClient.invalidateQueries({ queryKey: ['profile-view'] });
+            
+            Toast.show({
+              type: 'success',
+              text1: 'Upload Successful',
+              text2: 'Profile picture uploaded successfully',
+            });
+          },
+          onError: (error: any) => {
+            console.log("Upload error:", error);
+            setUploading(false);
+            
+            // Clear selected image on error
+            setSelectedImage('');
+            
+            // Get user-friendly error message
+            const { title, message } = getImageUploadErrorMessage(error);
+            
+            // Set error in state to display in UI
+            setErrors((prev: Record<string, string>) => ({
+              ...prev,
+              selectedImage: message,
+            }));
+            
+            // Show toast with error message
+            Toast.show({
+              type: 'error',
+              text1: title,
+              text2: message,
+              visibilityTime: 5000,
+            });
+          },
+        }
+      );
+  
+    } catch (error: any) {
+      console.log("Upload exception:", error);
+      setUploading(false);
+      
+      // Clear selected image on error
+      setSelectedImage('');
+      
+      // Get user-friendly error message
+      const { title, message } = getImageUploadErrorMessage(error);
+      
+      setErrors((prev: Record<string, string>) => ({
+        ...prev,
+        selectedImage: message,
+      }));
+      
+      Toast.show({
+        type: 'error',
+        text1: title,
+        text2: message,
+        visibilityTime: 5000,
+      });
+    }
+  };
   return (
     <Screen>
       <Header title="My Profile" onBack={handleBack} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Section
           title="Photos"
-          onEdit={() => Alert.alert('Photos', 'Photo upload feature coming soon!')}
+          onEdit={() => handleEdit('Photos')}
           isEditing={editingSection === 'Photos'}
           onSave={() => handleSave('Photos')}
           onCancel={handleCancel}>
           <View style={styles.profilePhotoContainer}>
-            {profileData.profilePicture ? (
+            {uploading ? (
+              <View style={styles.uploadingContainer}>
+                <ActivityIndicator size="large" color="#D4AF37" />
+                <Text style={styles.uploadingText}>Uploading...</Text>
+              </View>
+            ) : selectedImage ? (
+              <Image
+                source={{ uri: selectedImage }}
+                style={styles.profileImage}
+                resizeMode="cover"
+              />
+            ) : profileData.profilePicture ? (
               <Image
                 source={{ uri: profileData.profilePicture }}
                 style={styles.profileImage}
                 resizeMode="cover"
               />
             ) : (
-            <Icon name="person" size={64} color="#D4AF37" />
+              <Icon name="person" size={64} color="#D4AF37" />
             )}
-            <Pressable style={styles.profileButton}>
-              <Text style={styles.profileButtonText}>Profile</Text>
-            </Pressable>
+            
+            {editingSection === 'Photos' && (
+              <View style={styles.photoButtons}>
+                <Pressable 
+                  style={styles.photoButton} 
+                  onPress={pickImageFromGallery}
+                  disabled={uploading}
+                >
+                  <Icon name="images" size={20} color="#000000" />
+                  <Text style={styles.photoButtonText}>Gallery</Text>
+                </Pressable>
+                <Pressable 
+                  style={styles.photoButton} 
+                  onPress={takePhoto}
+                  disabled={uploading}
+                >
+                  <Icon name="camera" size={20} color="#000000" />
+                  <Text style={styles.photoButtonText}>Camera</Text>
+                </Pressable>
+              </View>
+            )}
+            
+            {errors.selectedImage && (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{errors.selectedImage}</Text>
+              </View>
+            )}
+            
+            {!editingSection && (
+              <Pressable style={styles.profileButton}>
+                <Text style={styles.profileButtonText}>Profile</Text>
+              </Pressable>
+            )}
           </View>
         </Section>
 
@@ -362,56 +959,103 @@ useEffect(() => {
             editable={editingSection === 'About'}
             onChangeText={(text) => updateField('name', text)}
           />
-          <InfoItem
+          <InfoItemDropdown
             icon="people"
             label="Gender"
-            value={editingSection === 'About' ? editData.gender : profileData.gender}
+            value={editingSection === 'About' ? editData.gender?.toLowerCase() || '' : profileData.gender?.toLowerCase() || ''}
+            options={genderOptions}
             editable={editingSection === 'About'}
-            onChangeText={(text) => updateField('gender', text)}
+            onSelect={(value) => updateField('gender', value)}
           />
-          <InfoItem
+          <InfoItemDropdown
             icon="heart"
             label="Marital status"
             value={
-              editingSection === 'About' ? editData.maritalStatus : profileData.maritalStatus
+              editingSection === 'About' ? editData.maritalStatus || '' : profileData.maritalStatus || ''
             }
+            options={maritalStatusOptions}
             editable={editingSection === 'About'}
-            onChangeText={(text) => updateField('maritalStatus', text)}
+            onSelect={(value) => updateField('maritalStatus', value)}
           />
+          {/* DOB - Date of Birth */}
+          <Pressable
+            disabled={editingSection !== 'About'}
+            onPress={() => {
+              if (editingSection === 'About') {
+                // Parse existing date or use current date
+                const existingDate = editData.date_of_birth 
+                  ? new Date(editData.date_of_birth) 
+                  : (profileData.date_of_birth ? new Date(profileData.date_of_birth) : new Date());
+                setSelectedDate(existingDate);
+                setDatePickerOpen(true);
+              }
+            }}
+            style={styles.dobContainer}
+          >
+            <Icon name="calendar" size={20} color="#D4AF37" style={styles.infoIcon} />
+            <Text style={styles.infoLabel}>DOB</Text>
+            <View style={styles.dobValueContainer}>
+              <Text style={[
+                styles.dobValue,
+                editingSection !== 'About' && styles.readOnlyDobValue
+              ]}>
+                {editingSection === 'About' 
+                  ? (editData.date_of_birth 
+                      ? new Date(editData.date_of_birth).toLocaleDateString('en-US', { 
+                          year: 'numeric', 
+                          month: 'short', 
+                          day: 'numeric' 
+                        })
+                      : profileData.date_of_birth 
+                        ? new Date(profileData.date_of_birth).toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: 'numeric' 
+                          })
+                        : 'Select date')
+                  : (profileData.date_of_birth 
+                      ? new Date(profileData.date_of_birth).toLocaleDateString('en-US', { 
+                          year: 'numeric', 
+                          month: 'short', 
+                          day: 'numeric' 
+                        })
+                      : 'Not specified')}
+              </Text>
+              {editingSection === 'About' && (
+                <Icon name="chevron-forward" size={20} color="#D4AF37" />
+              )}
+            </View>
+          </Pressable>
+          
           <InfoItem
             icon="calendar"
             label="Age"
             value={editingSection === 'About' ? editData.age : profileData.age}
-            editable={editingSection === 'About'}
-            onChangeText={(text) => updateField('age', text)}
+            editable={false}
           />
-          <InfoItem
-            icon="hands"
+          <InfoItemDropdown
+            icon="hand-left"
             label="Religion"
-            value={editingSection === 'About' ? editData.religion : profileData.religion}
+            value={editingSection === 'About' ? editData.religion || '' : profileData.religion || ''}
+            options={religionOptions}
             editable={editingSection === 'About'}
-            onChangeText={(text) => updateField('religion', text)}
+            onSelect={(value) => updateField('religion', value)}
           />
-          <InfoItem
+          <InfoItemDropdown
             icon="person"
             label="Sect"
-            value={editingSection === 'About' ? editData.sect : profileData.sect}
+            value={editingSection === 'About' ? editData.sect || '' : profileData.sect || ''}
+            options={sectOptions}
             editable={editingSection === 'About'}
-            onChangeText={(text) => updateField('sect', text)}
+            onSelect={(value) => updateField('sect', value)}
           />
-          <InfoItem
-            icon="hand-left"
-            label="Ethnicity"
-            value={editingSection === 'About' ? editData.ethnicity : profileData.ethnicity}
-            editable={editingSection === 'About'}
-            onChangeText={(text) => updateField('ethnicity', text)}
-          />
-          <InfoItem
+          <InfoItemDropdown
             icon="triangle"
             label="Caste"
-            value={editingSection === 'About' ? editData.caste : profileData.caste}
+            value={editingSection === 'About' ? editData.caste || '' : profileData.caste || ''}
+            options={casteOptions}
             editable={editingSection === 'About'}
-            onChangeText={(text) => updateField('caste', text)}
+            onSelect={(value) => updateField('caste', value)}
           />
           <InfoItem
             icon="scale"
@@ -420,12 +1064,17 @@ useEffect(() => {
             editable={editingSection === 'About'}
             onChangeText={(text) => updateField('weight', text)}
           />
-          <InfoItem
+          <InfoItemDropdown
             icon="resize"
             label="Height"
-            value={editingSection === 'About' ? editData.height : profileData.height}
+            value={
+              editingSection === 'About'
+                ? editData.height?.replace(/cm/gi, '').trim() || ''
+                : profileData.height?.replace(/cm/gi, '').trim() || ''
+            }
+            options={heightOptions}
             editable={editingSection === 'About'}
-            onChangeText={(text) => updateField('height', text)}
+            onSelect={(value) => updateField('height', `${value}cm`)}
           />
           <InfoItem
             icon="accessibility"
@@ -466,70 +1115,33 @@ useEffect(() => {
           <InfoItem
             icon="globe"
             label="Country"
-            value={editingSection === 'Region' ? editData.country : profileData.country}
-            editable={editingSection === 'Region'}
-            onChangeText={(text) => updateField('country', text)}
+            value={profileData.country || ''}
+            editable={false}
           />
-          <InfoItem
+          <InfoItemDropdown
             icon="location"
             label="City"
-            value={editingSection === 'Region' ? editData.city : profileData.city}
+            value={editingSection === 'Region' ? editData.city || '' : profileData.city || ''}
+            options={cityOptions}
             editable={editingSection === 'Region'}
-            onChangeText={(text) => updateField('city', text)}
+            onSelect={(value) => updateField('city', value)}
           />
           <InfoItem
             icon="location"
-            label="Birth country"
-            value={editingSection === 'Region' ? editData.birthCountry : profileData.country}
+            label="Birth Country"
+            value={editingSection === 'Region' ? editData.birth_country || '' : profileData.birth_country || ''}
             editable={editingSection === 'Region'}
-            onChangeText={(text) => updateField('birthCountry', text)}
+            onChangeText={(text) => updateField('birth_country', text)}
           />
         </Section>
 
-        <Section
-          title="Nationality"
-          onEdit={() => handleEdit('Nationality')}
-          isEditing={editingSection === 'Nationality'}
-          onSave={() => handleSave('Nationality')}
-          onCancel={handleCancel}>
-          {editingSection === 'Nationality' ? (
-            <TextInput
-              style={styles.inputField}
-              value={editData.nationality || profileData.nationality}
-              onChangeText={(text) => updateField('nationality', text)}
-              placeholder="Enter nationality"
-              placeholderTextColor="#808080"
-            />
-          ) : (
-            <View style={styles.inputField}>
-              <Text style={styles.inputPlaceholder}>
-                {profileData.nationality || 'Pakistani'}
-              </Text>
-            </View>
-          )}
-        </Section>
-
-        <Section
-          title="Language(s)"
-          onEdit={() => handleEdit('Languages')}
-          isEditing={editingSection === 'Languages'}
-          onSave={() => handleSave('Languages')}
-          onCancel={handleCancel}>
-          {editingSection === 'Languages' ? (
-            <TextInput
-              style={styles.inputField}
-              value={editData.languages || profileData.languages}
-              onChangeText={(text) => updateField('languages', text)}
-              placeholder="Enter languages"
-              placeholderTextColor="#808080"
-            />
-          ) : (
-            <View style={styles.inputField}>
-              <Text style={styles.inputPlaceholder}>
-                {profileData.languages || 'Not specified'}
-              </Text>
-            </View>
-          )}
+        <Section title="Nationality">
+          <InfoItem
+            icon="flag"
+            label="Nationality"
+            value={profileData.nationality || 'Pakistani'}
+            editable={false}
+          />
         </Section>
 
         <Section
@@ -538,20 +1150,21 @@ useEffect(() => {
           isEditing={editingSection === 'Education'}
           onSave={() => handleSave('Education')}
           onCancel={handleCancel}>
-          <InfoItem
+          <InfoItemDropdown
             icon="school"
             label="Education Level"
             value={
-              editingSection === 'Education' ? editData.educationLevel : profileData.educationLevel
+              editingSection === 'Education' ? editData.educationLevel || '' : profileData.educationLevel || ''
             }
+            options={educationOptions}
             editable={editingSection === 'Education'}
-            onChangeText={(text) => updateField('educationLevel', text)}
+            onSelect={(value) => updateField('educationLevel', value)}
           />
           <Text style={styles.subsectionTitle}>Bachelors</Text>
           <InfoItem
             icon="business"
             label="Institute"
-            value={editingSection === 'Education' ? editData.institute : profileData.institute}
+            value={editingSection === 'Education' ? editData.instituate_name : profileData.instituate_name}
             editable={editingSection === 'Education'}
             onChangeText={(text) => updateField('institute', text)}
           />
@@ -559,7 +1172,7 @@ useEffect(() => {
             icon="school"
             label="Degree Title"
             value={
-              editingSection === 'Education' ? editData.degreeTitle : profileData.degreeTitle
+              editingSection === 'Education' ? editData.degree_title : profileData.degree_title
             }
             editable={editingSection === 'Education'}
             onChangeText={(text) => updateField('degreeTitle', text)}
@@ -579,34 +1192,30 @@ useEffect(() => {
           isEditing={editingSection === 'Employment'}
           onSave={() => handleSave('Employment')}
           onCancel={handleCancel}>
-          <InfoItem
+          <InfoItemDropdown
             icon="briefcase"
             label="Employment status"
             value={
               editingSection === 'Employment'
-                ? editData.employmentStatus
-                : profileData.employmentStatus
+                ? editData.employmentStatus || ''
+                : profileData.employmentStatus || ''
             }
+            options={employmentOptions}
             editable={editingSection === 'Employment'}
-            onChangeText={(text) => updateField('employmentStatus', text)}
+            onSelect={(value) => updateField('employmentStatus', value)}
           />
-          <InfoItem
+          <InfoItemDropdown
             icon="person"
             label="Profession"
             value={
               editingSection === 'Employment'
-                ? editData.profession
-                : profileData.profession
+                ? editData.profession || ''
+                : profileData.profession || ''
             }
+            options={professionOptions}
             editable={editingSection === 'Employment'}
-            onChangeText={(text) => updateField('profession', text)}
+            onSelect={(value) => updateField('profession', value)}
           />
-        </Section>
-
-        <Section
-          title="Accommodation"
-          onEdit={() => Alert.alert('Accommodation', 'Feature coming soon!')}>
-          <Text style={styles.inputPlaceholder}>No accommodation details available</Text>
         </Section>
 
         <Section
@@ -616,7 +1225,7 @@ useEffect(() => {
           onSave={() => handleSave('Parents')}
           onCancel={handleCancel}>
           <Text style={styles.subsectionTitle}>Father</Text>
-          <InfoItem
+          {/* <InfoItem
             icon="school"
             label="Education Level"
             value={
@@ -624,19 +1233,20 @@ useEffect(() => {
             }
             editable={editingSection === 'Parents'}
             onChangeText={(text) => updateField('fatherEducation', text)}
-          />
-          <InfoItem
+          /> */}
+          <InfoItemDropdown
             icon="briefcase"
             label="Employment Status"
             value={
               editingSection === 'Parents'
-                ? editData.fatherEmployment
-                : profileData.fatherEmployment
+                ? editData.fatherEmployment || ''
+                : profileData.fatherEmployment || ''
             }
+            options={parentEmploymentOptions}
             editable={editingSection === 'Parents'}
-            onChangeText={(text) => updateField('fatherEmployment', text)}
+            onSelect={(value) => updateField('fatherEmployment', value)}
           />
-          <InfoItem
+          {/* <InfoItem
             icon="person"
             label="Profession"
             value={
@@ -644,19 +1254,23 @@ useEffect(() => {
             }
             editable={editingSection === 'Parents'}
             onChangeText={(text) => updateField('fatherProfession', text)}
-          />
-          <InfoItem
+          /> */}
+          <InfoItemDropdown
             icon="heart"
             label="Deceased"
             value={
-              editingSection === 'Parents' ? editData.fatherDeceased : profileData.fatherDeceased
+              (() => {
+                const val = editingSection === 'Parents' ? editData.fatherDeceased : profileData.fatherDeceased;
+                return val === 'deceased' || val === 'yes' ? 'yes' : 'no';
+              })()
             }
+            options={deceasedOptions}
             editable={editingSection === 'Parents'}
-            onChangeText={(text) => updateField('fatherDeceased', text)}
+            onSelect={(value) => updateField('fatherDeceased', value)}
           />
 
           <Text style={styles.subsectionTitle}>Mother</Text>
-          <InfoItem
+          {/* <InfoItem
             icon="school"
             label="Education Level"
             value={
@@ -664,19 +1278,20 @@ useEffect(() => {
             }
             editable={editingSection === 'Parents'}
             onChangeText={(text) => updateField('motherEducation', text)}
-          />
-          <InfoItem
+          /> */}
+          <InfoItemDropdown
             icon="briefcase"
             label="Employment Status"
             value={
               editingSection === 'Parents'
-                ? editData.motherEmployment
-                : profileData.motherEmployment
+                ? editData.motherEmployment || ''
+                : profileData.motherEmployment || ''
             }
+            options={parentEmploymentOptions}
             editable={editingSection === 'Parents'}
-            onChangeText={(text) => updateField('motherEmployment', text)}
+            onSelect={(value) => updateField('motherEmployment', value)}
           />
-          <InfoItem
+          {/* <InfoItem
             icon="person"
             label="Profession"
             value={
@@ -684,15 +1299,19 @@ useEffect(() => {
             }
             editable={editingSection === 'Parents'}
             onChangeText={(text) => updateField('motherProfession', text)}
-          />
-          <InfoItem
+          /> */}
+          <InfoItemDropdown
             icon="heart"
             label="Deceased"
             value={
-              editingSection === 'Parents' ? editData.motherDeceased : profileData.motherDeceased
+              (() => {
+                const val = editingSection === 'Parents' ? editData.motherDeceased : profileData.motherDeceased;
+                return val === 'deceased' || val === 'yes' ? 'yes' : 'no';
+              })()
             }
+            options={deceasedOptions}
             editable={editingSection === 'Parents'}
-            onChangeText={(text) => updateField('motherDeceased', text)}
+            onSelect={(value) => updateField('motherDeceased', value)}
           />
         </Section>
 
@@ -805,6 +1424,42 @@ useEffect(() => {
           />
         </Section> */}
       </ScrollView>
+
+      {/* Date Picker Modal */}
+      <DatePicker
+        modal
+        open={datePickerOpen}
+        date={selectedDate}
+        mode="date"
+        maximumDate={new Date()}
+        minimumDate={new Date(1900, 0, 1)}
+        onConfirm={date => {
+          setDatePickerOpen(false);
+          setSelectedDate(date);
+          
+          // Format date as YYYY-MM-DD for backend
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          const formattedDate = `${year}-${month}-${day}`;
+          
+          // Update editData with formatted date
+          updateField('date_of_birth', formattedDate);
+          
+          // Recalculate age based on new date
+          const today = new Date();
+          let age = today.getFullYear() - date.getFullYear();
+          const monthDiff = today.getMonth() - date.getMonth();
+          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < date.getDate())) {
+            age--;
+          }
+          updateField('age', age.toString());
+        }}
+        onCancel={() => {
+          setDatePickerOpen(false);
+        }}
+        theme="dark"
+      />
     </Screen>
   );
 }
@@ -946,10 +1601,65 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  uploadingContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#1A1A1A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  uploadingText: {
+    color: '#D4AF37',
+    fontSize: 12,
+    marginTop: 8,
+    fontWeight: '600',
+  },
+  photoButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  photoButton: {
+    backgroundColor: '#D4AF37',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    gap: 8,
+    flex: 1,
+    maxWidth: 150,
+  },
+  photoButtonText: {
+    color: '#000000',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  errorContainer: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FF0000',
+    width: '100%',
+  },
+  errorText: {
+    color: '#FF0000',
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
   infoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
   infoIcon: {
     marginRight: 12,
@@ -965,6 +1675,27 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontSize: 14,
     fontWeight: '500',
+  },
+  dobContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  dobValueContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  dobValue: {
+    color: '#000000',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  readOnlyDobValue: {
+    opacity: 0.7,
   },
   description: {
     color: '#000000',
@@ -1007,6 +1738,13 @@ const styles = StyleSheet.create({
   },
   preferencesEditButtonText: {
     color: '#FFFFFF',
+  },
+  dropdownContainer: {
+    flex: 1,
+    marginLeft: 8,
+  },
+  dropdownStyle: {
+    marginBottom: 0,
   },
 });
 

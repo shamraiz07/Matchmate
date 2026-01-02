@@ -133,7 +133,7 @@ export default function OtpScreen({ navigation, route }: any) {
               disabled={isButtonDisabled}
             >
               {verifyOTPMutation.isPending ? (
-                <ActivityIndicator color="#000" /> 
+                <ActivityIndicator color="#D4AF37" /> 
               ) : (
                 <Text style={styles.primaryText}>
                   {isVerified ? 'Verified' : 'Verify'}

@@ -3,7 +3,33 @@
 // ! ||--------------------------------------------------------------------------------||
 
 import apiClient from '../Client';
-import { ENDPOINTS_USER } from '../Endpoint';
+import { ENDPOINTS_FCM_Token, ENDPOINTS_USER } from '../Endpoint';
+
+// ! ||--------------------------------------------------------------------------------||
+// ! ||                              // FCM Token API                             ||
+// ! ||--------------------------------------------------------------------------------||
+export const FCM_Token_Register = async (payload: any, token: string) => {
+  console.log('🟦 FCM_Token_Register SERVICE CALLED');
+  try {
+    const response = await apiClient.post(
+      ENDPOINTS_FCM_Token.FCM_Token,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+    return response;
+  } catch (error: any) {
+    throw error;
+  }
+};
+
+
+
+
+
 
 // ! ||--------------------------------------------------------------------------------||
 // ! ||                              // Profile Update API                             ||
@@ -85,7 +111,8 @@ export const profileUpdate_Generated = async (token: string) => {
 
     return response.data;
   } catch (error) {
-    console.log('❌ API ERROR', error.response?.data);
+    // console.log('❌ API ERROR', error?.response?.data);
+    console.log('❌ API ERROR', error);
     throw error;
   }
 };
@@ -131,7 +158,7 @@ export const profileMatch = async (token: string) => {
 
     return response.data;
   } catch (error) {
-    console.log('❌ API ERROR', error.response?.data);
+    console.log('❌ API ERROR', error);
     throw error;
   }
 };

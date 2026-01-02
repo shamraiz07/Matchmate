@@ -1,6 +1,6 @@
-import { LoginUser, newPassword, registerUser, sendResetLink, verifyOTP } from "../Api_service/Auth_Service";
+import { LoginUser, newPassword, registerUser, sendResetLink, verifyOTP, changePassword } from "../Api_service/Auth_Service";
 import {useMutation} from '@tanstack/react-query'
-
+import { useAuthStore } from '../../store/Auth_store';
 // Register User Hook
 export const useRegister = () => {
   return useMutation({
@@ -55,3 +55,17 @@ export const useNewPassword = () => {
     },
   });
 };
+
+// Change Password API Hook
+export const useChangePassword = () => {
+  const token = useAuthStore(state => state.token);
+  console.log('token of useChangePassword===========================', token);
+  return useMutation({
+    mutationFn: async ({payload}: {payload: any}) => {
+      console.log("🟦 CHANGE PASSWORD React Query Mutation Called");
+      console.log("➡ Payload Received:", payload);
+      return changePassword(payload, token || '');
+    },
+  });
+};
+

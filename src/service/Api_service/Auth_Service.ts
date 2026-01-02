@@ -71,3 +71,41 @@ export const newPassword = async (payload: any, resetToken: string) => {
     throw error;
   }
 };
+
+// Change Password API
+export const changePassword = async (payload: any, token: string) => {
+  console.log("🟦 CHANGE PASSWORD SERVICE CALLED");
+  console.log("➡ Payload:", payload);
+  try {
+    const response = await apiClient.post(ENDPOINTS.CHANGE_PASSWORD, payload, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    console.log("✅ CHANGE PASSWORD SERVICE — Success Response:", response.data);
+    return response;
+  } catch (error: any) {
+    console.log("❌ CHANGE PASSWORD SERVICE ERROR:", error.response?.data);
+    throw error;
+  }
+};
+
+// ! ||--------------------------------------------------------------------------------||
+// ! ||                              // Send Connection API                             ||
+// ! ||--------------------------------------------------------------------------------||
+export const deleteAcoount = async (token: string) => {
+  console.log('🟦 deleteAcoount SERVICE CALLED',token);
+  try {
+    const response = await apiClient.delete(
+      ENDPOINTS.DELETE_ACCOUNT,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+    return response;
+  } catch (error: any) {
+    throw error;
+  }
+};

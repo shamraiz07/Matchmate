@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "461028059856",
-    "project_id": "match-mate-3d6b3",
-    "storage_bucket": "match-mate-3d6b3.firebasestorage.app"
+    "project_number": "213659764590",
+    "project_id": "match-mate-cb4e2",
+    "storage_bucket": "match-mate-cb4e2.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:461028059856:android:810f8e449d561dffbcccd5",
+        "mobilesdk_app_id": "1:213659764590:android:1c5b3e78f039b59cdaa37f",
         "android_client_info": {
           "package_name": "com.mfdtracefish"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCpPdt9V19-5DhqH_dV-H5mEKCPXdcWI-E"
+          "current_key": "AIzaSyBBoW9JQfMHngKK3Cm_OAIR1mKDUvh-qXM"
         }
       ],
       "services": {

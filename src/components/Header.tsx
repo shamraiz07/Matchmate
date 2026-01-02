@@ -1,6 +1,8 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Dimensions } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface HeaderProps {
   title?: string;
@@ -30,7 +32,9 @@ export default function Header({ title, onBack, showBack = true }: HeaderProps) 
         </Pressable>
       )}
       {title && (
-        <Text style={styles.headerTitle}>{title}</Text>
+        <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
+          {title}
+        </Text>
       )}
     </View>
   );
@@ -40,22 +44,29 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    height: 80,
-    marginTop: '5%',
+    paddingHorizontal: Math.max(16, SCREEN_WIDTH * 0.04),
+    minHeight: 60,
+    height: Math.max(60, SCREEN_WIDTH * 0.2),
+    marginTop: Math.max(10, SCREEN_WIDTH * 0.02),
     backgroundColor: '#000000',
     borderBottomWidth: 1,
     borderBottomColor: '#333333',
+    width: '100%',
   },
   backButton: {
-    marginRight: 16,
+    marginRight: Math.max(12, SCREEN_WIDTH * 0.04),
     padding: 4,
+    minWidth: 32,
+    minHeight: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
     color: '#D4AF37',
-    fontSize: 20,
+    fontSize: Math.max(18, SCREEN_WIDTH * 0.05),
     fontWeight: '700',
     flex: 1,
+    marginRight: 8,
   },
 });
 

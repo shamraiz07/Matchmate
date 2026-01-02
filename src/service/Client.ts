@@ -3,7 +3,7 @@ import { BASE_URL } from '../constants/config';
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 10000,
+  timeout: 30000, // Increased to 30 seconds for slower networks
 });
 
 // Request interceptor
@@ -41,6 +41,15 @@ apiClient.interceptors.response.use(
     console.log('⬅ Status:', error.response?.status);
     console.log('⬅ Error Data:', error.response?.data);
     console.log('⬅ URL:', error.config?.url);
+    console.log('⬅ Full URL:', error.config?.baseURL + error.config?.url);
+    console.log('⬅ Error Message:', error.message);
+    console.log('⬅ Error Code:', error.code);
+    if (error.code === 'ECONNABORTED') {
+      console.log('⬅ Request timeout - network may be slow or unreachable');
+    }
+    if (error.code === 'NETWORK_ERROR' || error.message?.includes('Network Error')) {
+      console.log('⬅ Network Error - check device connectivity and firewall settings');
+    }
     return Promise.reject(error);
   },
 );

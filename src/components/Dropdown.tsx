@@ -16,6 +16,7 @@ interface DropdownProps {
   onSelect: (value: string) => void;
   required?: boolean;
   containerStyle?: any;
+  error?: boolean;
 }
 
 export default function Dropdown({
@@ -25,6 +26,7 @@ export default function Dropdown({
   onSelect,
   required = false,
   containerStyle,
+  error = false,
 }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -37,7 +39,7 @@ export default function Dropdown({
       ) : null}
       <Pressable
         onPress={() => setIsOpen(true)}
-        style={styles.dropdown}>
+        style={[styles.dropdown, error && styles.dropdownError]}>
         <Text style={[styles.dropdownText, !value && styles.placeholder]}>
           {value || label}
         </Text>
@@ -93,6 +95,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     height: 48,
+  },
+  dropdownError: {
+    borderColor: '#FF0000',
+    borderWidth: 2,
   },
   dropdownText: {
     color: '#000000',
